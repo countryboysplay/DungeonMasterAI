@@ -5,7 +5,7 @@ on:
     branches:
       - feature/r24-player-roll-pipeline
     paths:
-      - .github/patches/r24-player-roll-pipeline.patch.gz.b64
+      - .github/patches/r24-player-roll-pipeline.part*
       - .github/workflows/apply-r24-player-roll-patch.yml
   workflow_dispatch:
 
@@ -24,7 +24,7 @@ jobs:
       - name: Decode patch
         shell: bash
         run: |
-          base64 -d .github/patches/r24-player-roll-pipeline.patch.gz.b64 | gzip -d > /tmp/r24.patch
+          cat .github/patches/r24-player-roll-pipeline.part* | base64 -d | gzip -d > /tmp/r24.patch
 
       - name: Verify and apply patch
         shell: bash
