@@ -1,13 +1,15 @@
-Dungeon Master AI - Windows Compiler Test
+Dungeon Master AI - Windows Development Start
 
+Primary development loop:
+1. Push changes to a feature branch in GitHub.
+2. Let .github/workflows/windows-ci.yml restore, compile, run focused roll-state tests, run the full smoke suite, publish the Windows build, and build the installer on windows-latest.
+3. Do not merge a feature branch into main until its Windows CI run is green.
+
+Optional local verification:
 1. Install the .NET 10 SDK if needed:
    winget install Microsoft.DotNet.SDK.10 --source winget
-
-2. Open PowerShell in this extracted folder.
-
+2. Open PowerShell in this repository.
 3. Run:
    powershell -ExecutionPolicy Bypass -File .\windows\WINDOWS_TEST.ps1
 
-4. Upload the generated windows\DungeonMasterAI-TestResults-<timestamp>.zip back to ChatGPT.
-
-See windows\WINDOWS_TEST_CHECKLIST.md for full instructions.
+GitHub Actions is the authoritative compiler/test loop. Local source-only validators are supplemental and do not replace a real dotnet build.
