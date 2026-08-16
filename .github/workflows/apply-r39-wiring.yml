@@ -1,0 +1,397 @@
+name: Apply r39 wiring
+
+on:
+  push:
+    branches:
+      - feature/r39-player-decisions
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout r39
+        uses: actions/checkout@v4
+        with:
+          ref: feature/r39-player-decisions
+          fetch-depth: 0
+
+      - name: Wire player decisions through engine AI and Game Table
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Campaign state is extended in PlayerDecisions.cs.
+          models_path = Path('windows/src/DungeonMasterAI.Domain/Models.cs')
+          models = models_path.read_text(encoding='utf-8')
+          if 'public sealed partial class CampaignState' not in models:
+              if 'public sealed class CampaignState' not in models:
+                  raise SystemExit('Could not find CampaignState declaration.')
+              models = models.replace('public sealed class CampaignState', 'public sealed partial class CampaignState', 1)
+              models_path.write_text(models, encoding='utf-8')
+
+          # Preserve deterministic reaction-window order: never surface a later PC reaction ahead of an earlier NPC reaction.
+          decisions_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.PlayerDecisions.cs')
+          decisions = decisions_path.read_text(encoding='utf-8')
+          start_marker = '        ClearOpportunityAttackDecision(campaign);\n\n        foreach (var window in pendingMove.OpportunityAttacks.Where(x => !x.Resolved))\n'
+          end_marker = '        // Any impossible PC windows above have been auto-declined. If no unresolved window remains,\n'
+          if start_marker in decisions:
+              start = decisions.index(start_marker)
+              end = decisions.index(end_marker, start)
+              replacement = '''        ClearOpportunityAttackDecision(campaign);
+
+          var window = pendingMove.OpportunityAttacks.FirstOrDefault(x => !x.Resolved);
+          if (window is null)
+          {
+              FinalizePendingMoveIfReady(campaign, encounter);
+              return;
+          }
+
+          var reactorCombatant = encounter.Combatants.FirstOrDefault(c =>
+              c.Id.Equals(window.ReactorCombatantId, StringComparison.OrdinalIgnoreCase));
+          if (reactorCombatant is null)
+          {
+              window.Resolved = true;
+              window.Declined = true;
+              window.ResolutionSummary = "Opportunity Attack window was discarded because the reactor no longer exists.";
+              Log(campaign, "opportunity_attack_unavailable", window.ResolutionSummary, dmOnly: true);
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              return;
+          }
+
+          var reactor = campaign.Characters.FirstOrDefault(c =>
+              c.Id.Equals(reactorCombatant.CharacterId, StringComparison.OrdinalIgnoreCase));
+          if (reactor is null)
+          {
+              window.Resolved = true;
+              window.Declined = true;
+              window.ResolutionSummary = "Opportunity Attack window was discarded because the reactor character no longer exists.";
+              Log(campaign, "opportunity_attack_unavailable", window.ResolutionSummary, dmOnly: true);
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              return;
+          }
+
+          // The first unresolved NPC window belongs to the autonomous DM runtime. A later PC window
+          // must not jump ahead because reaction order can change the mover's state for later reactors.
+          if (!reactor.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+              return;
+
+          if (!reactorCombatant.ReactionAvailable || !CanTakeReaction(reactor))
+          {
+              window.Resolved = true;
+              window.Declined = true;
+              window.ResolutionSummary = $"{reactor.Name} could not take the Opportunity Attack Reaction.";
+              Log(campaign, "opportunity_attack_unavailable", window.ResolutionSummary, dmOnly: true);
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              return;
+          }
+
+          var moverCombatant = encounter.Combatants.FirstOrDefault(c =>
+              c.Id.Equals(pendingMove.CombatantId, StringComparison.OrdinalIgnoreCase));
+          var mover = moverCombatant is null
+              ? null
+              : campaign.Characters.FirstOrDefault(c => c.Id.Equals(moverCombatant.CharacterId, StringComparison.OrdinalIgnoreCase));
+          if (mover is null)
+          {
+              window.Resolved = true;
+              window.Declined = true;
+              window.ResolutionSummary = "Opportunity Attack window was discarded because the moving creature no longer exists.";
+              Log(campaign, "opportunity_attack_unavailable", window.ResolutionSummary, dmOnly: true);
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              return;
+          }
+
+          AttackProfile profile;
+          try
+          {
+              profile = SelectMeleeAttack(reactor, null);
+          }
+          catch (InvalidOperationException)
+          {
+              window.Resolved = true;
+              window.Declined = true;
+              window.ResolutionSummary = $"{reactor.Name} had no legal melee attack for the Opportunity Attack.";
+              Log(campaign, "opportunity_attack_unavailable", window.ResolutionSummary, dmOnly: true);
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              return;
+          }
+
+          campaign.PendingPlayerDecision = new PendingPlayerDecision
+          {
+              ActorCharacterId = reactor.Id,
+              EncounterId = encounter.Id,
+              CombatantId = reactorCombatant.Id,
+              DecisionType = "opportunity_attack_reaction",
+              Prompt = $"{mover.Name} is leaving {reactor.Name}'s reach. Use {reactor.Name}'s Reaction to make an Opportunity Attack with {profile.Name}?",
+              Required = true,
+              Options =
+              [
+                  new PlayerDecisionOption
+                  {
+                      Id = "use_reaction",
+                      Label = $"Opportunity Attack • {profile.Name}",
+                      Description = "Spend the Reaction, then roll the attack and damage if it hits.",
+                      Value = profile.Name,
+                      Emphasis = "primary"
+                  },
+                  new PlayerDecisionOption
+                  {
+                      Id = "decline",
+                      Label = "Let them move",
+                      Description = "Do not spend the Reaction.",
+                      Value = "decline",
+                      Emphasis = "secondary"
+                  }
+              ],
+              Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+              {
+                  ["reactor_combatant_id"] = reactorCombatant.Id,
+                  ["mover_combatant_id"] = pendingMove.CombatantId,
+                  ["attack_name"] = profile.Name,
+                  ["trigger_x"] = window.TriggerX.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                  ["trigger_y"] = window.TriggerY.ToString(System.Globalization.CultureInfo.InvariantCulture)
+              }
+          };
+          Touch(campaign);
+          Log(campaign, "player_decision_requested", campaign.PendingPlayerDecision.Prompt, dmOnly: true);
+          return;
+
+          '''
+              decisions = decisions[:start] + replacement + decisions[end:]
+              decisions_path.write_text(decisions, encoding='utf-8')
+
+          # Movement creates the choice immediately. Completion either surfaces the next ordered PC choice or commits movement.
+          engine_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.cs')
+          engine = engine_path.read_text(encoding='utf-8')
+          move_marker = '''                OpportunityAttacks = opportunityAttacks
+              };
+              Touch(campaign);'''
+          move_replacement = '''                OpportunityAttacks = opportunityAttacks
+              };
+              SyncOpportunityAttackPlayerDecision(campaign, encounter);
+              Touch(campaign);'''
+          if move_marker in engine and 'SyncOpportunityAttackPlayerDecision(campaign, encounter);\n            Touch(campaign);' not in engine:
+              engine = engine.replace(move_marker, move_replacement, 1)
+
+          old_finalize = '''    private void FinalizePendingMoveIfReady(CampaignState campaign, EncounterState encounter)
+          {
+              var pending = encounter.PendingMove;
+              if (pending is null || pending.OpportunityAttacks.Any(x => !x.Resolved)) return;'''
+          new_finalize = '''    private void FinalizePendingMoveIfReady(CampaignState campaign, EncounterState encounter)
+          {
+              var pending = encounter.PendingMove;
+              if (pending is null)
+              {
+                  ClearOpportunityAttackDecision(campaign);
+                  return;
+              }
+              if (pending.OpportunityAttacks.Any(x => !x.Resolved))
+              {
+                  SyncOpportunityAttackPlayerDecision(campaign, encounter);
+                  return;
+              }
+              ClearOpportunityAttackDecision(campaign);'''
+          if old_finalize in engine:
+              engine = engine.replace(old_finalize, new_finalize, 1)
+          elif 'SyncOpportunityAttackPlayerDecision(campaign, encounter);' not in engine[engine.index('private void FinalizePendingMoveIfReady'):engine.index('private void FinalizePendingMoveIfReady')+900]:
+              raise SystemExit('Could not patch FinalizePendingMoveIfReady.')
+          engine_path.write_text(engine, encoding='utf-8')
+
+          # Game Table blocks unrelated input while a player decision is pending, refreshes decision bindings,
+          # and makes the legacy OA pane respect the same first-class choice.
+          vm_path = Path('windows/src/DungeonMasterAI.App/MainViewModel.cs')
+          vm = vm_path.read_text(encoding='utf-8')
+          send_marker = '''        _engine.EnsurePendingPlayerRollForActiveCombat(SelectedCampaign);
+              if (SelectedCampaign.PendingPlayerRoll?.Required == true)
+              {'''
+          if send_marker in vm and 'Player decision pending:' not in vm:
+              decision_gate = '''        _engine.EnsurePendingPlayerRollForActiveCombat(SelectedCampaign);
+              if (SelectedCampaign.PendingPlayerDecision?.Required == true)
+              {
+                  StatusMessage = $"Player decision pending: {SelectedCampaign.PendingPlayerDecision.Prompt}";
+                  RaiseCampaignProperties();
+                  return;
+              }
+              if (SelectedCampaign.PendingPlayerRoll?.Required == true)
+              {'''
+              vm = vm.replace(send_marker, decision_gate, 1)
+
+          resolve_old = '''    private async Task ResolveOpportunityAttackAsync()
+          {
+              if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+              try
+              {
+                  var result = _engine.ResolveOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId, null, _dice);'''
+          resolve_new = '''    private async Task ResolveOpportunityAttackAsync()
+          {
+              if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+              if (PendingPlayerDecision?.Required == true
+                  && PendingPlayerDecision.DecisionType.Equals("opportunity_attack_reaction", StringComparison.OrdinalIgnoreCase)
+                  && PendingPlayerDecision.CombatantId?.Equals(SelectedOpportunityAttack.ReactorCombatantId, StringComparison.OrdinalIgnoreCase) == true)
+              {
+                  await ResolvePlayerDecisionAsync(primary: true);
+                  return;
+              }
+              try
+              {
+                  var result = _engine.ResolveOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId, null, _dice);'''
+          if resolve_old in vm:
+              vm = vm.replace(resolve_old, resolve_new, 1)
+
+          decline_old = '''    private async Task DeclineOpportunityAttackAsync()
+          {
+              if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+              try
+              {
+                  StatusMessage = _engine.DeclineOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId);'''
+          decline_new = '''    private async Task DeclineOpportunityAttackAsync()
+          {
+              if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+              if (PendingPlayerDecision?.Required == true
+                  && PendingPlayerDecision.DecisionType.Equals("opportunity_attack_reaction", StringComparison.OrdinalIgnoreCase)
+                  && PendingPlayerDecision.CombatantId?.Equals(SelectedOpportunityAttack.ReactorCombatantId, StringComparison.OrdinalIgnoreCase) == true)
+              {
+                  await ResolvePlayerDecisionAsync(primary: false);
+                  return;
+              }
+              try
+              {
+                  StatusMessage = _engine.DeclineOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId);'''
+          if decline_old in vm:
+              vm = vm.replace(decline_old, decline_new, 1)
+
+          raise_marker = '        OnPropertyChanged(nameof(PendingPlayerRoll));\n'
+          decision_props = '''        OnPropertyChanged(nameof(PendingPlayerDecision));
+              OnPropertyChanged(nameof(PlayerDecisionRequired));
+              OnPropertyChanged(nameof(PendingPlayerDecisionPrompt));
+              OnPropertyChanged(nameof(PendingPlayerDecisionPrimaryLabel));
+              OnPropertyChanged(nameof(PendingPlayerDecisionSecondaryLabel));
+              OnPropertyChanged(nameof(PendingPlayerDecisionActorName));
+          '''
+          if raise_marker in vm and 'OnPropertyChanged(nameof(PendingPlayerDecision));' not in vm:
+              vm = vm.replace(raise_marker, decision_props + raise_marker, 1)
+          vm_path.write_text(vm, encoding='utf-8')
+
+          # The Game Table presents a prominent decision card and hides ordinary actions until it is answered.
+          xaml_path = Path('windows/src/DungeonMasterAI.App/MainWindow.xaml')
+          xaml = xaml_path.read_text(encoding='utf-8')
+          if 'PLAYER DECISION REQUIRED' not in xaml:
+              roll_comment = '                                                <!-- Any other authoritative player roll blocks normal combat controls until the player supplies it. -->\n'
+              decision_banner = '''                                                <!-- Voluntary player choices are first-class state. The AI cannot choose them on the player's behalf. -->
+                                                  <Border Background="#2B2415" BorderBrush="#9A7B35" BorderThickness="1" CornerRadius="9" Padding="12,9">
+                                                      <Border.Style>
+                                                          <Style TargetType="Border">
+                                                              <Setter Property="Visibility" Value="Collapsed"/>
+                                                              <Style.Triggers>
+                                                                  <DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True">
+                                                                      <Setter Property="Visibility" Value="Visible"/>
+                                                                  </DataTrigger>
+                                                              </Style.Triggers>
+                                                          </Style>
+                                                      </Border.Style>
+                                                      <DockPanel>
+                                                          <StackPanel>
+                                                              <TextBlock Foreground="{StaticResource GoldBrush}" FontSize="10" FontWeight="Bold" Text="PLAYER DECISION REQUIRED"/>
+                                                              <TextBlock Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,3,0,0" Text="{Binding PendingPlayerDecisionPrompt}" TextWrapping="Wrap"/>
+                                                              <TextBlock Foreground="#C7B98D" FontSize="10" Margin="0,3,0,0" Text="The game is paused. This choice belongs to you, not the AI Dungeon Master."/>
+                                                          </StackPanel>
+                                                          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,0">
+                                                              <Button Style="{StaticResource PrimaryButton}" Command="{Binding ResolvePrimaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionPrimaryLabel}" MinWidth="160"/>
+                                                              <Button Command="{Binding ResolveSecondaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionSecondaryLabel}" MinWidth="120" Margin="8,0,0,0"/>
+                                                          </StackPanel>
+                                                      </DockPanel>
+                                                  </Border>
+
+          '''
+              if roll_comment not in xaml:
+                  raise SystemExit('Could not find player-roll banner insertion point.')
+              xaml = xaml.replace(roll_comment, decision_banner + roll_comment, 1)
+          normal_trigger = '''                                                                <DataTrigger Binding="{Binding PlayerRollRequired}" Value="True">
+                                                                      <Setter Property="Visibility" Value="Collapsed"/>
+                                                                  </DataTrigger>'''
+          if normal_trigger in xaml and '<DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True">' not in xaml[xaml.index('<!-- Normal player-turn combat controls. -->'):xaml.index('<!-- Normal player-turn combat controls. -->')+1500]:
+              replacement = normal_trigger + '''
+                                                                  <DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True">
+                                                                      <Setter Property="Visibility" Value="Collapsed"/>
+                                                                  </DataTrigger>'''
+              xaml = xaml.replace(normal_trigger, replacement, 1)
+          xaml_path.write_text(xaml, encoding='utf-8')
+
+          # AI runtime treats player decisions exactly like player-owned dice: stop, expose structured state, never choose.
+          ai_path = Path('windows/src/DungeonMasterAI.AI/LocalDmClient.cs')
+          ai = ai_path.read_text(encoding='utf-8')
+          no_tools_marker = '''                if (TryGetAutonomousCombatant(campaign, out var autonomousName))
+                  {'''
+          if no_tools_marker in ai and 'guard: stopped for required player decision' not in ai[:ai.index(no_tools_marker)+100]:
+              no_tools_guard = '''                if (campaign.PendingPlayerDecision?.Required == true)
+                  {
+                      var decision = campaign.PendingPlayerDecision;
+                      audit.Add($"guard: stopped for required player decision '{decision.DecisionType}'");
+                      return new DmTurnResult(decision.Prompt, toolCount, audit);
+                  }
+
+          '''
+              ai = ai.replace(no_tools_marker, no_tools_guard + no_tools_marker, 1)
+
+          tool_roll_marker = '''                if (campaign.PendingPlayerRoll?.Required == true)
+                  {'''
+          if tool_roll_marker in ai and ai.count('guard: stopped for required player decision') < 2:
+              tool_decision_guard = '''                if (campaign.PendingPlayerDecision?.Required == true)
+                  {
+                      var decision = campaign.PendingPlayerDecision;
+                      audit.Add($"guard: stopped for required player decision '{decision.DecisionType}'");
+                      return new DmTurnResult(decision.Prompt, toolCount, audit);
+                  }
+
+          '''
+              ai = ai.replace(tool_roll_marker, tool_decision_guard + tool_roll_marker, 1)
+
+          prompt_marker = 'If pending_player_roll is present and Required is true, do not resolve, invent, or bypass that roll. Stop and let the application collect it from the player.\n'
+          if prompt_marker in ai and 'pending_player_decision is present' not in ai:
+              ai = ai.replace(prompt_marker,
+                  'If pending_player_decision is present and Required is true, never choose an option for the player, never call tools to bypass it, and never narrate past it. Stop and let the Game Table collect the player choice.\n' + prompt_marker,
+                  1)
+
+          context_marker = '''                campaign.PendingPlayerRoll.Required
+              }
+          });'''
+          if context_marker in ai and 'pending_player_decision = campaign.PendingPlayerDecision' not in ai:
+              context_replacement = '''                campaign.PendingPlayerRoll.Required
+              },
+              pending_player_decision = campaign.PendingPlayerDecision is null ? null : new
+              {
+                  campaign.PendingPlayerDecision.Id,
+                  campaign.PendingPlayerDecision.ActorCharacterId,
+                  campaign.PendingPlayerDecision.EncounterId,
+                  campaign.PendingPlayerDecision.CombatantId,
+                  campaign.PendingPlayerDecision.DecisionType,
+                  campaign.PendingPlayerDecision.Prompt,
+                  campaign.PendingPlayerDecision.Required,
+                  options = campaign.PendingPlayerDecision.Options.Select(o => new { o.Id, o.Label, o.Description, o.Value, o.Emphasis })
+              }
+          });'''
+              ai = ai.replace(context_marker, context_replacement, 1)
+          ai_path.write_text(ai, encoding='utf-8')
+          PY
+
+      - name: Commit r39 wiring
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "r39 wiring is already applied."
+            exit 0
+          fi
+          git config user.name "countryboysplay"
+          git config user.email "31964073+countryboysplay@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.Domain/Models.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.PlayerDecisions.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.cs \
+                  windows/src/DungeonMasterAI.App/MainViewModel.cs \
+                  windows/src/DungeonMasterAI.App/MainWindow.xaml \
+                  windows/src/DungeonMasterAI.AI/LocalDmClient.cs
+          git commit -m "r39: wire first-class player decisions"
+          git push origin HEAD:feature/r39-player-decisions
