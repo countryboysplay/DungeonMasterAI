@@ -1,0 +1,872 @@
+name: Apply r30 player projectile spell rolls
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/apply-r30-projectile-rolls.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  transform-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply source transformation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+
+          # Route PC projectile-attack spells into an authoritative multi-step roll sequence.
+          spellcasting = root / 'windows/src/DungeonMasterAI.Engine/Spellcasting.cs'
+          text = spellcasting.read_text(encoding='utf-8')
+          old = '''        ArgumentNullException.ThrowIfNull(campaign);
+          ArgumentNullException.ThrowIfNull(dice);
+          ArgumentNullException.ThrowIfNull(targetIds);
+
+          var caster = RequireCharacter(campaign, casterId);'''.replace('          ', '')
+          new = '''        ArgumentNullException.ThrowIfNull(campaign);
+          ArgumentNullException.ThrowIfNull(dice);
+          ArgumentNullException.ThrowIfNull(targetIds);
+          if (campaign.PendingPlayerRoll?.Required == true)
+              throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+
+          var caster = RequireCharacter(campaign, casterId);'''.replace('          ', '')
+          # Scope replacement to CastProjectileSpell by finding after its signature.
+          start = text.index('    public SpellCastResult CastProjectileSpell(')
+          tail = text[start:]
+          if old not in tail:
+              raise SystemExit('Could not find CastProjectileSpell pending-roll guard insertion point')
+          tail = tail.replace(old, new, 1)
+          text = text[:start] + tail
+
+          old = '''        var results = new List<SpellTargetResolution>(projectileCount);
+          for (var i = 0; i < targets.Length; i++)'''.replace('          ', '')
+          new = '''        if (resolution == "projectile_attack" && caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+          {
+              if (activeEncounter is not null && spell.RequiresVerbal)
+              {
+                  var casterCombatant = activeEncounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+                  if (casterCombatant is not null) BreakHidden(campaign, activeEncounter, casterCombatant, "casting a spell with a Verbal component");
+              }
+              return BeginPlayerProjectileSpellSequence(
+                  campaign,
+                  caster,
+                  spell,
+                  castAtLevel,
+                  usedSlot,
+                  concentrationStarted,
+                  activeEncounter,
+                  allocations,
+                  dice);
+          }
+
+          var results = new List<SpellTargetResolution>(projectileCount);
+          for (var i = 0; i < targets.Length; i++)'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find projectile result loop insertion point')
+          text = text.replace(old, new, 1)
+          spellcasting.write_text(text, encoding='utf-8')
+
+          # Add a generic continuation hook so a Concentration save can hand control back
+          # to a longer deterministic roll sequence without losing its serialized context.
+          concentration = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.ConcentrationRolls.cs'
+          text = concentration.read_text(encoding='utf-8')
+          old = '''        var summary = maintained
+          ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
+          : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
+        return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);'''.replace('          ', '')
+          new = '''        var summary = maintained
+          ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
+          : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
+        var continuationSummary = ResumePendingRollContinuation(campaign, pending.Context, dice);
+        if (!string.IsNullOrWhiteSpace(continuationSummary)) summary += $" {continuationSummary}";
+        return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find Concentration continuation insertion point')
+          concentration.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          continuation_file = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.PendingRollContinuations.cs'
+          continuation_file.write_text('''using DungeonMasterAI.Domain;
+
+          namespace DungeonMasterAI.Engine;
+
+          public sealed partial class GameEngine
+          {
+              private string? ResumePendingRollContinuation(
+                  CampaignState campaign,
+                  IReadOnlyDictionary<string, string> context,
+                  DiceService dice)
+              {
+                  if (!context.TryGetValue("continuation_resolution_key", out var resolutionKey)
+                      || string.IsNullOrWhiteSpace(resolutionKey))
+                      return null;
+
+                  return resolutionKey.Trim().ToLowerInvariant() switch
+                  {
+                      "projectile_spell_sequence" => ResumePlayerProjectileSpellSequenceAfterConcentration(campaign, context, dice),
+                      _ => null
+                  };
+              }
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+
+          projectile_file = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.ProjectilePlayerRolls.cs'
+          projectile_file.write_text(r'''using System.Text.Json;
+          using DungeonMasterAI.Domain;
+
+          namespace DungeonMasterAI.Engine;
+
+          internal sealed class PlayerProjectileSpellSequenceState
+          {
+              public string CasterId { get; set; } = "";
+              public string SpellId { get; set; } = "";
+              public int CastAtLevel { get; set; }
+              public bool UsedSpellSlot { get; set; }
+              public bool ConcentrationStarted { get; set; }
+              public string? EncounterId { get; set; }
+              public List<string> TargetIds { get; set; } = [];
+              public int NextProjectileIndex { get; set; }
+              public List<SpellTargetResolution> Results { get; set; } = [];
+          }
+
+          public sealed partial class GameEngine
+          {
+              private SpellCastResult BeginPlayerProjectileSpellSequence(
+                  CampaignState campaign,
+                  CharacterSheet caster,
+                  SpellDefinition spell,
+                  int castAtLevel,
+                  bool usedSlot,
+                  bool concentrationStarted,
+                  EncounterState? encounter,
+                  IReadOnlyList<string> allocations,
+                  DiceService dice)
+              {
+                  var state = new PlayerProjectileSpellSequenceState
+                  {
+                      CasterId = caster.Id,
+                      SpellId = spell.Id,
+                      CastAtLevel = castAtLevel,
+                      UsedSpellSlot = usedSlot,
+                      ConcentrationStarted = concentrationStarted,
+                      EncounterId = encounter?.Id,
+                      TargetIds = allocations.ToList(),
+                      NextProjectileIndex = 0,
+                      Results = []
+                  };
+                  return AdvancePlayerProjectileSpellSequence(campaign, state, dice);
+              }
+
+              public SpellCastResult ResolvePendingProjectileSpellAttackRoll(
+                  CampaignState campaign,
+                  string pendingRollId,
+                  int rollOne,
+                  int? rollTwo,
+                  DiceService dice)
+              {
+                  ArgumentNullException.ThrowIfNull(campaign);
+                  ArgumentNullException.ThrowIfNull(dice);
+                  if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
+                  if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
+
+                  var pending = RequireProjectilePending(campaign, pendingRollId, "projectile_spell_attack");
+                  var state = ReadProjectileSequence(pending);
+                  var caster = RequireCharacter(campaign, state.CasterId);
+                  var spell = RequireProjectileSpell(campaign, state.SpellId);
+                  var projectileIndex = RequireCurrentProjectileIndex(state, pending);
+                  var target = RequireCharacter(campaign, state.TargetIds[projectileIndex]);
+                  var encounter = RequireProjectileEncounterIfAny(campaign, state, caster);
+                  var casterCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+                  var targetCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(target.Id, StringComparison.OrdinalIgnoreCase));
+
+                  var mode = ParsePendingRollMode(pending.RollMode);
+                  if (mode != D20RollMode.Normal && !rollTwo.HasValue)
+                      throw new InvalidOperationException($"This projectile spell attack requires two d20 results because it has {mode}.");
+                  var chosen = mode switch
+                  {
+                      D20RollMode.Advantage => Math.Max(rollOne, rollTwo!.Value),
+                      D20RollMode.Disadvantage => Math.Min(rollOne, rollTwo!.Value),
+                      _ => rollOne
+                  };
+
+                  var armorClass = pending.TargetNumber ?? EffectiveArmorClass(campaign, target);
+                  var effectAttackBonus = RollActiveAttackBonus(campaign, caster.Id, dice);
+                  var totalModifier = SpellAttackModifier(caster) + effectAttackBonus;
+                  var total = chosen + totalModifier;
+                  var naturalCritical = chosen == 20;
+                  var automaticCritical = ProjectileContextBool(pending, "automatic_critical");
+                  var hit = naturalCritical || (chosen != 1 && total >= armorClass);
+                  var critical = hit && (naturalCritical || automaticCritical);
+                  var helpUsed = encounter is not null && casterCombatant is not null && targetCombatant is not null
+                      && ConsumeHelpAttackAdvantage(encounter, casterCombatant, targetCombatant);
+                  ConsumeNextAttackAdvantageEffect(campaign, target.Id);
+                  if (encounter is not null && casterCombatant is not null)
+                      BreakHidden(campaign, encounter, casterCombatant, "making a projectile spell attack roll");
+
+                  var coverBonus = ProjectileContextInt(pending, "cover_bonus");
+                  var attackSummary = BuildProjectileAttackSummary(
+                      projectileIndex + 1,
+                      target.Name,
+                      mode,
+                      total,
+                      armorClass,
+                      coverBonus,
+                      effectAttackBonus,
+                      hit,
+                      critical,
+                      helpUsed);
+                  var attack = new AttackResult(chosen, totalModifier, total, hit, critical, 0, attackSummary);
+
+                  if (!hit)
+                  {
+                      state.Results.Add(new SpellTargetResolution(target.Id, target.Name, projectileIndex + 1, attack, null, null, 0, attackSummary));
+                      state.NextProjectileIndex++;
+                      campaign.PendingPlayerRoll = null;
+                      return AdvancePlayerProjectileSpellSequence(campaign, state, dice);
+                  }
+
+                  var damagePending = new PendingRollRequest
+                  {
+                      ActorCharacterId = caster.Id,
+                      EncounterId = encounter?.Id,
+                      CombatantId = casterCombatant?.Id,
+                      Formula = critical ? $"{spell.DamageExpression} (critical dice)" : spell.DamageExpression,
+                      RollType = "damage",
+                      RollMode = "normal",
+                      Purpose = $"Projectile {projectileIndex + 1} from {caster.Name}'s {spell.Name} hit {target.Name}{(critical ? " critically" : "")}. Roll {spell.DamageExpression}{(critical ? " with critical dice" : "")} damage.",
+                      ResolutionKey = "projectile_spell_damage",
+                      Required = true,
+                      Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                      {
+                          ["sequence_json"] = JsonSerializer.Serialize(state),
+                          ["projectile_index"] = projectileIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["target_id"] = target.Id,
+                          ["base_damage_expression"] = spell.DamageExpression,
+                          ["damage_type"] = spell.DamageType,
+                          ["critical"] = critical ? "true" : "false",
+                          ["attack_d20"] = chosen.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["attack_modifier"] = totalModifier.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["attack_total"] = total.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["armor_class"] = armorClass.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["cover_bonus"] = coverBonus.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["attack_mode"] = mode.ToString().ToLowerInvariant(),
+                          ["effect_attack_bonus"] = effectAttackBonus.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["help_used"] = helpUsed ? "true" : "false"
+                      }
+                  };
+                  campaign.PendingPlayerRoll = damagePending;
+                  Touch(campaign);
+                  Log(campaign, "player_roll_requested", damagePending.Purpose, dmOnly: true);
+                  return BuildProjectileSequenceResult(campaign, state, $"{attackSummary} {damagePending.Purpose}");
+              }
+
+              public SpellCastResult ResolvePendingProjectileSpellDamageRoll(
+                  CampaignState campaign,
+                  string pendingRollId,
+                  int damageAmount,
+                  DiceService dice)
+              {
+                  ArgumentNullException.ThrowIfNull(campaign);
+                  ArgumentNullException.ThrowIfNull(dice);
+                  if (damageAmount is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(damageAmount));
+
+                  var pending = RequireProjectilePending(campaign, pendingRollId, "projectile_spell_damage");
+                  var state = ReadProjectileSequence(pending);
+                  var caster = RequireCharacter(campaign, state.CasterId);
+                  var spell = RequireProjectileSpell(campaign, state.SpellId);
+                  var projectileIndex = RequireCurrentProjectileIndex(state, pending);
+                  var target = RequireCharacter(campaign, state.TargetIds[projectileIndex]);
+                  _ = RequireProjectileEncounterIfAny(campaign, state, caster);
+
+                  var critical = ProjectileContextBool(pending, "critical");
+                  var attackD20 = ProjectileContextInt(pending, "attack_d20");
+                  var attackModifier = ProjectileContextInt(pending, "attack_modifier");
+                  var attackTotal = ProjectileContextInt(pending, "attack_total");
+                  var armorClass = ProjectileContextInt(pending, "armor_class");
+                  var coverBonus = ProjectileContextInt(pending, "cover_bonus");
+                  var mode = ParsePendingRollMode(pending.Context.TryGetValue("attack_mode", out var attackMode) ? attackMode : null);
+                  var effectAttackBonus = ProjectileContextInt(pending, "effect_attack_bonus");
+                  var helpUsed = ProjectileContextBool(pending, "help_used");
+                  var damageType = pending.Context.TryGetValue("damage_type", out var storedType) ? storedType : spell.DamageType;
+
+                  campaign.PendingPlayerRoll = null;
+                  DamageResolutionResult? damage = null;
+                  if (!target.Dead)
+                      damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);
+
+                  var attackSummary = BuildProjectileAttackSummary(
+                      projectileIndex + 1,
+                      target.Name,
+                      mode,
+                      attackTotal,
+                      armorClass,
+                      coverBonus,
+                      effectAttackBonus,
+                      true,
+                      critical,
+                      helpUsed,
+                      damageAmount,
+                      damageType);
+                  var attack = new AttackResult(attackD20, attackModifier, attackTotal, true, critical, damageAmount, attackSummary);
+                  var projectileSummary = target.Dead && damage is null
+                      ? $"Projectile {projectileIndex + 1} was already allocated to {target.Name}; the target had been reduced to death by an earlier declared projectile before this damage instance was applied."
+                      : attackSummary + (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");
+                  state.Results.Add(new SpellTargetResolution(target.Id, target.Name, projectileIndex + 1, attack, null, damage, 0, projectileSummary));
+                  state.NextProjectileIndex++;
+
+                  if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
+                  {
+                      campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "projectile_spell_sequence";
+                      campaign.PendingPlayerRoll.Context["continuation_sequence_json"] = JsonSerializer.Serialize(state);
+                      Touch(campaign);
+                      var waitSummary = $"{projectileSummary} Resolve {target.Name}'s Concentration save before projectile {state.NextProjectileIndex + 1} can continue.";
+                      return BuildProjectileSequenceResult(campaign, state, waitSummary);
+                  }
+
+                  return AdvancePlayerProjectileSpellSequence(campaign, state, dice);
+              }
+
+              private SpellCastResult AdvancePlayerProjectileSpellSequence(
+                  CampaignState campaign,
+                  PlayerProjectileSpellSequenceState state,
+                  DiceService dice)
+              {
+                  if (state.NextProjectileIndex >= state.TargetIds.Count)
+                      return FinalizePlayerProjectileSpellSequence(campaign, state);
+
+                  var caster = RequireCharacter(campaign, state.CasterId);
+                  var spell = RequireProjectileSpell(campaign, state.SpellId);
+                  var target = RequireCharacter(campaign, state.TargetIds[state.NextProjectileIndex]);
+                  var encounter = RequireProjectileEncounterIfAny(campaign, state, caster);
+                  var casterCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+                  var targetCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(target.Id, StringComparison.OrdinalIgnoreCase));
+                  var coverBonus = GetSpellCoverBonus(encounter, caster.Id, target.Id);
+                  var armorClass = EffectiveArmorClass(campaign, target) + coverBonus;
+                  var mode = encounter is not null && casterCombatant is not null && targetCombatant is not null
+                      ? AttackRollMode(campaign, encounter, casterCombatant, targetCombatant, caster, target)
+                      : D20RollMode.Normal;
+                  var automaticCritical = casterCombatant is not null && targetCombatant is not null
+                      && IsAutomaticCriticalHitTarget(casterCombatant, targetCombatant, target);
+                  var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
+                  var coverText = coverBonus > 0 ? $" including {CoverLabel(coverBonus)} Cover" : "";
+
+                  var pending = new PendingRollRequest
+                  {
+                      ActorCharacterId = caster.Id,
+                      EncounterId = encounter?.Id,
+                      CombatantId = casterCombatant?.Id,
+                      Formula = "1d20",
+                      RollType = "d20",
+                      RollMode = mode.ToString().ToLowerInvariant(),
+                      Purpose = $"Projectile {state.NextProjectileIndex + 1} of {caster.Name}'s {spell.Name}: roll the spell attack d20{modeText} against {target.Name}, AC {armorClass}{coverText}.",
+                      ResolutionKey = "projectile_spell_attack",
+                      Modifier = SpellAttackModifier(caster),
+                      TargetNumber = armorClass,
+                      TargetLabel = $"AC {armorClass}",
+                      Required = true,
+                      Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                      {
+                          ["sequence_json"] = JsonSerializer.Serialize(state),
+                          ["projectile_index"] = state.NextProjectileIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["target_id"] = target.Id,
+                          ["cover_bonus"] = coverBonus.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["automatic_critical"] = automaticCritical ? "true" : "false"
+                      }
+                  };
+                  campaign.PendingPlayerRoll = pending;
+                  Touch(campaign);
+                  Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
+                  return BuildProjectileSequenceResult(campaign, state, pending.Purpose);
+              }
+
+              private SpellCastResult FinalizePlayerProjectileSpellSequence(CampaignState campaign, PlayerProjectileSpellSequenceState state)
+              {
+                  var caster = RequireCharacter(campaign, state.CasterId);
+                  var spell = RequireProjectileSpell(campaign, state.SpellId);
+                  var distinctTargets = state.TargetIds
+                      .Select(id => RequireCharacter(campaign, id).Name)
+                      .Distinct(StringComparer.OrdinalIgnoreCase)
+                      .ToArray();
+                  var slotText = spell.Level == 0 ? "as a cantrip" : $"using a level {state.CastAtLevel} spell slot";
+                  var summary = $"{caster.Name} cast {spell.Name} {slotText}, resolving {state.TargetIds.Count} projectile{(state.TargetIds.Count == 1 ? "" : "s")} against {string.Join(", ", distinctTargets)}. "
+                      + string.Join(" ", state.Results.Select(r => r.Summary));
+                  Touch(campaign);
+                  Log(campaign, "spell_cast", summary);
+                  return BuildProjectileSequenceResult(campaign, state, summary, complete: true);
+              }
+
+              private SpellCastResult BuildProjectileSequenceResult(
+                  CampaignState campaign,
+                  PlayerProjectileSpellSequenceState state,
+                  string summary,
+                  bool complete = false)
+              {
+                  var spell = RequireProjectileSpell(campaign, state.SpellId);
+                  var uniqueTargetIds = state.TargetIds.Distinct(StringComparer.OrdinalIgnoreCase).Take(2).ToArray();
+                  return new SpellCastResult(
+                      spell.Id,
+                      spell.Name,
+                      state.CasterId,
+                      uniqueTargetIds.Length == 1 ? uniqueTargetIds[0] : null,
+                      state.CastAtLevel,
+                      state.UsedSpellSlot,
+                      false,
+                      null,
+                      null,
+                      null,
+                      0,
+                      state.ConcentrationStarted,
+                      summary,
+                      state.Results.ToArray());
+              }
+
+              private string? ResumePlayerProjectileSpellSequenceAfterConcentration(
+                  CampaignState campaign,
+                  IReadOnlyDictionary<string, string> continuationContext,
+                  DiceService dice)
+              {
+                  if (!continuationContext.TryGetValue("continuation_sequence_json", out var json) || string.IsNullOrWhiteSpace(json))
+                      throw new InvalidOperationException("The projectile spell continuation is missing its sequence state.");
+                  var state = JsonSerializer.Deserialize<PlayerProjectileSpellSequenceState>(json)
+                      ?? throw new InvalidOperationException("The projectile spell continuation could not be restored.");
+                  var result = AdvancePlayerProjectileSpellSequence(campaign, state, dice);
+                  return result.Summary;
+              }
+
+              private PendingRollRequest RequireProjectilePending(CampaignState campaign, string pendingRollId, string resolutionKey)
+              {
+                  var pending = campaign.PendingPlayerRoll
+                      ?? throw new InvalidOperationException("There is no required player roll to resolve.");
+                  if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException("The supplied roll does not match the active pending player roll.");
+                  if (!pending.ResolutionKey.Equals(resolutionKey, StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not '{resolutionKey}'.");
+                  return pending;
+              }
+
+              private PlayerProjectileSpellSequenceState ReadProjectileSequence(PendingRollRequest pending)
+              {
+                  if (!pending.Context.TryGetValue("sequence_json", out var json) || string.IsNullOrWhiteSpace(json))
+                      throw new InvalidOperationException("The pending projectile roll is missing its sequence state.");
+                  return JsonSerializer.Deserialize<PlayerProjectileSpellSequenceState>(json)
+                      ?? throw new InvalidOperationException("The pending projectile sequence could not be restored.");
+              }
+
+              private static int RequireCurrentProjectileIndex(PlayerProjectileSpellSequenceState state, PendingRollRequest pending)
+              {
+                  var pendingIndex = ProjectileContextInt(pending, "projectile_index", -1);
+                  if (pendingIndex < 0 || pendingIndex >= state.TargetIds.Count || pendingIndex != state.NextProjectileIndex)
+                      throw new InvalidOperationException("The pending projectile index no longer matches the saved sequence.");
+                  return pendingIndex;
+              }
+
+              private EncounterState? RequireProjectileEncounterIfAny(CampaignState campaign, PlayerProjectileSpellSequenceState state, CharacterSheet caster)
+              {
+                  if (string.IsNullOrWhiteSpace(state.EncounterId)) return null;
+                  var encounter = RequireEncounter(campaign, state.EncounterId);
+                  if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException("The projectile spell's encounter is no longer active.");
+                  var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
+                      ?? throw new InvalidOperationException("The projectile spellcaster is no longer in the encounter.");
+                  EnsureCurrentTurn(encounter, casterCombatant.Id);
+                  return encounter;
+              }
+
+              private SpellDefinition RequireProjectileSpell(CampaignState campaign, string spellId)
+              {
+                  return campaign.Spells.FirstOrDefault(s => s.Id.Equals(spellId, StringComparison.OrdinalIgnoreCase)
+                      || (!string.IsNullOrWhiteSpace(s.Key) && s.Key.Equals(spellId, StringComparison.OrdinalIgnoreCase)))
+                      ?? throw new InvalidOperationException("The spell for the pending projectile sequence no longer exists.");
+              }
+
+              private static string BuildProjectileAttackSummary(
+                  int sequence,
+                  string targetName,
+                  D20RollMode mode,
+                  int total,
+                  int armorClass,
+                  int coverBonus,
+                  int effectAttackBonus,
+                  bool hit,
+                  bool critical,
+                  bool helpUsed,
+                  int? damageAmount = null,
+                  string? damageType = null)
+              {
+                  var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
+                  var coverText = coverBonus > 0 ? $" with {CoverLabel(coverBonus)} Cover (+{coverBonus} AC)" : "";
+                  var effectText = effectAttackBonus == 0 ? "" : $" +{effectAttackBonus} from active effects";
+                  var helpText = helpUsed ? " Help supplied Advantage." : "";
+                  if (!hit)
+                      return $"Projectile {sequence} against {targetName}: spell attack{modeText} {total} vs AC {armorClass}{coverText}{effectText}: miss.{helpText}";
+                  var damageText = damageAmount.HasValue
+                      ? $" for {damageAmount.Value}{(string.IsNullOrWhiteSpace(damageType) ? "" : $" {damageType}")} damage"
+                      : "";
+                  return $"Projectile {sequence} against {targetName}: spell attack{modeText} {total} vs AC {armorClass}{coverText}{effectText}: hit{damageText}{(critical ? " (critical)" : "")}.{helpText}";
+              }
+
+              private static int ProjectileContextInt(PendingRollRequest pending, string key, int fallback = 0)
+              {
+                  return pending.Context.TryGetValue(key, out var value) && int.TryParse(value, out var parsed) ? parsed : fallback;
+              }
+
+              private static bool ProjectileContextBool(PendingRollRequest pending, string key)
+              {
+                  return pending.Context.TryGetValue(key, out var value) && bool.TryParse(value, out var parsed) && parsed;
+              }
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+
+          # Route new projectile pending roll kinds through the existing Game Table roll controls.
+          vm = root / 'windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs'
+          text = vm.read_text(encoding='utf-8')
+          old = '''        if (pending.ResolutionKey.Equals("spell_attack_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var damageAmount = RollPendingSpellAttackDamage(pending);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveSpellAttackDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))'''.replace('          ', '')
+          new = '''        if (pending.ResolutionKey.Equals("spell_attack_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var damageAmount = RollPendingSpellAttackDamage(pending);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveSpellAttackDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          if (pending.ResolutionKey.Equals("projectile_spell_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                  && !string.IsNullOrWhiteSpace(storedExpression)
+                  ? storedExpression
+                  : pending.Formula;
+              var critical = pending.Context.TryGetValue("critical", out var criticalText)
+                  && bool.TryParse(criticalText, out var parsedCritical)
+                  && parsedCritical;
+              var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveProjectileSpellDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find projectile damage routing insertion point')
+          text = text.replace(old, new, 1)
+
+          old = '''        if (pending.ResolutionKey.Equals("spell_attack", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))'''.replace('          ', '')
+          new = '''        if (pending.ResolutionKey.Equals("spell_attack", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          if (pending.ResolutionKey.Equals("projectile_spell_attack", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveProjectileSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find projectile attack d20 routing insertion point')
+          text = text.replace(old, new, 1)
+
+          marker = '''    private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)'''
+          methods = '''    private async Task ResolveActiveProjectileSpellAttackFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+              {
+                  if (SelectedCampaign is null) return;
+                  try
+                  {
+                      var result = _engine.ResolvePendingProjectileSpellAttackRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+                      StatusMessage = result.Summary;
+                      SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+                      RaiseCharacterProperties();
+                      RaiseCampaignProperties();
+                      RefreshCombatSelections(keepSelection: true);
+                      await SaveAsync();
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }
+
+              private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+              {
+                  if (SelectedCampaign is null) return;
+                  try
+                  {
+                      var result = _engine.ResolvePendingProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+                      StatusMessage = result.Summary;
+                      SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+                      RaiseCharacterProperties();
+                      RaiseCampaignProperties();
+                      RefreshCombatSelections(keepSelection: true);
+                      await SaveAsync();
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }
+
+          '''.replace('              ', '    ')
+          if marker not in text:
+              raise SystemExit('Could not find ability resolver marker for projectile methods')
+          text = text.replace(marker, methods + marker, 1)
+          vm.write_text(text, encoding='utf-8')
+
+          router = root / 'windows/src/DungeonMasterAI.Engine/DmToolRouter.cs'
+          text = router.read_text(encoding='utf-8')
+          old = 'Tool("cast_projectile_spell", "Cast a deterministic multi-projectile spell such as Magic Missile or Scorching Ray. target_ids is either one target for every projectile or one target id per projectile in firing order.",'
+          new = 'Tool("cast_projectile_spell", "Cast a deterministic multi-projectile spell such as Magic Missile or Scorching Ray. Auto-hit projectiles resolve automatically. A player-character projectile attack spell pauses for each player attack and damage roll in firing order, including intervening Concentration saves. target_ids is either one target for every projectile or one target id per projectile in firing order.",'
+          if old not in text:
+              raise SystemExit('Could not find cast_projectile_spell tool description')
+          router.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          tests = root / 'windows/tests/DungeonMasterAI.ProjectileRollTests'
+          tests.mkdir(parents=True, exist_ok=True)
+          (tests / 'DungeonMasterAI.ProjectileRollTests.csproj').write_text(r'''<Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+            <ItemGroup>
+              <ProjectReference Include="..\..\src\DungeonMasterAI.Domain\DungeonMasterAI.Domain.csproj" />
+              <ProjectReference Include="..\..\src\DungeonMasterAI.Engine\DungeonMasterAI.Engine.csproj" />
+            </ItemGroup>
+          </Project>
+          '''.replace('          ', ''), encoding='utf-8')
+          (tests / 'Program.cs').write_text(r'''using DungeonMasterAI.Domain;
+          using DungeonMasterAI.Engine;
+
+          var failures = new List<string>();
+          var passed = 0;
+
+          Run("player projectile spell pauses for every attack and damage roll", () =>
+          {
+              var (engine, campaign, caster, targetA, targetB, spell) = CreateFixture();
+              var dice = new DiceService((min, max) => min);
+              var beforeSlots = caster.SpellSlots[2].Remaining;
+              var hpA = targetA.CurrentHp;
+              var hpB = targetB.CurrentHp;
+
+              var cast = engine.CastProjectileSpell(campaign, caster.Id, spell.Id, dice, [targetA.Id, targetB.Id, targetA.Id], 2);
+              Equal(beforeSlots - 1, caster.SpellSlots[2].Remaining, "slot committed once at cast start");
+              True(cast.TargetResults is { Count: 0 }, "no projectile should resolve before the first player d20");
+              var p1 = campaign.PendingPlayerRoll ?? throw new Exception("projectile 1 attack pending missing");
+              Equal("projectile_spell_attack", p1.ResolutionKey, "projectile 1 attack key");
+
+              var p1Hit = engine.ResolvePendingProjectileSpellAttackRoll(campaign, p1.Id, 15, null, dice);
+              True(campaign.PendingPlayerRoll?.ResolutionKey == "projectile_spell_damage", "projectile 1 hit should request damage");
+              Equal(hpA, targetA.CurrentHp, "HP unchanged before projectile 1 damage");
+              var p1Damage = campaign.PendingPlayerRoll!;
+              engine.ResolvePendingProjectileSpellDamageRoll(campaign, p1Damage.Id, 4, dice);
+              Equal(hpA - 4, targetA.CurrentHp, "projectile 1 supplied damage");
+              var p2 = campaign.PendingPlayerRoll ?? throw new Exception("projectile 2 attack pending missing");
+              Equal("projectile_spell_attack", p2.ResolutionKey, "projectile 2 attack key");
+
+              var p2Miss = engine.ResolvePendingProjectileSpellAttackRoll(campaign, p2.Id, 1, null, dice);
+              Equal(hpB, targetB.CurrentHp, "projectile 2 miss should not damage target B");
+              var p3 = campaign.PendingPlayerRoll ?? throw new Exception("projectile 3 attack pending missing");
+              Equal("projectile_spell_attack", p3.ResolutionKey, "projectile 3 attack key");
+
+              engine.ResolvePendingProjectileSpellAttackRoll(campaign, p3.Id, 18, null, dice);
+              var p3Damage = campaign.PendingPlayerRoll ?? throw new Exception("projectile 3 damage pending missing");
+              var complete = engine.ResolvePendingProjectileSpellDamageRoll(campaign, p3Damage.Id, 6, dice);
+              Equal(hpA - 10, targetA.CurrentHp, "both supplied damages applied to target A");
+              Equal(hpB, targetB.CurrentHp, "target B remains undamaged after miss");
+              Equal(beforeSlots - 1, caster.SpellSlots[2].Remaining, "multi-projectile spell spends only one slot");
+              True(campaign.PendingPlayerRoll is null, "sequence should finish with no pending roll");
+              Equal(3, complete.TargetResults?.Count ?? 0, "all projectile results retained");
+              True(complete.TargetResults![0].SpellAttack is { D20: 15, Hit: true }, "projectile 1 supplied d20 retained");
+              True(complete.TargetResults![1].SpellAttack is { D20: 1, Hit: false }, "projectile 2 supplied d20 retained");
+              True(complete.TargetResults![2].SpellAttack is { D20: 18, Hit: true, Damage: 6 }, "projectile 3 supplied d20 and damage retained");
+          });
+
+          Run("natural 20 creates critical projectile damage request", () =>
+          {
+              var (engine, campaign, caster, targetA, _, spell) = CreateFixture();
+              var dice = new DiceService((min, max) => min);
+              engine.CastProjectileSpell(campaign, caster.Id, spell.Id, dice, [targetA.Id, targetA.Id, targetA.Id], 2);
+              var attackPending = campaign.PendingPlayerRoll ?? throw new Exception("projectile attack pending missing");
+              var result = engine.ResolvePendingProjectileSpellAttackRoll(campaign, attackPending.Id, 20, null, dice);
+              var damagePending = campaign.PendingPlayerRoll ?? throw new Exception("critical projectile damage pending missing");
+              Equal("true", damagePending.Context["critical"], "critical context");
+              True(damagePending.Formula.Contains("critical", StringComparison.OrdinalIgnoreCase), "critical prompt");
+          });
+
+          Run("NPC projectile attack spell keeps automatic deterministic resolution", () =>
+          {
+              var (engine, campaign, caster, targetA, targetB, spell) = CreateFixture();
+              caster.CharacterType = "npc";
+              var dice = new DiceService((min, max) => max - 1);
+              var beforeA = targetA.CurrentHp;
+              var result = engine.CastProjectileSpell(campaign, caster.Id, spell.Id, dice, [targetA.Id, targetB.Id, targetA.Id], 2);
+              True(campaign.PendingPlayerRoll is null, "NPC projectile spell should not create a player roll");
+              Equal(3, result.TargetResults?.Count ?? 0, "NPC projectiles resolve immediately");
+              True(targetA.CurrentHp < beforeA, "NPC automatic projectiles apply damage");
+          });
+
+          Run("player target Concentration pauses and then resumes the projectile sequence", () =>
+          {
+              var (engine, campaign, caster, _, _, spell) = CreateFixture();
+              var target = new CharacterSheet
+              {
+                  Id = "pc-concentrating-target",
+                  Name = "Mira",
+                  CharacterType = "pc",
+                  ArmorClass = 12,
+                  MaxHp = 40,
+                  CurrentHp = 40,
+                  ProficiencyBonus = 2,
+                  Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["constitution"] = 14 },
+                  SavingThrowProficiencies = ["constitution"]
+              };
+              campaign.Characters.Add(target);
+              engine.BeginConcentration(campaign, target.Id, "Bless");
+              var dice = new DiceService((min, max) => min);
+
+              engine.CastProjectileSpell(campaign, caster.Id, spell.Id, dice, [target.Id, target.Id, target.Id], 2);
+              var attack1 = campaign.PendingPlayerRoll ?? throw new Exception("projectile attack pending missing");
+              engine.ResolvePendingProjectileSpellAttackRoll(campaign, attack1.Id, 15, null, dice);
+              var damage1 = campaign.PendingPlayerRoll ?? throw new Exception("projectile damage pending missing");
+              engine.ResolvePendingProjectileSpellDamageRoll(campaign, damage1.Id, 8, dice);
+
+              var concentration = campaign.PendingPlayerRoll ?? throw new Exception("Concentration pending missing");
+              Equal("concentration_check", concentration.ResolutionKey, "Concentration handoff key");
+              Equal("projectile_spell_sequence", concentration.Context["continuation_resolution_key"], "continuation key");
+              engine.ResolvePendingConcentrationCheckRoll(campaign, concentration.Id, 15, null, dice);
+
+              var attack2 = campaign.PendingPlayerRoll ?? throw new Exception("projectile sequence did not resume after Concentration");
+              Equal("projectile_spell_attack", attack2.ResolutionKey, "resumed projectile attack key");
+              Equal("1", attack2.Context["projectile_index"], "resumed at projectile 2");
+          });
+
+          Run("pending projectile sequence survives campaign JSON serialization", () =>
+          {
+              var (engine, campaign, caster, targetA, _, spell) = CreateFixture();
+              var dice = new DiceService((min, max) => min);
+              engine.CastProjectileSpell(campaign, caster.Id, spell.Id, dice, [targetA.Id, targetA.Id, targetA.Id], 2);
+              var json = System.Text.Json.JsonSerializer.Serialize(campaign);
+              var restored = System.Text.Json.JsonSerializer.Deserialize<CampaignState>(json)
+                  ?? throw new Exception("campaign JSON restore failed");
+              var pending = restored.PendingPlayerRoll ?? throw new Exception("pending projectile roll was not restored");
+              Equal("projectile_spell_attack", pending.ResolutionKey, "restored pending key");
+              True(pending.Context.ContainsKey("sequence_json"), "serialized sequence context retained");
+          });
+
+          if (failures.Count > 0)
+          {
+              Console.Error.WriteLine($"Projectile roll tests failed: {failures.Count}");
+              foreach (var failure in failures) Console.Error.WriteLine($" - {failure}");
+              Environment.Exit(1);
+          }
+          Console.WriteLine($"Projectile roll tests passed: {passed}");
+
+          void Run(string name, Action test)
+          {
+              try
+              {
+                  test();
+                  passed++;
+                  Console.WriteLine($"PASS: {name}");
+              }
+              catch (Exception ex)
+              {
+                  failures.Add($"{name}: {ex.Message}");
+                  Console.Error.WriteLine($"FAIL: {name}: {ex.Message}");
+              }
+          }
+
+          static (GameEngine Engine, CampaignState Campaign, CharacterSheet Caster, CharacterSheet TargetA, CharacterSheet TargetB, SpellDefinition Spell) CreateFixture()
+          {
+              var engine = new GameEngine();
+              var caster = new CharacterSheet
+              {
+                  Id = "pc-projectile-caster",
+                  Name = "Aric",
+                  CharacterType = "pc",
+                  Level = 5,
+                  MaxHp = 30,
+                  CurrentHp = 30,
+                  ProficiencyBonus = 3,
+                  SpellcastingAbility = "intelligence",
+                  Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["intelligence"] = 16 }
+              };
+              caster.SpellSlots[2] = new SpellSlotPool { Maximum = 3, Remaining = 3 };
+              var targetA = new CharacterSheet { Id = "target-a", Name = "Watcher A", CharacterType = "npc", ArmorClass = 13, MaxHp = 40, CurrentHp = 40 };
+              var targetB = new CharacterSheet { Id = "target-b", Name = "Watcher B", CharacterType = "npc", ArmorClass = 14, MaxHp = 40, CurrentHp = 40 };
+              var spell = new SpellDefinition
+              {
+                  Id = "spell-test-rays",
+                  Key = "test_rays",
+                  Name = "Test Rays",
+                  Level = 2,
+                  CastingTime = "Action",
+                  RangeKind = "distance",
+                  RangeFeet = 120,
+                  Resolution = "projectile_attack",
+                  DamageExpression = "2d6",
+                  DamageType = "Fire",
+                  BaseProjectiles = 3,
+                  ExtraProjectilesPerSlot = 1
+              };
+              caster.PreparedSpellIds.Add(spell.Id);
+              var campaign = new CampaignState
+              {
+                  Id = "campaign-projectile-rolls",
+                  Name = "Projectile Roll Campaign",
+                  Characters = [caster, targetA, targetB],
+                  Spells = [spell]
+              };
+              return (engine, campaign, caster, targetA, targetB, spell);
+          }
+
+          static void True(bool value, string label)
+          {
+              if (!value) throw new Exception(label);
+          }
+
+          static void Equal<T>(T expected, T actual, string label)
+          {
+              if (!EqualityComparer<T>.Default.Equals(expected, actual))
+                  throw new Exception($"{label}: expected {expected}, got {actual}");
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+          PY
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r30: make player projectile spell rolls authoritative"
+          git push origin HEAD:${GITHUB_REF_NAME}
