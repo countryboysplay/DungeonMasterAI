@@ -14,6 +14,15 @@ public sealed partial class DmToolRouter
         var encounterId = RequiredString(arguments, "encounter_id");
         var combatantId = RequiredString(arguments, "combatant_id");
         var targetCombatantId = OptionalString(arguments, "target_combatant_id");
+        IReadOnlyList<string>? targetCombatantIds = null;
+        if (arguments.TryGetProperty("target_combatant_ids", out var targetIdsElement) && targetIdsElement.ValueKind == JsonValueKind.Array)
+        {
+            targetCombatantIds = targetIdsElement.EnumerateArray()
+                .Where(element => element.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(element.GetString()))
+                .Select(element => element.GetString()!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
         int? centerX = arguments.TryGetProperty("center_x", out var centerXElement) && centerXElement.TryGetInt32(out var parsedCenterX) ? parsedCenterX : null;
         int? centerY = arguments.TryGetProperty("center_y", out var centerYElement) && centerYElement.TryGetInt32(out var parsedCenterY) ? parsedCenterY : null;
         var direction = OptionalString(arguments, "direction");
@@ -25,8 +34,8 @@ public sealed partial class DmToolRouter
             ?? throw new KeyNotFoundException($"Character '{combatant.CharacterId}' was not found.");
 
         if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
-            return engine.RequestReadiedSpellDecision(campaign, encounter.Id, combatant.Id, targetCombatantId, centerX, centerY, direction);
+            return engine.RequestReadiedSpellDecision(campaign, encounter.Id, combatant.Id, targetCombatantId, centerX, centerY, direction, targetCombatantIds);
 
-        return engine.TriggerReadiedSpell(campaign, encounter.Id, combatant.Id, dice, targetCombatantId, centerX, centerY, direction);
+        return engine.TriggerReadiedSpell(campaign, encounter.Id, combatant.Id, dice, targetCombatantId, centerX, centerY, direction, targetCombatantIds);
     }
 }

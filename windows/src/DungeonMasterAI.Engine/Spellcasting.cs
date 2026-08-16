@@ -671,8 +671,8 @@ public sealed partial class GameEngine
         ValidateComponents(caster, spell);
         var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
         ValidateSpellConfiguration(spell, resolution);
-        if (resolution is "multi_buff" or "persistent_area")
-            throw new InvalidOperationException($"Readying {spell.Name}'s multi-target or persistent-area resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
+        if (resolution == "persistent_area")
+            throw new InvalidOperationException($"Readying {spell.Name}'s persistent-area resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
         var normalizedTrigger = NormalizeReadyTrigger(trigger);
         if (!combatant.ActionAvailable)
             throw new InvalidOperationException($"{caster.Name} has already used their action this turn and cannot take the Ready action.");
@@ -728,7 +728,8 @@ public sealed partial class GameEngine
         string? targetCombatantId = null,
         int? areaCenterX = null,
         int? areaCenterY = null,
-        string? areaDirection = null)
+        string? areaDirection = null,
+        IReadOnlyList<string>? targetCombatantIds = null)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(dice);
@@ -751,6 +752,11 @@ public sealed partial class GameEngine
             throw new InvalidOperationException($"{caster.Name} is no longer Concentrating on the readied {spell.Name}; the held spell has dissipated.");
         }
 
+        var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
+        ValidateSpellConfiguration(spell, resolution);
+        var castAtLevel = spell.Level == 0 ? 0 : Math.Max(spell.Level, readied.CastAtLevel);
+        var upcastLevels = Math.Max(0, castAtLevel - spell.Level);
+
         CharacterSheet? target = null;
         CombatantState? targetCombatant = null;
         if (!string.IsNullOrWhiteSpace(targetCombatantId))
@@ -758,17 +764,23 @@ public sealed partial class GameEngine
             targetCombatant = RequireCombatant(encounter, targetCombatantId);
             target = RequireCharacter(campaign, targetCombatant.CharacterId);
         }
-        if (spell.RequiresTarget && target is null)
+        var multiBuffResolution = resolution == "multi_buff";
+        IReadOnlyList<string>? effectiveMultiBuffTargetIds = targetCombatantIds is { Count: > 0 }
+            ? targetCombatantIds
+            : targetCombatant is null ? null : [targetCombatant.Id];
+        ReadiedMultiBuffPlan? multiBuffPlan = null;
+        if (multiBuffResolution)
+            multiBuffPlan = PlanReadiedMultiBuffSpell(campaign, caster, spell, encounter, castAtLevel, effectiveMultiBuffTargetIds);
+
+        if (spell.RequiresTarget && target is null && !multiBuffResolution)
             throw new InvalidOperationException($"{spell.Name} requires a target when the readied spell is released.");
         if (target is not null && target.Dead && !string.Equals(spell.Resolution, "healing", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"{target.Name} is dead and is not a valid target for this configured spell effect.");
-        ValidateSpellTargetType(target, spell);
-        ValidateSpellRange(campaign, encounter, caster, target, spell);
-
-        var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
-        ValidateSpellConfiguration(spell, resolution);
-        var castAtLevel = spell.Level == 0 ? 0 : Math.Max(spell.Level, readied.CastAtLevel);
-        var upcastLevels = Math.Max(0, castAtLevel - spell.Level);
+        if (!multiBuffResolution)
+        {
+            ValidateSpellTargetType(target, spell);
+            ValidateSpellRange(campaign, encounter, caster, target, spell);
+        }
 
         combatant.ReactionAvailable = false;
         combatant.ReadiedAction = null;
@@ -782,6 +794,7 @@ public sealed partial class GameEngine
         DamageResolutionResult? damage = null;
         var healing = 0;
         IReadOnlyList<SpellTargetResolution>? targetResults = null;
+        string? resolvedTargetId = target?.Id;
         var effectSummary = "";
         switch (resolution)
         {
@@ -848,6 +861,20 @@ public sealed partial class GameEngine
                     (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, encounter);
                 }
                 break;
+            case "multi_buff":
+                if (multiBuffPlan is null)
+                    throw new InvalidOperationException($"{spell.Name}'s readied multi-target plan was not prepared before release.");
+                var multiBuffResult = ReleaseReadiedMultiBuffSpell(
+                    campaign,
+                    caster,
+                    spell,
+                    castAtLevel,
+                    readied.UsedSpellSlot,
+                    multiBuffPlan);
+                effectSummary = multiBuffResult.Summary;
+                targetResults = multiBuffResult.TargetResults;
+                resolvedTargetId = multiBuffResult.TargetId;
+                break;
             case "area_save":
                 var areaResult = BeginReadiedAreaSpellSequence(
                     campaign,
@@ -902,7 +929,7 @@ public sealed partial class GameEngine
             spell.Id,
             spell.Name,
             caster.Id,
-            target?.Id,
+            resolvedTargetId,
             castAtLevel,
             readied.UsedSpellSlot,
             false,
