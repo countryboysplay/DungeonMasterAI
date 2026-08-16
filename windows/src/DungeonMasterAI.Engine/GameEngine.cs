@@ -400,66 +400,110 @@ public sealed partial class GameEngine
     }
 
     public ConcentrationCheckResult? ResolveConcentrationAfterDamage(
-        CampaignState campaign,
-        string characterId,
-        int effectiveDamage,
-        DiceService dice)
+    CampaignState campaign,
+    string characterId,
+    int effectiveDamage,
+    DiceService dice)
+{
+    ArgumentNullException.ThrowIfNull(dice);
+    if (effectiveDamage <= 0) return null;
+    var character = RequireCharacter(campaign, characterId);
+    if (string.IsNullOrWhiteSpace(character.ConcentrationEffect)) return null;
+
+    var effect = character.ConcentrationEffect!;
+    if (character.Dead || character.CurrentHp <= 0 || character.Conditions.Any(BreaksConcentration))
     {
-        ArgumentNullException.ThrowIfNull(dice);
-        if (effectiveDamage <= 0) return null;
-        var character = RequireCharacter(campaign, characterId);
-        if (string.IsNullOrWhiteSpace(character.ConcentrationEffect)) return null;
+        EndConcentrationInternal(campaign, character, "being incapacitated");
+        return null;
+    }
 
-        var effect = character.ConcentrationEffect!;
-        if (character.Dead || character.CurrentHp <= 0 || character.Conditions.Any(BreaksConcentration))
-        {
-            EndConcentrationInternal(campaign, character, "being incapacitated");
-            return null;
-        }
+    var dc = Math.Min(30, Math.Max(10, effectiveDamage / 2));
+    if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    {
+        if (campaign.PendingPlayerRoll?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
-        var dc = Math.Min(30, Math.Max(10, effectiveDamage / 2));
-        var mode = D20RollMode.Normal;
-        var rolls = dice.RollD20(mode);
         var proficient = character.SavingThrowProficiencies.Any(x => CharacterMechanics.NormalizeAbility(x) == "constitution");
-        var effectSaveBonus = RollActiveSavingThrowBonus(campaign, character.Id, dice);
-        var savingThrow = CharacterMechanics.ResolveD20Test(
-            character,
-            "constitution",
-            dc,
-            rolls.RollOne,
-            rolls.RollTwo,
-            mode,
-            proficient,
-            effectSaveBonus);
-        var maintained = savingThrow.Success;
-        if (!maintained)
-            EndConcentrationInternal(campaign, character, $"failing a DC {dc} Constitution saving throw after taking damage");
-        else
+        var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "constitution"));
+        var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
+        var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+        var pending = new PendingRollRequest
         {
-            Touch(campaign);
-            Log(campaign, "concentration_check", $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc}).");
-        }
-
-        var summary = maintained
-            ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
-            : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
-        return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
+            ActorCharacterId = character.Id,
+            Formula = "1d20",
+            RollType = "d20",
+            RollMode = "normal",
+            Purpose = $"{character.Name} must make a DC {dc} Constitution saving throw to maintain Concentration on {effect} after taking {effectiveDamage} damage.",
+            ResolutionKey = "concentration_check",
+            Modifier = abilityModifier + proficiencyModifier - exhaustionPenalty,
+            TargetNumber = dc,
+            TargetLabel = $"DC {dc}",
+            Required = true,
+            Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["effect"] = effect,
+                ["effective_damage"] = effectiveDamage.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["proficient"] = proficient ? "true" : "false"
+            }
+        };
+        campaign.PendingPlayerRoll = pending;
+        Touch(campaign);
+        Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
+        return null;
     }
 
-    public DamageResolutionResult ApplyDamageWithConcentration(
-        CampaignState campaign,
-        string characterId,
-        int amount,
-        DiceService dice,
-        string? damageType = null,
-        bool criticalHit = false)
+    var mode = D20RollMode.Normal;
+    var rolls = dice.RollD20(mode);
+    var npcProficient = character.SavingThrowProficiencies.Any(x => CharacterMechanics.NormalizeAbility(x) == "constitution");
+    var effectSaveBonus = RollActiveSavingThrowBonus(campaign, character.Id, dice);
+    var savingThrow = CharacterMechanics.ResolveD20Test(
+        character,
+        "constitution",
+        dc,
+        rolls.RollOne,
+        rolls.RollTwo,
+        mode,
+        npcProficient,
+        effectSaveBonus);
+    var maintained = savingThrow.Success;
+    if (!maintained)
+        EndConcentrationInternal(campaign, character, $"failing a DC {dc} Constitution saving throw after taking damage");
+    else
     {
-        var damage = ApplyDamageCore(campaign, characterId, amount, damageType, criticalHit);
-        var concentration = ResolveConcentrationAfterDamage(campaign, characterId, damage.EffectiveDamage, dice);
-        return new DamageResolutionResult(damage, concentration);
+        Touch(campaign);
+        Log(campaign, "concentration_check", $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc}).");
     }
 
-    public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
+    var summary = maintained
+        ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
+        : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
+    return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
+}
+
+public DamageResolutionResult ApplyDamageWithConcentration(
+    CampaignState campaign,
+    string characterId,
+    int amount,
+    DiceService dice,
+    string? damageType = null,
+    bool criticalHit = false)
+{
+    ArgumentNullException.ThrowIfNull(dice);
+    var character = RequireCharacter(campaign, characterId);
+    if (amount > 0
+        && character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(character.ConcentrationEffect)
+        && campaign.PendingPlayerRoll?.Required == true)
+    {
+        throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+    }
+
+    var damage = ApplyDamageCore(campaign, characterId, amount, damageType, criticalHit);
+    var concentration = ResolveConcentrationAfterDamage(campaign, characterId, damage.EffectiveDamage, dice);
+    return new DamageResolutionResult(damage, concentration);
+}
+
+public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
     {
         if (level is < 1 or > 9) throw new ArgumentOutOfRangeException(nameof(level));
         var character = RequireCharacter(campaign, characterId);
