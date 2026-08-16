@@ -1,0 +1,137 @@
+name: Apply r35 wiring
+
+on:
+  push:
+    branches:
+      - feature/r35-player-combat-skill-rolls
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout r35
+        uses: actions/checkout@v4
+        with:
+          ref: feature/r35-player-combat-skill-rolls
+          fetch-depth: 0
+
+      - name: Wire combat skill player rolls
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # GameEngine: block the old automatic dice path from being used for player combat skill actions.
+          engine_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.cs')
+          engine = engine_path.read_text(encoding='utf-8')
+          method_start = engine.index('    private CombatSkillActionResult ResolveCombatSkillAction(')
+          character_marker = '        var character = RequireCharacter(campaign, combatant.CharacterId);\n'
+          insert = '''        if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+              throw new InvalidOperationException($"Player-character {actionName} checks must use the authoritative player-roll request path.");
+          '''
+          location = engine.index(character_marker, method_start) + len(character_marker)
+          if 'Player-character {actionName} checks must use the authoritative player-roll request path.' not in engine[method_start:method_start+2500]:
+              engine = engine[:location] + insert + engine[location:]
+              engine_path.write_text(engine, encoding='utf-8')
+
+          # DmToolRouter: make the class extensible and route PC Search/Study/Influence to pending-roll helpers.
+          router_path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
+          router = router_path.read_text(encoding='utf-8')
+          router = router.replace(
+              'public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearchService rules)',
+              'public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, RulesSearchService rules)',
+              1)
+          router = router.replace(
+              'Tool("take_search", "Take the Search action and resolve a Wisdom check using Insight, Medicine, Perception, or Survival against a DM-selected DC.",',
+              'Tool("take_search", "Take the Search action using Insight, Medicine, Perception, or Survival against a DM-selected DC. NPC checks resolve immediately; a player character creates a required player d20 roll and pauses until the Game Table supplies it.",',
+              1)
+          router = router.replace(
+              'Tool("take_study", "Take the Study action and resolve an Intelligence check using Arcana, History, Investigation, Nature, or Religion against a DM-selected DC.",',
+              'Tool("take_study", "Take the Study action using Arcana, History, Investigation, Nature, or Religion against a DM-selected DC. NPC checks resolve immediately; a player character creates a required player d20 roll and pauses until the Game Table supplies it.",',
+              1)
+          router = router.replace(
+              'Tool("take_influence", "Take the Influence action and resolve an appropriate Charisma check, or Wisdom (Animal Handling), against a DM-selected DC.",',
+              'Tool("take_influence", "Take the Influence action using an appropriate Charisma check, or Wisdom (Animal Handling), against a DM-selected DC. NPC checks resolve immediately; a player character creates a required player d20 roll and pauses until the Game Table supplies it.",',
+              1)
+          router = router.replace(
+              'Tool("cast_area_spell", "Cast a deterministic tactical area spell. Point-origin spells use center_x/center_y; self-origin cones and cubes use direction. The engine selects positioned creatures from battlefield geometry and resolves all saves and damage.",',
+              'Tool("cast_area_spell", "Cast a deterministic tactical area spell. Point-origin spells use center_x/center_y; self-origin cones and cubes use direction. The engine freezes affected creatures from battlefield geometry, pauses for every player-owned saving throw, and uses one player-owned shared damage roll when the caster is a player character.",',
+              1)
+          router = router.replace(
+              '"take_search" => engine.TakeSearchAction(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "combatant_id"), RequiredString(a, "skill"), RequiredInt(a, "dc"), dice),',
+              '"take_search" => ResolveSearchActionTool(engine, dice, campaign, a),',
+              1)
+          router = router.replace(
+              '"take_study" => engine.TakeStudyAction(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "combatant_id"), RequiredString(a, "skill"), RequiredInt(a, "dc"), dice),',
+              '"take_study" => ResolveStudyActionTool(engine, dice, campaign, a),',
+              1)
+          router = router.replace(
+              '"take_influence" => engine.TakeInfluenceAction(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "combatant_id"), RequiredString(a, "skill"), RequiredInt(a, "dc"), dice),',
+              '"take_influence" => ResolveInfluenceActionTool(engine, dice, campaign, a),',
+              1)
+          router_path.write_text(router, encoding='utf-8')
+
+          # Universal Game Table roll button: resolve combat skill pending d20s.
+          vm_path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
+          vm = vm_path.read_text(encoding='utf-8')
+          if 'combat_skill_action' not in vm:
+              marker = '        if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))\n'
+              insert = '''        if (pending.ResolutionKey.Equals("combat_skill_action", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveCombatSkillActionFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          '''
+              if marker not in vm:
+                  raise SystemExit('Could not find player-roll dispatch marker for ability checks.')
+              vm = vm.replace(marker, insert + marker, 1)
+              vm_path.write_text(vm, encoding='utf-8')
+
+          # Broad smoke remains an automatic NPC mechanics suite. Dedicated r35 tests own PC roll semantics.
+          smoke_path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          smoke = smoke_path.read_text(encoding='utf-8')
+          for name in ('Searcher', 'Scholar', 'Diplomat'):
+              smoke = smoke.replace(
+                  f'Name = "{name}", CharacterType = "pc"',
+                  f'Name = "{name}", CharacterType = "npc"',
+                  1)
+          smoke_path.write_text(smoke, encoding='utf-8')
+
+          # Main CI should independently exercise the new player-roll contract.
+          ci_path = Path('.github/workflows/windows-ci.yml')
+          ci = ci_path.read_text(encoding='utf-8')
+          if 'DungeonMasterAI.CombatSkillRollTests' not in ci:
+              marker = '''      - name: Run area spell roll tests
+                  run: dotnet run --project tests/DungeonMasterAI.AreaSpellRollTests/DungeonMasterAI.AreaSpellRollTests.csproj --configuration Release
+          '''
+              insert = marker + '''
+              - name: Run combat skill roll tests
+                run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
+          '''
+              if marker not in ci:
+                  raise SystemExit('Could not find area-spell test step in Windows CI.')
+              ci = ci.replace(marker, insert, 1)
+              ci_path.write_text(ci, encoding='utf-8')
+          PY
+
+      - name: Commit r35 wiring
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "r35 wiring is already applied."
+            exit 0
+          fi
+          git config user.name "countryboysplay"
+          git config user.email "31964073+countryboysplay@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.cs \
+                  windows/src/DungeonMasterAI.Engine/DmToolRouter.cs \
+                  windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs \
+                  windows/tests/DungeonMasterAI.Smoke/Program.cs \
+                  .github/workflows/windows-ci.yml
+          git commit -m "r35: wire authoritative combat skill rolls"
+          git push origin HEAD:feature/r35-player-combat-skill-rolls
