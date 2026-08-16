@@ -139,7 +139,27 @@ public sealed partial class GameEngine
 
             case "save":
                 if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its saving throw.");
-                (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+                var saveAbility = string.IsNullOrWhiteSpace(spell.SaveAbility) ? "" : CharacterMechanics.NormalizeAbility(spell.SaveAbility);
+                if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(saveAbility)
+                    && !CharacterMechanics.AutomaticallyFailsSavingThrow(target, saveAbility))
+                {
+                    var pending = RequestPlayerSpellSavingThrowRoll(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        usedSlot,
+                        asRitual,
+                        concentrationStarted,
+                        activeEncounter);
+                    effectSummary = pending.Purpose;
+                }
+                else
+                {
+                    (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+                }
                 break;
 
             case "healing":
