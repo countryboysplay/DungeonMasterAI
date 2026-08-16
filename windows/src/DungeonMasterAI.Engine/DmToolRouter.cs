@@ -49,7 +49,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
         Tool("activate_encounter", "Activate a planned encounter and add living player characters to it.", Props(("encounter_id","string",true),("include_party","boolean",false))),
         Tool("start_encounter", "Start a deterministic combat encounter. Player characters are added automatically unless include_party is false.", Props(("name","string",true),("include_party","boolean",false))),
         Tool("add_combatant", "Add an existing NPC, monster, or character to an active encounter. side may be party, opposition, or neutral.", Props(("encounter_id","string",true),("character_id","string",true),("surprised","boolean",false),("side","string",false))),
-        Tool("roll_initiative", "Roll Initiative for every combatant. Surprised combatants roll with Disadvantage; Exhaustion modifies the D20 Test.", Props(("encounter_id","string",true))),
+        Tool("roll_initiative", "Begin or resume deterministic Initiative for the encounter. NPC Initiative is rolled automatically. Each player character receives a required player-controlled d20 request, including Advantage or Disadvantage and Exhaustion, and the sequence resumes automatically after each supplied roll.", Props(("encounter_id","string",true))),
         Tool("set_combatant_position", "Place a combatant on the 5-foot tactical grid. Use for initial positioning or DM-authorized repositioning, not ordinary movement.", Props(("encounter_id","string",true),("combatant_id","string",true),("grid_x","integer",true),("grid_y","integer",true))),
         Tool("add_terrain_feature", "Add deterministic tactical terrain to an encounter. Supports Difficult Terrain, movement blocking, sight blocking, heavy obscurement, and none/half/three-quarters/total cover.", Props(("encounter_id","string",true),("name","string",true),("grid_x","integer",true),("grid_y","integer",true),("width_squares","integer",false),("height_squares","integer",false),("difficult_terrain","boolean",false),("blocks_movement","boolean",false),("blocks_line_of_sight","boolean",false),("heavily_obscured","boolean",false),("cover","string",false))),
         Tool("add_battlefield_effect", "Add a persistent tactical zone such as fire, magical darkness, fog, or hazardous terrain. Supports sphere/cone/cube geometry, start-turn/enter/move-within damage triggers, saves, Difficult Terrain, obscurement, line-of-sight blocking, durations, and Concentration binding.", Props(("encounter_id","string",true),("name","string",true),("origin_x","integer",true),("origin_y","integer",true),("shape","string",false),("size_feet","integer",false),("direction","string",false),("trigger","string",false),("damage_expression","string",false),("damage_type","string",false),("save_ability","string",false),("save_dc","integer",false),("half_on_save","boolean",false),("once_per_turn","boolean",false),("difficult_terrain","boolean",false),("heavily_obscured","boolean",false),("blocks_line_of_sight","boolean",false),("source_character_id","string",false),("source_spell_id","string",false),("requires_concentration","boolean",false),("concentration_name","string",false),("duration_rounds","integer",false),("dm_only","boolean",false))),
@@ -277,39 +277,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
 
     private object RollInitiative(CampaignState campaign, string encounterId)
     {
-        var encounter = campaign.Encounters.FirstOrDefault(e => e.Id == encounterId)
-            ?? throw new KeyNotFoundException("Encounter not found.");
-        if (encounter.Combatants.Count == 0) throw new InvalidOperationException("The encounter has no combatants.");
-        var rolls = new List<object>();
-        foreach (var combatant in encounter.Combatants)
-        {
-            var character = RequireCharacter(campaign, combatant.CharacterId);
-            var disadvantage = combatant.Surprised || CharacterMechanics.IsIncapacitated(character);
-            var advantage = CharacterMechanics.HasCondition(character, "Invisible");
-            var mode = advantage == disadvantage
-                ? D20RollMode.Normal
-                : advantage ? D20RollMode.Advantage : D20RollMode.Disadvantage;
-            var result = dice.RollD20(mode);
-            var dexterity = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "dexterity"));
-            var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
-            var total = result.ChosenRoll + dexterity - exhaustionPenalty;
-            engine.SetInitiative(campaign, encounter.Id, combatant.Id, total);
-            rolls.Add(new
-            {
-                combatant_id = combatant.Id,
-                character_id = character.Id,
-                character.Name,
-                roll_one = result.RollOne,
-                roll_two = result.RollTwo,
-                chosen_roll = result.ChosenRoll,
-                dexterity_modifier = dexterity,
-                exhaustion_penalty = exhaustionPenalty,
-                surprised = combatant.Surprised,
-                total
-            });
-        }
-        var order = engine.FinalizeInitiative(campaign, encounter.Id);
-        return new { rolls, order, encounter.Round, encounter.TurnIndex };
+        return engine.BeginInitiativeSequence(campaign, encounterId, dice);
     }
 
     private object NextCombatTurn(CampaignState campaign, string encounterId)
