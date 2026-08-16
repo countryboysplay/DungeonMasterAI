@@ -208,7 +208,10 @@ Assert(modifierHeal.Healing == 7 && spellTester.CurrentHp == 8, "healing spells 
 var cantripTarget = engine.AddCharacter(campaign, new CharacterSheet { Name = "Cantrip Target", CharacterType = "monster", MaxHp = 50, CurrentHp = 50, ArmorClass = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["dexterity"] = 1 } });
 engine.AddCondition(campaign, cantripTarget.Id, "Paralyzed"); // Force the Dexterity save to fail so this test isolates damage scaling instead of random save outcome.
 var scaledCantripCast = engine.CastSpell(campaign, spellTester.Id, scaledCantrip.Id, dice, cantripTarget.Id);
-Assert(scaledCantripCast.Damage?.Damage.RequestedDamage == 2, "a level 5 cantrip configured for standard damage scaling rolls two copies of its base damage expression");
+Assert(scaledCantripCast.Damage is null && campaign.PendingPlayerRoll?.ResolutionKey == "spell_save_damage", "a level 5 player-cast save cantrip pauses for its scaled damage roll");
+var scaledCantripDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected scaled cantrip damage roll.");
+var scaledCantripResolved = engine.ResolvePendingSpellSaveDamageRoll(campaign, scaledCantripDamagePending.Id, 2, dice);
+Assert(scaledCantripResolved.Damage?.Damage.RequestedDamage == 2, "a level 5 cantrip configured for standard damage scaling accepts the player-supplied two-copy damage total");
 var dyingSpellTarget = engine.AddCharacter(campaign, new CharacterSheet { Name = "Dying Spell Target", CharacterType = "pc", MaxHp = 12, CurrentHp = 12, Stable = false });
 engine.ApplyDamageDetailed(campaign, dyingSpellTarget.Id, 12, "Bludgeoning");
 Assert(dyingSpellTarget.CurrentHp == 0 && dyingSpellTarget.Conditions.Contains("Unconscious", StringComparer.OrdinalIgnoreCase), "spell stabilization setup creates a living creature at 0 HP through normal damage resolution");
@@ -952,7 +955,7 @@ engine.EndEncounter(campaign, modifierEncounter.Id);
 
 var areaCaster = engine.AddCharacter(campaign, new CharacterSheet
 {
-    Name = "Area Caster", CharacterType = "pc", MaxHp = 100, CurrentHp = 100, ArmorClass = 14,
+    Name = "Area Caster", CharacterType = "npc", MaxHp = 100, CurrentHp = 100, ArmorClass = 14,
     SpellcastingAbility = "intelligence", ProficiencyBonus = 3,
     Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["intelligence"] = 18 }
 });

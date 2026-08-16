@@ -74,6 +74,14 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("area_spell_damage", StringComparison.OrdinalIgnoreCase))
+{
+    var damageAmount = RollPendingSaveSpellDamage(pending);
+    LastDiceResult = $"{pending.Formula}: {damageAmount}";
+    await ResolveActiveAreaSpellDamageFromRollAsync(pending.Id, damageAmount);
+    return;
+}
+
         if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))
         {
             StatusMessage = $"The required roll is {pending.Formula}. That roll type is not wired to this control yet.";
@@ -121,6 +129,12 @@ public sealed partial class MainViewModel
             await ResolveActiveSpellSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
             return;
         }
+
+        if (pending.ResolutionKey.Equals("area_spell_saving_throw", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveAreaSpellSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
 
         if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
         {

@@ -574,69 +574,20 @@ public sealed partial class GameEngine
         if (spell.RequiresConcentration) BeginConcentration(campaign, caster.Id, spell.Name);
         if (spell.RequiresVerbal) BreakHidden(campaign, encounter, casterCombatant, "casting a spell with a Verbal component");
 
-        var upcastLevels = Math.Max(0, castAtLevel - spell.Level);
-        var rolledDamage = 0;
-        if (!string.IsNullOrWhiteSpace(spell.DamageExpression))
-        {
-            rolledDamage = dice.RollDamage(spell.DamageExpression);
-            for (var i = 0; i < upcastLevels; i++) rolledDamage += dice.RollDamage(spell.ExtraDamagePerSlotExpression);
-        }
-        var dc = SpellSaveDc(caster);
-        var targetResults = new List<SpellTargetResolution>();
-        var sequence = 0;
-        foreach (var combatant in affectedCombatants)
-        {
-            var target = RequireCharacter(campaign, combatant.CharacterId);
-            if (target.Dead) continue;
-            sequence++;
-            var ability = CharacterMechanics.NormalizeAbility(spell.SaveAbility);
-            var dodgeMode = ability == "dexterity" && IsDodgeActive(campaign, combatant, target) ? D20RollMode.Advantage : D20RollMode.Normal;
-            var conditionMode = CharacterMechanics.SavingThrowModeFromConditions(target, ability);
-            var typeMode = !string.IsNullOrWhiteSpace(spell.SaveDisadvantageCreatureType)
-                && target.CreatureType.Equals(spell.SaveDisadvantageCreatureType, StringComparison.OrdinalIgnoreCase)
-                ? D20RollMode.Disadvantage
-                : D20RollMode.Normal;
-            var saveMode = CombineAdvantage(CombineAdvantage(dodgeMode, conditionMode), typeMode);
-            var rolls = dice.RollD20(saveMode);
-            var proficient = target.SavingThrowProficiencies.Any(x => x.Equals(ability, StringComparison.OrdinalIgnoreCase) || x.Equals(ability[..3], StringComparison.OrdinalIgnoreCase));
-            var coverBonus = ability == "dexterity" && !spell.IgnoreHalfAndThreeQuartersCoverOnSave
-                ? Math.Min(5, GetAreaCoverBonus(encounter, pointX, pointY, combatant.GridX, combatant.GridY))
-                : 0;
-            var effectBonus = RollActiveSavingThrowBonus(campaign, target.Id, dice);
-            D20TestResult save;
-            if (CharacterMechanics.AutomaticallyFailsSavingThrow(target, ability))
-            {
-                var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(target, ability));
-                var proficiencyModifier = proficient ? Math.Max(0, target.ProficiencyBonus) : 0;
-                var exhaustionPenalty = 2 * Math.Clamp(target.ExhaustionLevel, 0, 6);
-                var total = rolls.ChosenRoll + abilityModifier + proficiencyModifier + coverBonus + effectBonus - exhaustionPenalty;
-                save = new D20TestResult(rolls.RollOne, rolls.RollTwo, rolls.ChosenRoll, abilityModifier, proficiencyModifier, exhaustionPenalty, total, dc, false, $"{ability} saving throw automatically failed.");
-            }
-            else
-            {
-                save = CharacterMechanics.ResolveD20Test(target, ability, dc, rolls.RollOne, rolls.RollTwo, saveMode, proficient, coverBonus + effectBonus);
-            }
-            var appliedDamage = save.Success ? (spell.HalfDamageOnSuccessfulSave ? rolledDamage / 2 : 0) : rolledDamage;
-            DamageResolutionResult? damage = appliedDamage > 0 ? ApplyDamageWithConcentration(campaign, target.Id, appliedDamage, dice, spell.DamageType) : null;
-            var pushText = "";
-            if (!save.Success && spell.PushFeetOnFailedSave > 0 && combatant.Positioned)
-            {
-                var moved = PushAreaTarget(encounter, pointX, pointY, combatant, spell.PushFeetOnFailedSave);
-                if (moved > 0) pushText = $" {target.Name} was pushed {moved} feet away from {spell.Name}'s point of origin.";
-            }
-            var summary = save.Success
-                ? $"{target.Name} succeeded on the {ability} save and took {appliedDamage} {spell.DamageType} damage."
-                : $"{target.Name} failed the {ability} save and took {appliedDamage} {spell.DamageType} damage.";
-            summary += pushText;
-            if (damage?.Concentration is not null) summary += " " + damage.Concentration.Summary;
-            targetResults.Add(new SpellTargetResolution(target.Id, target.Name, sequence, null, save, damage, 0, summary));
-        }
-        var environmentText = string.IsNullOrWhiteSpace(spell.EnvironmentalEffect) ? "" : $" {spell.EnvironmentalEffect}";
-        var areaSummary = $"{caster.Name} cast {spell.Name} using a level {castAtLevel} spell slot, affecting {targetResults.Count} creature{(targetResults.Count == 1 ? "" : "s")}. {string.Join(" ", targetResults.Select(r => r.Summary))}{environmentText}".Trim();
-        Touch(campaign);
-        Log(campaign, "spell_cast", areaSummary);
-        return new SpellCastResult(spell.Id, spell.Name, caster.Id, null, castAtLevel, spell.Level > 0, false, null, null, null, 0, spell.RequiresConcentration, areaSummary, targetResults);
-    }
+        return BeginPlayerAreaSpellSequence(
+        campaign,
+        caster,
+        spell,
+        castAtLevel,
+        spell.Level > 0,
+        spell.RequiresConcentration,
+        encounter,
+        pointX,
+        pointY,
+        direction,
+        affectedCombatants.Select(c => c.Id).ToArray(),
+        dice);
+}
 
     private static bool AreaContains(
         string shape,
