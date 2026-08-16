@@ -170,6 +170,76 @@ public sealed partial class GameEngine
         var ritual = PendingSpellSaveContextBool(pending, "ritual");
         var concentrationStarted = PendingSpellSaveContextBool(pending, "concentration_started");
 
+        // The target player's saving throw is now authoritative and complete. If the caster is
+        // also a player character, the caster owns any damage dice that follow the save.
+        if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+        {
+            campaign.PendingPlayerRoll = null;
+            if (PlayerSaveSpellNeedsDamageRoll(spell, save))
+            {
+                var damagePending = CreatePendingSaveSpellDamageRequest(
+                    campaign,
+                    caster,
+                    target,
+                    spell,
+                    save,
+                    castAtLevel,
+                    upcastLevels,
+                    usedSlot,
+                    ritual,
+                    concentrationStarted,
+                    encounter);
+                var slotTextPending = spell.Level == 0
+                    ? "as a cantrip"
+                    : ritual
+                        ? "as a Ritual without expending a spell slot"
+                        : $"using a level {castAtLevel} spell slot";
+                var pendingSummary = $"{caster.Name} cast {spell.Name} {slotTextPending}. {damagePending.Purpose}".Trim();
+                Touch(campaign);
+                Log(campaign, "spell_cast_pending_damage", pendingSummary, dmOnly: true);
+                return new SpellCastResult(
+                    spell.Id,
+                    spell.Name,
+                    caster.Id,
+                    target.Id,
+                    castAtLevel,
+                    usedSlot,
+                    ritual,
+                    null,
+                    save,
+                    null,
+                    0,
+                    concentrationStarted,
+                    pendingSummary);
+            }
+
+            if (!save.Success && !string.IsNullOrWhiteSpace(spell.ConditionOnFailedSave))
+                ApplySpellConditionEffect(campaign, encounter, caster, target, spell, spell.ConditionOnFailedSave.Trim(), ability, dc);
+            var noDamageText = BuildSaveSpellNoDamageSummary(target, spell, save, ability);
+            var slotTextNoDamage = spell.Level == 0
+                ? "as a cantrip"
+                : ritual
+                    ? "as a Ritual without expending a spell slot"
+                    : $"using a level {castAtLevel} spell slot";
+            var noDamageSummary = $"{caster.Name} cast {spell.Name} {slotTextNoDamage}. {noDamageText}".Trim();
+            Touch(campaign);
+            Log(campaign, "spell_cast", noDamageSummary);
+            return new SpellCastResult(
+                spell.Id,
+                spell.Name,
+                caster.Id,
+                target.Id,
+                castAtLevel,
+                usedSlot,
+                ritual,
+                null,
+                save,
+                null,
+                0,
+                concentrationStarted,
+                noDamageSummary);
+        }
+
         var rolledDamage = 0;
         if (!string.IsNullOrWhiteSpace(spell.DamageExpression))
         {

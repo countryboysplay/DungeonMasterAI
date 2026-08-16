@@ -66,6 +66,14 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("spell_save_damage", StringComparison.OrdinalIgnoreCase))
+        {
+            var damageAmount = RollPendingSaveSpellDamage(pending);
+            LastDiceResult = $"{pending.Formula}: {damageAmount}";
+            await ResolveActiveSaveSpellDamageFromRollAsync(pending.Id, damageAmount);
+            return;
+        }
+
         if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))
         {
             StatusMessage = $"The required roll is {pending.Formula}. That roll type is not wired to this control yet.";
@@ -378,6 +386,42 @@ private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendin
         RaiseCampaignProperties();
     }
 }
+
+    private async Task ResolveActiveSaveSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingSpellSaveDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = CleanSessionNarration(result.Summary)
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private int RollPendingSaveSpellDamage(PendingRollRequest pending)
+    {
+        var baseExpression = pending.Context.TryGetValue("base_damage_expression", out var storedBase) ? storedBase : "";
+        var extraExpression = pending.Context.TryGetValue("extra_damage_expression", out var storedExtra) ? storedExtra : "";
+        var baseRolls = pending.Context.TryGetValue("base_rolls", out var baseRollsText) && int.TryParse(baseRollsText, out var parsedBaseRolls) ? parsedBaseRolls : 0;
+        var extraRolls = pending.Context.TryGetValue("extra_rolls", out var extraRollsText) && int.TryParse(extraRollsText, out var parsedExtraRolls) ? parsedExtraRolls : 0;
+        var total = 0;
+        for (var i = 0; i < baseRolls; i++) total += _dice.RollDamage(baseExpression);
+        for (var i = 0; i < extraRolls; i++) total += _dice.RollDamage(extraExpression);
+        return total;
+    }
 
     private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
     {

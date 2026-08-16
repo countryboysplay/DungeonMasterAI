@@ -156,6 +156,21 @@ public sealed partial class GameEngine
                         activeEncounter);
                     effectSummary = pending.Purpose;
                 }
+                else if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(spell.DamageExpression))
+                {
+                    (savingThrow, effectSummary) = ResolveSaveForPlayerCasterBeforeDamage(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        usedSlot,
+                        asRitual,
+                        concentrationStarted,
+                        dice,
+                        activeEncounter);
+                }
                 else
                 {
                     (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
