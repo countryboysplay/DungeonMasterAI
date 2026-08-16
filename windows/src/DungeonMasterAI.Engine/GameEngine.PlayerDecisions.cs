@@ -123,11 +123,6 @@ public sealed partial class GameEngine
         Touch(campaign);
         Log(campaign, "player_decision_requested", campaign.PendingPlayerDecision.Prompt, dmOnly: true);
         return;
-
-        // Any impossible PC windows above have been auto-declined. If no unresolved window remains,
-        // finish the move now. Otherwise the remaining windows belong to NPCs and stay available to the DM runtime.
-        if (pendingMove.OpportunityAttacks.All(x => x.Resolved))
-            FinalizePendingMoveIfReady(campaign, encounter);
     }
 
     public PlayerDecisionResolution ResolvePendingPlayerDecision(
@@ -149,6 +144,7 @@ public sealed partial class GameEngine
         return decision.DecisionType.Trim().ToLowerInvariant() switch
         {
             "opportunity_attack_reaction" => ResolveOpportunityAttackDecision(campaign, decision, option),
+            "readied_attack_reaction" => ResolveReadiedAttackDecision(campaign, decision, option),
             _ => throw new InvalidOperationException($"Player decision type '{decision.DecisionType}' is not supported.")
         };
     }
