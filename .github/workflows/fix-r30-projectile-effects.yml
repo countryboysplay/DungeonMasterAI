@@ -1,0 +1,67 @@
+name: Preserve r30 projectile spell hit effects
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/fix-r30-projectile-effects.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preserve configured hit effects
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.ProjectilePlayerRolls.cs')
+          text = path.read_text(encoding='utf-8')
+
+          old = '        _ = RequireProjectileEncounterIfAny(campaign, state, caster);'
+          new = '        var encounter = RequireProjectileEncounterIfAny(campaign, state, caster);'
+          if old not in text:
+              raise SystemExit('projectile encounter assignment not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        if (!target.Dead)
+              damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);'''.replace('              ', '            ')
+          new = '''        if (!target.Dead)
+          {
+              damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);
+              ApplySpellAttackHitEffects(campaign, encounter, caster, target, spell);
+          }'''.replace('          ', '')
+          # Use an exact literal if indentation normalization above did not match.
+          exact_old = '        if (!target.Dead)\n            damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);'
+          exact_new = '        if (!target.Dead)\n        {\n            damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);\n            ApplySpellAttackHitEffects(campaign, encounter, caster, target, spell);\n        }'
+          if exact_old not in text:
+              raise SystemExit('projectile damage application not found')
+          text = text.replace(exact_old, exact_new, 1)
+
+          old = '            : attackSummary + (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");\n        state.Results.Add('
+          new = '            : attackSummary + (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");\n        if (spell.NextAttackAgainstTargetHasAdvantage && !target.Dead)\n            projectileSummary += $" The next attack roll against {target.Name} has Advantage before the effect expires.";\n        state.Results.Add('
+          if old not in text:
+              raise SystemExit('projectile summary insertion point not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.ProjectilePlayerRolls.cs
+          git commit -m "r30: preserve projectile spell hit effects"
+          git push origin HEAD:${GITHUB_REF_NAME}
