@@ -1,0 +1,1 @@
+Verify r40 direct Game Table controls use authoritative player rolls for Initiative, skills, stealth, first aid, Grapple, Shove, and grapple escape.
