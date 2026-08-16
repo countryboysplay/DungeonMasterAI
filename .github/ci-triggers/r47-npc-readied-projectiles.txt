@@ -1,1 +1,2 @@
 Verify r47 NPC readied projectile attack and auto-hit sequences on Windows CI.
+Deterministic maximum dice now respect the exclusive upper bound.
