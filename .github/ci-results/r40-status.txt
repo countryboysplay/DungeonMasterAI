@@ -1,0 +1,13 @@
+r40 Game Table verification
+restore=success
+build=success
+initiative=success
+skills=success
+stealth=success
+unarmed=success
+opportunity=success
+decisions=success
+smoke=success
+publish=success
+installer=success
+commit=44bbb16b59891ab38f624a26389ab219aa3b5877
