@@ -1,0 +1,1 @@
+Trigger Windows CI after migrating save-spell damage smoke expectations.
