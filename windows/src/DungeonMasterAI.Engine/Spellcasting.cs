@@ -215,6 +215,8 @@ public sealed partial class GameEngine
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(dice);
         ArgumentNullException.ThrowIfNull(targetIds);
+        if (campaign.PendingPlayerRoll?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0)
@@ -298,6 +300,25 @@ public sealed partial class GameEngine
             BeginConcentration(campaign, caster.Id, spell.Name);
             concentrationStarted = true;
         }
+
+        if (resolution == "projectile_attack" && caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+{
+    if (activeEncounter is not null && spell.RequiresVerbal)
+    {
+        var casterCombatant = activeEncounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+        if (casterCombatant is not null) BreakHidden(campaign, activeEncounter, casterCombatant, "casting a spell with a Verbal component");
+    }
+    return BeginPlayerProjectileSpellSequence(
+        campaign,
+        caster,
+        spell,
+        castAtLevel,
+        usedSlot,
+        concentrationStarted,
+        activeEncounter,
+        allocations,
+        dice);
+}
 
         var results = new List<SpellTargetResolution>(projectileCount);
         for (var i = 0; i < targets.Length; i++)

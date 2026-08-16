@@ -39,6 +39,21 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("projectile_spell_damage", StringComparison.OrdinalIgnoreCase))
+{
+    var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+        && !string.IsNullOrWhiteSpace(storedExpression)
+        ? storedExpression
+        : pending.Formula;
+    var critical = pending.Context.TryGetValue("critical", out var criticalText)
+        && bool.TryParse(criticalText, out var parsedCritical)
+        && parsedCritical;
+    var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+    LastDiceResult = $"{pending.Formula}: {damageAmount}";
+    await ResolveActiveProjectileSpellDamageFromRollAsync(pending.Id, damageAmount);
+    return;
+}
+
         if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))
         {
             StatusMessage = $"The required roll is {pending.Formula}. That roll type is not wired to this control yet.";
@@ -68,6 +83,12 @@ public sealed partial class MainViewModel
             await ResolveActiveSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
             return;
         }
+
+        if (pending.ResolutionKey.Equals("projectile_spell_attack", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveProjectileSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
 
         if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))
         {
@@ -279,6 +300,46 @@ public sealed partial class MainViewModel
         for (var i = 0; i < extraRolls; i++) total += _dice.RollDamage(extraExpression, critical);
         return total;
     }
+
+    private async Task ResolveActiveProjectileSpellAttackFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+{
+    if (SelectedCampaign is null) return;
+    try
+    {
+        var result = _engine.ResolvePendingProjectileSpellAttackRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+        StatusMessage = result.Summary;
+        SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+        RaiseCharacterProperties();
+        RaiseCampaignProperties();
+        RefreshCombatSelections(keepSelection: true);
+        await SaveAsync();
+    }
+    catch (Exception ex)
+    {
+        StatusMessage = ex.Message;
+        RaiseCampaignProperties();
+    }
+}
+
+private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+{
+    if (SelectedCampaign is null) return;
+    try
+    {
+        var result = _engine.ResolvePendingProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+        StatusMessage = result.Summary;
+        SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+        RaiseCharacterProperties();
+        RaiseCampaignProperties();
+        RefreshCombatSelections(keepSelection: true);
+        await SaveAsync();
+    }
+    catch (Exception ex)
+    {
+        StatusMessage = ex.Message;
+        RaiseCampaignProperties();
+    }
+}
 
     private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
     {
