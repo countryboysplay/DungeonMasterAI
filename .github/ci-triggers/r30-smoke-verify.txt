@@ -1,0 +1,1 @@
+Trigger Windows CI after migrating the legacy multi-ray smoke expectation to the authoritative player roll pipeline.
