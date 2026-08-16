@@ -6,6 +6,7 @@ on:
       - feature/r24-player-roll-pipeline
     paths:
       - .github/patches/r24-player-roll-pipeline.patch.gz.b64
+      - .github/workflows/apply-r24-player-roll-patch.yml
   workflow_dispatch:
 
 permissions:
