@@ -1,0 +1,1 @@
+Verify readied area-save spells after removing the stale Ready guard.
