@@ -320,6 +320,24 @@ public sealed partial class GameEngine
         dice);
 }
 
+        if (resolution == "projectile_auto" && caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+{
+    if (activeEncounter is not null && spell.RequiresVerbal)
+    {
+        var casterCombatant = activeEncounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+        if (casterCombatant is not null) BreakHidden(campaign, activeEncounter, casterCombatant, "casting a spell with a Verbal component");
+    }
+    return BeginPlayerAutoProjectileSpellSequence(
+        campaign,
+        caster,
+        spell,
+        castAtLevel,
+        usedSlot,
+        concentrationStarted,
+        activeEncounter,
+        allocations);
+}
+
         var results = new List<SpellTargetResolution>(projectileCount);
         for (var i = 0; i < targets.Length; i++)
         {

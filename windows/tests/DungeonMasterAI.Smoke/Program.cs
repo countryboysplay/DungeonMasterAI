@@ -818,10 +818,23 @@ projectileCaster.PreparedSpellIds.AddRange([practiceMissiles.Id, practiceRays.Id
 var missileHpBefore = projectileTargetA.CurrentHp + projectileTargetB.CurrentHp;
 var missileCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceMissiles.Id, dice,
     [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id, projectileTargetB.Id], slotLevel: 2);
-Assert(missileCast.TargetResults is { Count: 4 } && projectileCaster.SpellSlots[2].Remaining == 2,
-    "an upcast auto-hit projectile spell resolves exactly one declared target allocation per projectile and spends one spell slot");
-Assert(projectileTargetA.CurrentHp + projectileTargetB.CurrentHp < missileHpBefore,
-    "auto-hit projectile damage is applied to all declared projectile targets");
+Assert(missileCast.TargetResults is { Count: 0 }
+    && projectileCaster.SpellSlots[2].Remaining == 2
+    && campaign.PendingPlayerRoll?.ResolutionKey == "projectile_auto_damage",
+    "an upcast player auto-hit projectile spell commits one slot and pauses for the first player damage roll");
+var missileSequenceResult = missileCast;
+for (var missileIndex = 0; missileIndex < 4; missileIndex++)
+{
+    var missileDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player damage roll for missile {missileIndex + 1}.");
+    Assert(missileDamagePending.ResolutionKey == "projectile_auto_damage", $"missile {missileIndex + 1} requests player damage");
+    missileSequenceResult = engine.ResolvePendingAutoProjectileSpellDamageRoll(campaign, missileDamagePending.Id, 2, dice);
+}
+Assert(missileSequenceResult.TargetResults is { Count: 4 }
+    && campaign.PendingPlayerRoll is null
+    && projectileCaster.SpellSlots[2].Remaining == 2,
+    "an upcast auto-hit projectile spell resolves exactly one player damage roll per declared projectile and spends one spell slot");
+Assert(projectileTargetA.CurrentHp + projectileTargetB.CurrentHp == missileHpBefore - 8,
+    "the supplied auto-hit projectile damage is applied to all declared projectile targets");
 var slotBeforeBadAllocation = projectileCaster.SpellSlots[2].Remaining;
 var badProjectileAllocationRejected = false;
 try { engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceRays.Id, dice, [projectileTargetA.Id, projectileTargetB.Id], slotLevel: 2); }
