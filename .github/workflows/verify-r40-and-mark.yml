@@ -1,0 +1,66 @@
+name: Verify r40 and mark
+
+on:
+  push:
+    branches: [feature/r40-game-table-player-inputs]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r40-game-table-player-inputs
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore src/DungeonMasterAI.App/DungeonMasterAI.App.csproj
+      - name: Build WPF app
+        run: dotnet build src/DungeonMasterAI.App/DungeonMasterAI.App.csproj --configuration Release --no-restore
+      - name: Focused roll tests
+        run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
+      - name: Initiative tests
+        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
+      - name: Combat skill tests
+        run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
+      - name: Stealth and first aid tests
+        run: dotnet run --project tests/DungeonMasterAI.StealthAidRollTests/DungeonMasterAI.StealthAidRollTests.csproj --configuration Release
+      - name: Grapple shove escape tests
+        run: dotnet run --project tests/DungeonMasterAI.UnarmedPlayerRollTests/DungeonMasterAI.UnarmedPlayerRollTests.csproj --configuration Release
+      - name: Opportunity Attack tests
+        run: dotnet run --project tests/DungeonMasterAI.OpportunityAttackRollTests/DungeonMasterAI.OpportunityAttackRollTests.csproj --configuration Release
+      - name: Player decision tests
+        run: dotnet run --project tests/DungeonMasterAI.PlayerDecisionTests/DungeonMasterAI.PlayerDecisionTests.csproj --configuration Release
+      - name: Full smoke suite
+        run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
+      - name: Publish Windows build
+        run: >-
+          dotnet publish src/DungeonMasterAI.App/DungeonMasterAI.App.csproj
+          --configuration Release --runtime win-x64 --self-contained true
+          -p:PublishSingleFile=false -p:PublishReadyToRun=true
+          -o artifacts/DungeonMasterAI-win-x64
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build installer
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer/DungeonMasterAI.iss'
+      - name: Mark verified
+        working-directory: .
+        shell: pwsh
+        run: |
+          "r40 Game Table player input routing verified on Windows CI." | Set-Content -Path .github/ci-triggers/r40-verified.txt
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add .github/ci-triggers/r40-verified.txt
+          git commit -m "ci: mark r40 Game Table input routing verified"
+          git push origin HEAD:feature/r40-game-table-player-inputs
