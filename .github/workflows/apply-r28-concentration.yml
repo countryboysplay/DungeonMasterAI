@@ -1,0 +1,479 @@
+name: Apply r28 player concentration rolls
+
+on:
+  push:
+    branches:
+      - feature/r28-player-concentration-rolls
+    paths:
+      - .github/workflows/apply-r28-concentration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  transform-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply source transformation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          game = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.cs'
+          text = game.read_text(encoding='utf-8')
+          pattern = re.compile(r'    public ConcentrationCheckResult\? ResolveConcentrationAfterDamage\(.*?\n    public int SpendSpellSlot\(', re.S)
+          replacement = '''    public ConcentrationCheckResult? ResolveConcentrationAfterDamage(
+              CampaignState campaign,
+              string characterId,
+              int effectiveDamage,
+              DiceService dice)
+          {
+              ArgumentNullException.ThrowIfNull(dice);
+              if (effectiveDamage <= 0) return null;
+              var character = RequireCharacter(campaign, characterId);
+              if (string.IsNullOrWhiteSpace(character.ConcentrationEffect)) return null;
+
+              var effect = character.ConcentrationEffect!;
+              if (character.Dead || character.CurrentHp <= 0 || character.Conditions.Any(BreaksConcentration))
+              {
+                  EndConcentrationInternal(campaign, character, "being incapacitated");
+                  return null;
+              }
+
+              var dc = Math.Min(30, Math.Max(10, effectiveDamage / 2));
+              if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+              {
+                  if (campaign.PendingPlayerRoll?.Required == true)
+                      throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+
+                  var proficient = character.SavingThrowProficiencies.Any(x => CharacterMechanics.NormalizeAbility(x) == "constitution");
+                  var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "constitution"));
+                  var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
+                  var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+                  var pending = new PendingRollRequest
+                  {
+                      ActorCharacterId = character.Id,
+                      Formula = "1d20",
+                      RollType = "d20",
+                      RollMode = "normal",
+                      Purpose = $"{character.Name} must make a DC {dc} Constitution saving throw to maintain Concentration on {effect} after taking {effectiveDamage} damage.",
+                      ResolutionKey = "concentration_check",
+                      Modifier = abilityModifier + proficiencyModifier - exhaustionPenalty,
+                      TargetNumber = dc,
+                      TargetLabel = $"DC {dc}",
+                      Required = true,
+                      Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                      {
+                          ["effect"] = effect,
+                          ["effective_damage"] = effectiveDamage.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                          ["proficient"] = proficient ? "true" : "false"
+                      }
+                  };
+                  campaign.PendingPlayerRoll = pending;
+                  Touch(campaign);
+                  Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
+                  return null;
+              }
+
+              var mode = D20RollMode.Normal;
+              var rolls = dice.RollD20(mode);
+              var npcProficient = character.SavingThrowProficiencies.Any(x => CharacterMechanics.NormalizeAbility(x) == "constitution");
+              var effectSaveBonus = RollActiveSavingThrowBonus(campaign, character.Id, dice);
+              var savingThrow = CharacterMechanics.ResolveD20Test(
+                  character,
+                  "constitution",
+                  dc,
+                  rolls.RollOne,
+                  rolls.RollTwo,
+                  mode,
+                  npcProficient,
+                  effectSaveBonus);
+              var maintained = savingThrow.Success;
+              if (!maintained)
+                  EndConcentrationInternal(campaign, character, $"failing a DC {dc} Constitution saving throw after taking damage");
+              else
+              {
+                  Touch(campaign);
+                  Log(campaign, "concentration_check", $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc}).");
+              }
+
+              var summary = maintained
+                  ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
+                  : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
+              return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
+          }
+
+          public DamageResolutionResult ApplyDamageWithConcentration(
+              CampaignState campaign,
+              string characterId,
+              int amount,
+              DiceService dice,
+              string? damageType = null,
+              bool criticalHit = false)
+          {
+              ArgumentNullException.ThrowIfNull(dice);
+              var character = RequireCharacter(campaign, characterId);
+              if (amount > 0
+                  && character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                  && !string.IsNullOrWhiteSpace(character.ConcentrationEffect)
+                  && campaign.PendingPlayerRoll?.Required == true)
+              {
+                  throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+              }
+
+              var damage = ApplyDamageCore(campaign, characterId, amount, damageType, criticalHit);
+              var concentration = ResolveConcentrationAfterDamage(campaign, characterId, damage.EffectiveDamage, dice);
+              return new DamageResolutionResult(damage, concentration);
+          }
+
+          public int SpendSpellSlot('''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'GameEngine concentration replacement count was {count}, expected 1')
+          game.write_text(text, encoding='utf-8')
+
+          rolls = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.PlayerRolls.cs'
+          text = rolls.read_text(encoding='utf-8')
+          old = '''        var concentrationBefore = target.ConcentrationEffect;
+                  var resolution = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);'''
+          new = '''        var concentrationBefore = target.ConcentrationEffect;
+                  // The attack-damage request is now satisfied. Clear it before applying damage so a
+                  // concentrating player target can replace it with the required Concentration save.
+                  campaign.PendingPlayerRoll = null;
+                  var resolution = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);'''
+          if old not in text:
+              raise SystemExit('Could not find player attack damage concentration call')
+          text = text.replace(old, new, 1)
+          old = '''        campaign.PendingPlayerRoll = null;
+                  Touch(campaign);
+                  Log(campaign, "combat_attack", summary);
+                  return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, damage, summary, concentration, false, coverBonus);'''
+          new = '''        // Do not clear PendingPlayerRoll here. Applying the damage may have created a
+                  // new required player Concentration check, and that request must remain authoritative.
+                  Touch(campaign);
+                  Log(campaign, "combat_attack", summary);
+                  return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, damage, summary, concentration, false, coverBonus);'''
+          if old not in text:
+              raise SystemExit('Could not find player attack damage pending-roll clear')
+          text = text.replace(old, new, 1)
+          rolls.write_text(text, encoding='utf-8')
+
+          vm = root / 'windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs'
+          text = vm.read_text(encoding='utf-8')
+          old = '''        if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
+                  {
+                      await ResolveActiveSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+                      return;
+                  }
+
+                  if (pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))'''
+          new = '''        if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
+                  {
+                      await ResolveActiveSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+                      return;
+                  }
+
+                  if (pending.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase))
+                  {
+                      await ResolveActiveConcentrationCheckFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+                      return;
+                  }
+
+                  if (pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))'''
+          if old not in text:
+              raise SystemExit('Could not find MainViewModel roll routing insertion point')
+          text = text.replace(old, new, 1)
+          marker = '''    private async Task ResolveActiveInitiativeFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)'''
+          method = '''    private async Task ResolveActiveConcentrationCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+              {
+                  if (SelectedCampaign is null) return;
+                  try
+                  {
+                      var result = _engine.ResolvePendingConcentrationCheckRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+                      LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+                      StatusMessage = result.Summary;
+                      SelectedCampaign.Chat.Add(new ChatMessage
+                      {
+                          Role = "assistant",
+                          Content = $"🎲 {CleanSessionNarration(result.Summary)}"
+                      });
+                      RaiseCharacterProperties();
+                      RaiseCampaignProperties();
+                      RefreshCombatSelections(keepSelection: true);
+                      await SaveAsync();
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }
+
+          '''
+          if marker not in text:
+              raise SystemExit('Could not find MainViewModel Initiative resolver marker')
+          text = text.replace(marker, method + marker, 1)
+          vm.write_text(text, encoding='utf-8')
+
+          router = root / 'windows/src/DungeonMasterAI.Engine/DmToolRouter.cs'
+          text = router.read_text(encoding='utf-8')
+          old = 'Tool("damage_character", "Apply typed damage, including Temporary HP, Resistance, Vulnerability, Immunity, 0 HP, Death Saving Throw rules, and an automatic Concentration save when required.",'
+          new = 'Tool("damage_character", "Apply typed damage, including Temporary HP, Resistance, Vulnerability, Immunity, and 0 HP rules. NPC Concentration saves resolve automatically; player-character Concentration saves create a required player d20 roll and stop progression until resolved.",'
+          if old not in text:
+              raise SystemExit('Could not find damage_character tool description')
+          router.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          concentration = root / 'windows/src/DungeonMasterAI.Engine/GameEngine.ConcentrationRolls.cs'
+          concentration.write_text('''using DungeonMasterAI.Domain;
+
+          namespace DungeonMasterAI.Engine;
+
+          public sealed partial class GameEngine
+          {
+              public ConcentrationCheckResult ResolvePendingConcentrationCheckRoll(
+                  CampaignState campaign,
+                  string pendingRollId,
+                  int rollOne,
+                  int? rollTwo,
+                  DiceService dice)
+              {
+                  ArgumentNullException.ThrowIfNull(campaign);
+                  ArgumentNullException.ThrowIfNull(dice);
+                  if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
+                  if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
+
+                  var pending = campaign.PendingPlayerRoll
+                      ?? throw new InvalidOperationException("There is no required player roll to resolve.");
+                  if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException("The supplied roll does not match the active pending player roll.");
+                  if (!pending.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not a Concentration check.");
+
+                  var character = RequireCharacter(campaign, pending.ActorCharacterId);
+                  if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException("The pending Concentration check no longer belongs to a player character.");
+                  if (!pending.Context.TryGetValue("effect", out var effect) || string.IsNullOrWhiteSpace(effect))
+                      throw new InvalidOperationException("The pending Concentration check is missing its effect context.");
+                  if (!string.Equals(character.ConcentrationEffect, effect, StringComparison.OrdinalIgnoreCase))
+                      throw new InvalidOperationException($"{character.Name} is no longer concentrating on {effect}.");
+
+                  var dc = pending.TargetNumber ?? throw new InvalidOperationException("The pending Concentration check is missing its DC.");
+                  var effectiveDamage = pending.Context.TryGetValue("effective_damage", out var damageText) && int.TryParse(damageText, out var parsedDamage)
+                      ? parsedDamage
+                      : 0;
+                  var mode = ParsePendingRollMode(pending.RollMode);
+                  if (mode != D20RollMode.Normal && !rollTwo.HasValue)
+                      throw new InvalidOperationException($"This Concentration check requires two d20 results because it has {mode}.");
+
+                  var proficient = character.SavingThrowProficiencies.Any(x => CharacterMechanics.NormalizeAbility(x) == "constitution");
+                  var activeEffectBonus = RollActiveSavingThrowBonus(campaign, character.Id, dice);
+                  var savingThrow = CharacterMechanics.ResolveD20Test(
+                      character,
+                      "constitution",
+                      dc,
+                      rollOne,
+                      rollTwo,
+                      mode,
+                      proficient,
+                      activeEffectBonus);
+                  var maintained = savingThrow.Success;
+
+                  campaign.PendingPlayerRoll = null;
+                  if (!maintained)
+                      EndConcentrationInternal(campaign, character, $"failing a DC {dc} Constitution saving throw after taking damage");
+                  else
+                  {
+                      Touch(campaign);
+                      Log(campaign, "concentration_check", $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc}).");
+                  }
+
+                  var summary = maintained
+                      ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
+                      : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
+                  return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
+              }
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+
+          test_dir = root / 'windows/tests/DungeonMasterAI.ConcentrationTests'
+          test_dir.mkdir(parents=True, exist_ok=True)
+          (test_dir / 'DungeonMasterAI.ConcentrationTests.csproj').write_text('''<Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net10.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+            <ItemGroup>
+              <ProjectReference Include="..\\..\\src\\DungeonMasterAI.Domain\\DungeonMasterAI.Domain.csproj" />
+              <ProjectReference Include="..\\..\\src\\DungeonMasterAI.Engine\\DungeonMasterAI.Engine.csproj" />
+            </ItemGroup>
+          </Project>
+          '''.replace('          ', ''), encoding='utf-8')
+          (test_dir / 'Program.cs').write_text('''using DungeonMasterAI.Domain;
+          using DungeonMasterAI.Engine;
+
+          var failures = new List<string>();
+          var passed = 0;
+
+          Run("player damage creates a required Concentration roll without auto-resolving it", () =>
+          {
+              var (engine, campaign, pc) = CreateConcentratingPc();
+              var dice = new DiceService((min, max) => min);
+              var damage = engine.ApplyDamageWithConcentration(campaign, pc.Id, 8, dice);
+
+              Equal(12, pc.CurrentHp, "HP after damage");
+              True(damage.Concentration is null, "PC Concentration should wait for the player roll");
+              Equal("Bless", pc.ConcentrationEffect, "Concentration should remain until the save resolves");
+              var pending = campaign.PendingPlayerRoll ?? throw new Exception("Concentration pending roll missing");
+              Equal("concentration_check", pending.ResolutionKey, "resolution key");
+              Equal(10, pending.TargetNumber, "Concentration DC");
+              Equal(4, pending.Modifier, "static Constitution save modifier");
+              True(pending.Required, "Concentration roll should be required");
+          });
+
+          Run("supplied player d20 is authoritative and can break Concentration", () =>
+          {
+              var (engine, campaign, pc) = CreateConcentratingPc();
+              var dice = new DiceService((min, max) => min);
+              engine.ApplyDamageWithConcentration(campaign, pc.Id, 8, dice);
+              var pending = campaign.PendingPlayerRoll ?? throw new Exception("Concentration pending roll missing");
+
+              var result = engine.ResolvePendingConcentrationCheckRoll(campaign, pending.Id, 5, null, dice);
+              Equal(5, result.SavingThrow.ChosenRoll, "authoritative Concentration d20");
+              Equal(9, result.SavingThrow.Total, "Concentration total");
+              True(!result.Maintained, "Concentration should fail at 9 vs DC 10");
+              True(string.IsNullOrWhiteSpace(pc.ConcentrationEffect), "Concentration effect should end");
+              True(campaign.PendingPlayerRoll is null, "pending Concentration roll should clear");
+          });
+
+          Run("supplied player d20 can maintain Concentration", () =>
+          {
+              var (engine, campaign, pc) = CreateConcentratingPc();
+              var dice = new DiceService((min, max) => min);
+              engine.ApplyDamageWithConcentration(campaign, pc.Id, 8, dice);
+              var pending = campaign.PendingPlayerRoll ?? throw new Exception("Concentration pending roll missing");
+
+              var result = engine.ResolvePendingConcentrationCheckRoll(campaign, pending.Id, 15, null, dice);
+              Equal(19, result.SavingThrow.Total, "Concentration total");
+              True(result.Maintained, "Concentration should succeed");
+              Equal("Bless", pc.ConcentrationEffect, "Concentration effect should remain");
+              True(campaign.PendingPlayerRoll is null, "pending Concentration roll should clear");
+          });
+
+          Run("another required player roll blocks damage before state mutates", () =>
+          {
+              var (engine, campaign, pc) = CreateConcentratingPc();
+              var dice = new DiceService((min, max) => min);
+              engine.RequestAbilityCheckRoll(campaign, pc.Id, "wisdom", 10);
+              var beforeHp = pc.CurrentHp;
+              var threw = false;
+              try { engine.ApplyDamageWithConcentration(campaign, pc.Id, 8, dice); }
+              catch (InvalidOperationException) { threw = true; }
+              True(threw, "damage should be blocked while another required roll is unresolved");
+              Equal(beforeHp, pc.CurrentHp, "HP must remain unchanged when damage is blocked");
+              Equal("Bless", pc.ConcentrationEffect, "Concentration must remain unchanged when damage is blocked");
+          });
+
+          Run("NPC Concentration still resolves immediately", () =>
+          {
+              var engine = new GameEngine();
+              var npc = new CharacterSheet
+              {
+                  Id = "npc-caster",
+                  Name = "Watcher Mage",
+                  CharacterType = "npc",
+                  MaxHp = 20,
+                  CurrentHp = 20,
+                  ProficiencyBonus = 2,
+                  Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["constitution"] = 14 },
+                  SavingThrowProficiencies = ["constitution"]
+              };
+              var campaign = new CampaignState { Id = "campaign-npc-concentration", Name = "NPC Concentration", Characters = [npc] };
+              engine.BeginConcentration(campaign, npc.Id, "Fog Cloud");
+              var dice = new DiceService((min, max) => max - 1);
+
+              var damage = engine.ApplyDamageWithConcentration(campaign, npc.Id, 8, dice);
+              True(damage.Concentration is not null, "NPC Concentration should resolve immediately");
+              True(damage.Concentration!.Maintained, "NPC high deterministic roll should maintain Concentration");
+              True(campaign.PendingPlayerRoll is null, "NPC Concentration must not create a player roll");
+          });
+
+          if (failures.Count > 0)
+          {
+              Console.Error.WriteLine($"Concentration roll tests failed: {failures.Count}");
+              foreach (var failure in failures) Console.Error.WriteLine($" - {failure}");
+              Environment.Exit(1);
+          }
+
+          Console.WriteLine($"Concentration roll tests passed: {passed}");
+
+          void Run(string name, Action test)
+          {
+              try
+              {
+                  test();
+                  passed++;
+                  Console.WriteLine($"PASS: {name}");
+              }
+              catch (Exception ex)
+              {
+                  failures.Add($"{name}: {ex.Message}");
+                  Console.Error.WriteLine($"FAIL: {name}: {ex.Message}");
+              }
+          }
+
+          static (GameEngine Engine, CampaignState Campaign, CharacterSheet Pc) CreateConcentratingPc()
+          {
+              var engine = new GameEngine();
+              var pc = new CharacterSheet
+              {
+                  Id = "pc-caster",
+                  Name = "Aric",
+                  CharacterType = "pc",
+                  MaxHp = 20,
+                  CurrentHp = 20,
+                  ProficiencyBonus = 2,
+                  Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                  {
+                      ["constitution"] = 14,
+                      ["wisdom"] = 12
+                  },
+                  SavingThrowProficiencies = ["constitution"]
+              };
+              var campaign = new CampaignState { Id = "campaign-concentration", Name = "Concentration Campaign", Characters = [pc] };
+              engine.BeginConcentration(campaign, pc.Id, "Bless");
+              return (engine, campaign, pc);
+          }
+
+          static void True(bool value, string label)
+          {
+              if (!value) throw new Exception(label);
+          }
+
+          static void Equal<T>(T expected, T actual, string label)
+          {
+              if (!EqualityComparer<T>.Default.Equals(expected, actual))
+                  throw new Exception($"{label}: expected {expected}, got {actual}");
+          }
+          '''.replace('          ', ''), encoding='utf-8')
+          PY
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r28: make player Concentration saves authoritative"
+          git push origin HEAD:${GITHUB_REF_NAME}
