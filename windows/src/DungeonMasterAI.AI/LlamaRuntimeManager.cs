@@ -14,8 +14,8 @@ public sealed class LlamaRuntimeManager : IDisposable
         {
             var process = _process;
             try { return process is { HasExited: false }; }
-            catch (InvalidOperationException) { return false; }
             catch (ObjectDisposedException) { return false; }
+            catch (InvalidOperationException) { return false; }
         }
     }
     public string? LastError { get; private set; }
@@ -105,8 +105,8 @@ public sealed class LlamaRuntimeManager : IDisposable
                     if (sender is Process exited && exited.ExitCode != 0)
                         LastError = $"Local AI runtime exited with code {exited.ExitCode}.";
                 }
-                catch (InvalidOperationException) { }
                 catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
             };
             _process = process;
             if (!process.Start())
