@@ -54,6 +54,18 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("projectile_auto_damage", StringComparison.OrdinalIgnoreCase))
+{
+    var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+        && !string.IsNullOrWhiteSpace(storedExpression)
+        ? storedExpression
+        : pending.Formula;
+    var damageAmount = _dice.RollDamage(baseDamageExpression);
+    LastDiceResult = $"{pending.Formula}: {damageAmount}";
+    await ResolveActiveAutoProjectileSpellDamageFromRollAsync(pending.Id, damageAmount);
+    return;
+}
+
         if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))
         {
             StatusMessage = $"The required roll is {pending.Formula}. That roll type is not wired to this control yet.";
@@ -327,6 +339,26 @@ private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendin
     try
     {
         var result = _engine.ResolvePendingProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+        StatusMessage = result.Summary;
+        SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+        RaiseCharacterProperties();
+        RaiseCampaignProperties();
+        RefreshCombatSelections(keepSelection: true);
+        await SaveAsync();
+    }
+    catch (Exception ex)
+    {
+        StatusMessage = ex.Message;
+        RaiseCampaignProperties();
+    }
+}
+
+    private async Task ResolveActiveAutoProjectileSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+{
+    if (SelectedCampaign is null) return;
+    try
+    {
+        var result = _engine.ResolvePendingAutoProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
         StatusMessage = result.Summary;
         SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
         RaiseCharacterProperties();
