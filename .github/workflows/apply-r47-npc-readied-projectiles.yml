@@ -1,0 +1,34 @@
+name: Apply r47 NPC readied projectiles
+
+on:
+  push:
+    branches: [feature/r47-npc-readied-projectile-spells]
+    paths:
+      - '.github/workflows/apply-r47-npc-readied-projectiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r47-npc-readied-projectile-spells
+          fetch-depth: 0
+      - name: Apply r47 codemod
+        run: python3 .github/scripts/apply_r47_npc_readied_projectiles.py
+      - name: Commit r47 integration
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.Engine/Spellcasting.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.ReadiedProjectileSpells.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.ProjectilePlayerRolls.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.AutoProjectilePlayerRolls.cs \
+                  windows/tests/DungeonMasterAI.ReadiedProjectileSpellTests/Program.cs
+          git diff --cached --check
+          git commit -m "r47: enable NPC readied projectile spell sequences"
+          git push origin HEAD:feature/r47-npc-readied-projectile-spells
