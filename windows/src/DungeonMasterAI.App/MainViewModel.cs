@@ -1897,7 +1897,26 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             }
             else if (ready.Kind.Equals("spell", StringComparison.OrdinalIgnoreCase))
             {
-                var result = _engine.TriggerReadiedSpell(SelectedCampaign, SelectedEncounter.Id, combatant.Id, _dice, SelectedTarget?.CombatantId);
+                var readiedSpell = SelectedCampaign.Spells.FirstOrDefault(s => s.Id.Equals(ready.SpellId ?? "", StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidOperationException("The readied spell is no longer in the campaign spell catalog.");
+                int? centerX = null;
+                int? centerY = null;
+                if ((readiedSpell.Resolution ?? "").Equals("area_save", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!int.TryParse(SpellAreaCenterXInput, out var parsedX) || !int.TryParse(SpellAreaCenterYInput, out var parsedY))
+                        throw new InvalidOperationException("Area center X and Y must be whole-number grid coordinates before releasing a readied area spell.");
+                    centerX = parsedX;
+                    centerY = parsedY;
+                }
+                var result = _engine.TriggerReadiedSpell(
+                    SelectedCampaign,
+                    SelectedEncounter.Id,
+                    combatant.Id,
+                    _dice,
+                    SelectedTarget?.CombatantId,
+                    centerX,
+                    centerY,
+                    SpellAreaDirectionInput);
                 StatusMessage = result.Summary;
             }
             else throw new InvalidOperationException($"Unsupported readied action kind '{ready.Kind}'.");
