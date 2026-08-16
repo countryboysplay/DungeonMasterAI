@@ -44,6 +44,9 @@ jobs:
       - name: Run spell attack roll tests
         run: dotnet run --project tests/DungeonMasterAI.SpellRollTests/DungeonMasterAI.SpellRollTests.csproj --configuration Release
 
+      - name: Run projectile spell roll tests
+        run: dotnet run --project tests/DungeonMasterAI.ProjectileRollTests/DungeonMasterAI.ProjectileRollTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 

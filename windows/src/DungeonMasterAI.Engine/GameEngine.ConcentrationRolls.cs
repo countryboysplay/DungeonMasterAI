@@ -64,6 +64,8 @@ public sealed partial class GameEngine
         var summary = maintained
   ? $"{character.Name} maintained Concentration on {effect} ({savingThrow.Total} vs DC {dc})."
   : $"{character.Name} lost Concentration on {effect} ({savingThrow.Total} vs DC {dc}).";
-        return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
+        var continuationSummary = ResumePendingRollContinuation(campaign, pending.Context, dice);
+if (!string.IsNullOrWhiteSpace(continuationSummary)) summary += $" {continuationSummary}";
+return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);
     }
 }
