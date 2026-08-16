@@ -1,0 +1,44 @@
+name: Run r30 projectile transformer
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/run-r30-transform.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  transform-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Execute staged Python transformation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-r30-projectile-rolls.yml').read_text(encoding='utf-8')
+          marker = "          from pathlib import Path\n"
+          start = source.index(marker)
+          end = source.index("\n          PY\n", start)
+          block = source[start:end]
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in block.splitlines())
+          exec(compile(script, 'r30_transform.py', 'exec'), {})
+          PY
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r30: make player projectile spell rolls authoritative"
+          git push origin HEAD:${GITHUB_REF_NAME}
