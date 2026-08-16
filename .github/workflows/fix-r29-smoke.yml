@@ -1,0 +1,49 @@
+name: Fix r29 spell attack smoke expectations
+
+on:
+  push:
+    branches:
+      - feature/r29-player-spell-attack-rolls
+    paths:
+      - .github/workflows/fix-r29-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrate legacy spell attack smoke expectation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''var ray = engine.CastSpell(campaign, spellTester.Id, practiceRay.Id, dice, rayTarget.Id);
+          Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore, "cantrips cast without expending a spell slot");'''.replace('          ', '')
+          new = '''var ray = engine.CastSpell(campaign, spellTester.Id, practiceRay.Id, dice, rayTarget.Id);
+          Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore && campaign.PendingPlayerRoll?.ResolutionKey == "spell_attack", "cantrips cast without expending a spell slot and player spell attacks pause for the player d20");
+          var rayPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Practice Ray to request a player spell attack roll.");
+          var rayResolved = engine.ResolvePendingSpellAttackRoll(campaign, rayPending.Id, 1, null, dice);
+          Assert(rayResolved.SpellAttack is { Hit: false, D20: 1 } && campaign.PendingPlayerRoll is null, "the smoke fixture supplies Practice Ray's player d20 before continuing");'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find Practice Ray smoke block')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: expect player-controlled spell attack rolls"
+          git push origin HEAD:${GITHUB_REF_NAME}
