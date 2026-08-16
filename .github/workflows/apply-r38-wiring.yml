@@ -41,15 +41,12 @@ jobs:
           if 'Player-character Opportunity Attacks must use the authoritative player-roll request path.' not in engine[method:method+5000]:
               engine = engine[:insert_at] + guard + engine[insert_at:]
 
-          old_tail = '''        if (concentration is not null) summary += $" {concentration.Summary}";
-          window.Resolved = true;
-          window.Declined = false;
-          window.ResolutionSummary = summary;
-          Log(campaign, "opportunity_attack", summary);
-          FinalizePendingMoveIfReady(campaign, encounter);
-          Touch(campaign);
-          return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);'''
-          new_tail = '''        if (concentration is not null) summary += $" {concentration.Summary}";
+          if 'must resolve Concentration before the pending movement can continue' not in engine[method:method+8000]:
+              tail_start_marker = '        if (concentration is not null) summary += $" {concentration.Summary}";\n'
+              return_marker = '        return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);'
+              tail_start = engine.index(tail_start_marker, method)
+              tail_end = engine.index(return_marker, tail_start) + len(return_marker)
+              new_tail = '''        if (concentration is not null) summary += $" {concentration.Summary}";
           if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
           {
               campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "opportunity_attack_move";
@@ -68,10 +65,7 @@ jobs:
           Log(campaign, "opportunity_attack", summary);
           Touch(campaign);
           return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);'''
-          if old_tail in engine:
-              engine = engine.replace(old_tail, new_tail, 1)
-          elif 'must resolve Concentration before the pending movement can continue' not in engine[method:method+7000]:
-              raise SystemExit('Could not find automatic Opportunity Attack completion block.')
+              engine = engine[:tail_start] + new_tail + engine[tail_end:]
           engine_path.write_text(engine, encoding='utf-8')
 
           router_path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
