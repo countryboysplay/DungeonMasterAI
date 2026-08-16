@@ -1,1 +1,1 @@
-Trigger Windows CI after migrating legacy spell attack smoke expectations.
+Trigger Windows CI after migrating legacy Practice Ray and Guiding Bolt player spell attack smoke expectations.
