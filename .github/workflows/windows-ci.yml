@@ -86,6 +86,9 @@ jobs:
       - name: Run readied area spell tests
         run: dotnet run --project tests/DungeonMasterAI.ReadiedAreaSpellTests/DungeonMasterAI.ReadiedAreaSpellTests.csproj --configuration Release
 
+      - name: Run readied multi-buff spell tests
+        run: dotnet run --project tests/DungeonMasterAI.ReadiedMultiBuffTests/DungeonMasterAI.ReadiedMultiBuffTests.csproj --configuration Release
+
       - name: Run readied movement decision tests
         run: dotnet run --project tests/DungeonMasterAI.ReadiedMoveDecisionTests/DungeonMasterAI.ReadiedMoveDecisionTests.csproj --configuration Release
 
