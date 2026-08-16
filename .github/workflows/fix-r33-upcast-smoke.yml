@@ -1,0 +1,68 @@
+name: Fix r33 upcast spell smoke expectation
+
+on:
+  push:
+    branches:
+      - feature/r33-player-save-spell-damage
+    paths:
+      - .github/workflows/fix-r33-upcast-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrate legacy upcast damage expectation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          needle = 'upcast damaging spell adds one configured die for each slot above base'
+          idx = text.find(needle)
+          if idx < 0:
+              raise SystemExit('upcast smoke assertion not found')
+
+          assert_start = text.rfind('Assert(', 0, idx)
+          if assert_start < 0:
+              raise SystemExit('upcast smoke Assert start not found')
+
+          block = '''if (campaign.PendingPlayerRoll?.ResolutionKey == "spell_save_damage")
+          {
+              var pendingUpcastDamage = campaign.PendingPlayerRoll;
+              var baseExpression = pendingUpcastDamage.Context.TryGetValue("base_damage_expression", out var pendingBaseExpression) ? pendingBaseExpression : "";
+              var extraExpression = pendingUpcastDamage.Context.TryGetValue("extra_damage_expression", out var pendingExtraExpression) ? pendingExtraExpression : "";
+              var baseRolls = pendingUpcastDamage.Context.TryGetValue("base_rolls", out var pendingBaseRollsText) && int.TryParse(pendingBaseRollsText, out var pendingBaseRolls) ? pendingBaseRolls : 0;
+              var extraRolls = pendingUpcastDamage.Context.TryGetValue("extra_rolls", out var pendingExtraRollsText) && int.TryParse(pendingExtraRollsText, out var pendingExtraRolls) ? pendingExtraRolls : 0;
+              var suppliedUpcastDamage = 0;
+              for (var rollIndex = 0; rollIndex < baseRolls; rollIndex++) suppliedUpcastDamage += dice.RollDamage(baseExpression);
+              for (var rollIndex = 0; rollIndex < extraRolls; rollIndex++) suppliedUpcastDamage += dice.RollDamage(extraExpression);
+              engine.ResolvePendingSpellSaveDamageRoll(campaign, pendingUpcastDamage.Id, suppliedUpcastDamage, dice);
+          }
+          '''.replace('          ', '') + '\n'
+
+          if 'pendingUpcastDamage' in text[max(0, assert_start - 2500):assert_start]:
+              raise SystemExit('upcast smoke migration already present')
+
+          text = text[:assert_start] + block + text[assert_start:]
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: resolve player upcast damage in smoke suite"
+          git push origin HEAD:${GITHUB_REF_NAME}
