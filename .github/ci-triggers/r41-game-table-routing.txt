@@ -1,1 +1,0 @@
-Verify corrected direct Game Table routing through authoritative player rolls on Windows CI.
