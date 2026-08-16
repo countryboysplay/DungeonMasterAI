@@ -1,0 +1,1 @@
+Trigger Windows CI after migrating auto-hit projectile smoke expectations to player damage rolls.
