@@ -11,7 +11,7 @@ Run("grapple against a player pauses for the target saving throw", () =>
     var pending = f.Engine.RequestUnarmedGrappleSaveRoll(f.Campaign, f.Encounter.Id, f.AttackerCombatant.Id, f.TargetCombatant.Id, "strength");
     Equal("unarmed_grapple_save", pending.ResolutionKey, "grapple pending key");
     Equal(f.Target.Id, pending.ActorCharacterId, "target owns grapple save");
-    True(f.AttackerCombatant.AttacksMadeThisAction == 1, "declared grapple spends one attack before target save");
+    True(!f.AttackerCombatant.ActionAvailable && f.AttackerCombatant.AttacksRemainingInAction == 0, "declared grapple spends one attack before target save");
     True(f.Encounter.Grapples.Count == 0, "grapple state is not applied before save");
 
     var result = f.Engine.ResolvePendingUnarmedGrappleSaveRoll(f.Campaign, pending.Id, 20, null, MinimumDice());
