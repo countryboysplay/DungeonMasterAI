@@ -109,7 +109,7 @@ Run("NPC readied save spell asks the targeted PC for the saving throw off turn",
     f.Engine.NextTurn(f.Campaign, f.Encounter.Id, dice);
 
     var result = f.Engine.TriggerReadiedSpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, dice, f.TargetCombatant.Id);
-    True(result.SavingThrow is null, "NPC readied spell waits for the PC save instead of auto-rolling it");
+    True(result.TargetSavingThrow is null, "NPC readied spell waits for the PC save instead of auto-rolling it");
     var savePending = f.Campaign.PendingPlayerRoll ?? throw new Exception("PC saving throw request missing");
     Equal("spell_saving_throw", savePending.ResolutionKey, "readied spell saving throw key");
     Equal(f.Target.Id, savePending.ActorCharacterId, "target PC owns the readied spell save");
@@ -117,7 +117,7 @@ Run("NPC readied save spell asks the targeted PC for the saving throw off turn",
     True(!f.CasterCombatant.ReactionAvailable, "NPC release spends its Reaction");
 
     var resolved = f.Engine.ResolvePendingSpellSavingThrowRoll(f.Campaign, savePending.Id, 20, null, dice);
-    True(resolved.SavingThrow is { Success: true, ChosenRoll: 20 }, "supplied PC save d20 is authoritative");
+    True(resolved.TargetSavingThrow is { Success: true, ChosenRoll: 20 }, "supplied PC save d20 is authoritative");
     Equal(hpBefore, f.Target.CurrentHp, "successful configured save takes no damage");
     True(f.Campaign.PendingPlayerRoll is null, "successful readied spell save completes cleanly");
 });
