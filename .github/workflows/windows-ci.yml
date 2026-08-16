@@ -77,6 +77,9 @@ jobs:
       - name: Run readied reaction decision tests
         run: dotnet run --project tests/DungeonMasterAI.ReadiedDecisionTests/DungeonMasterAI.ReadiedDecisionTests.csproj --configuration Release
 
+      - name: Run readied spell player-control tests
+        run: dotnet run --project tests/DungeonMasterAI.ReadiedSpellRollTests/DungeonMasterAI.ReadiedSpellRollTests.csproj --configuration Release
+
       - name: Run first-class player decision tests
         run: dotnet run --project tests/DungeonMasterAI.PlayerDecisionTests/DungeonMasterAI.PlayerDecisionTests.csproj --configuration Release
 
