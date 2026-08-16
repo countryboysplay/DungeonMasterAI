@@ -1,0 +1,8 @@
+Windows test revision 16
+
+Changes:
+- Local AI startup now shows live progress instead of appearing stuck at Starting model.
+- Settings now displays recent llama.cpp runtime output.
+- Added Stop Local AI.
+- Dashboard button is now Start Local AI rather than developer-oriented Test Local AI.
+- Dashboard Local AI card shows startup/download/load progress.

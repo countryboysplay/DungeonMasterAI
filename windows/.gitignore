@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+artifacts/
+*.user
+*.suo
+*.log
+src/DungeonMasterAI.App/Models/*.gguf
+!src/DungeonMasterAI.App/Models/.gitkeep
+src/DungeonMasterAI.App/Runtime/*
+!src/DungeonMasterAI.App/Runtime/.gitkeep

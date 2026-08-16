@@ -1,0 +1,12 @@
+Windows test revision 22
+
+Death Saving Throw interaction fixes:
+- Player-character Death Saving Throws are now player-controlled from the Game Table.
+- A PC only needs a Death Save if they START their turn at 0 HP, matching the 2024 rule timing.
+- The tactical footer replaces normal combat controls with a prominent Roll Death Save panel when required.
+- A combat Death Save can be rolled only once per turn.
+- Combat cannot advance past an unresolved required Death Save.
+- The AI is forbidden from rolling a player character's Death Save and must stop at that player decision point.
+- NPC/non-player Death Saves remain available to the DM runtime.
+- After an ordinary Death Save at 0 HP, normal action/movement controls remain unavailable while the character is Unconscious.
+- A natural 20 restores 1 HP and returns normal turn control, as resolved by the deterministic engine.

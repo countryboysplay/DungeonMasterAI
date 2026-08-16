@@ -1,0 +1,7 @@
+Windows smoke-test revision r8
+
+The r7 Windows run compiled the complete native application successfully with 0 warnings and 0 errors and executed 127 smoke assertions before stopping at the level-5 cantrip scaling test.
+
+Cause: the cantrip scaling assertion used a Dexterity saving-throw spell against a normal target, so the random saving throw could succeed and correctly prevent damage. The test was therefore nondeterministic even though the scaling code itself rolls the configured fixed base damage twice at level 5.
+
+Fix: the dedicated scaling-test target is now Paralyzed before the cast. The engine's existing condition rules automatically fail Dexterity saving throws for a Paralyzed target, allowing the assertion to isolate and verify only cantrip damage scaling.

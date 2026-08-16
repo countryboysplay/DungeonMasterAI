@@ -1,0 +1,6 @@
+Windows test revision 12
+
+Changes in this revision:
+- Corrected the shared Test Hero fixture to explicitly define Strength 16.
+- This matches the fixture's existing Longsword +5 attack / +3 damage profile and the later Unarmed Strike expectation of +5 to hit and fixed 4 Bludgeoning damage.
+- No production engine code changed for this failure; CharacterMechanics.UnarmedStrikeProfile was behaving correctly from the character's actual ability scores.

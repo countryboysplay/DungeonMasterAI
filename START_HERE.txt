@@ -1,0 +1,13 @@
+Dungeon Master AI - Windows Compiler Test
+
+1. Install the .NET 10 SDK if needed:
+   winget install Microsoft.DotNet.SDK.10 --source winget
+
+2. Open PowerShell in this extracted folder.
+
+3. Run:
+   powershell -ExecutionPolicy Bypass -File .\windows\WINDOWS_TEST.ps1
+
+4. Upload the generated windows\DungeonMasterAI-TestResults-<timestamp>.zip back to ChatGPT.
+
+See windows\WINDOWS_TEST_CHECKLIST.md for full instructions.

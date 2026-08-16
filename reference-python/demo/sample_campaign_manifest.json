@@ -1,0 +1,407 @@
+{
+  "manifest_version": "1.0",
+  "campaign": {
+    "name": "Shadows Over Greenhaven",
+    "system": "D&D 5.5e / SRD 5.2.1",
+    "summary": "A trade-town mystery centered on disappearances beneath an abandoned mill.",
+    "tone": "heroic mystery with grounded consequences",
+    "themes": [
+      "missing villagers",
+      "secret society",
+      "old ruins"
+    ]
+  },
+  "party": {
+    "key": "party.wayfarers",
+    "name": "Wayfarers"
+  },
+  "locations": [
+    {
+      "key": "location.greenhaven",
+      "name": "Greenhaven",
+      "area_type": "town",
+      "description": "A river trade town surrounded by wheat fields and old stone roads."
+    },
+    {
+      "key": "location.south_gate",
+      "name": "South Gate",
+      "parent_key": "location.greenhaven",
+      "area_type": "landmark",
+      "description": "The main road enters Greenhaven through a timber gatehouse."
+    },
+    {
+      "key": "location.lantern_inn",
+      "name": "The Lantern Inn",
+      "parent_key": "location.greenhaven",
+      "area_type": "inn",
+      "description": "A warm two-story inn frequented by caravans and local merchants."
+    },
+    {
+      "key": "location.iron_oak",
+      "name": "Iron & Oak Smithy",
+      "parent_key": "location.greenhaven",
+      "area_type": "shop",
+      "description": "A working forge beside the market square."
+    },
+    {
+      "key": "location.old_mill",
+      "name": "Old Mill",
+      "parent_key": "location.greenhaven",
+      "area_type": "quest",
+      "description": "An abandoned water mill at the north edge of town."
+    },
+    {
+      "key": "location.smuggler_tunnel",
+      "name": "Smuggler Tunnel",
+      "parent_key": "location.greenhaven",
+      "area_type": "secret",
+      "description": "A concealed tunnel beneath the mill that leads toward older ruins.",
+      "dm_only": true
+    }
+  ],
+  "connections": [
+    {
+      "from_key": "location.south_gate",
+      "to_key": "location.lantern_inn",
+      "label": "King's Way",
+      "travel_minutes": 5
+    },
+    {
+      "from_key": "location.lantern_inn",
+      "to_key": "location.iron_oak",
+      "label": "Market Lane",
+      "travel_minutes": 3
+    },
+    {
+      "from_key": "location.lantern_inn",
+      "to_key": "location.old_mill",
+      "label": "North Road",
+      "travel_minutes": 12
+    },
+    {
+      "from_key": "location.old_mill",
+      "to_key": "location.smuggler_tunnel",
+      "label": "Hidden trapdoor",
+      "hidden": true,
+      "travel_minutes": 1
+    }
+  ],
+  "characters": [
+    {
+      "key": "character.aric",
+      "name": "Aric",
+      "character_type": "pc",
+      "level": 1,
+      "armor_class": 16,
+      "max_hp": 14,
+      "location_key": "location.south_gate",
+      "abilities": {
+        "str": 16,
+        "dex": 14,
+        "con": 14,
+        "int": 10,
+        "wis": 12,
+        "cha": 10
+      },
+      "wallet": {
+        "gp": 30
+      },
+      "public_knowledge": "A newly arrived adventurer traveling with the Wayfarers.",
+      "spellcasting_ability": "wisdom",
+      "spell_slots": {
+        "1": {
+          "maximum": 2,
+          "remaining": 2
+        }
+      },
+      "prepared_spells": [
+        "spell.ember_needle",
+        "spell.field_mend"
+      ]
+    },
+    {
+      "key": "character.halden",
+      "name": "Halden Marr",
+      "character_type": "npc",
+      "armor_class": 10,
+      "max_hp": 5,
+      "location_key": "location.lantern_inn",
+      "public_knowledge": "Innkeeper of the Lantern Inn. Three villagers have disappeared near the old mill.",
+      "secret_knowledge": "Halden saw a hooded apothecary carrying a black-ash medallion toward the mill two nights ago.",
+      "persona": {
+        "temperament": "friendly but nervous",
+        "speech": "plainspoken, short sentences"
+      },
+      "voice": {
+        "style": "middle-aged warm baritone"
+      },
+      "goals": [
+        "keep guests safe",
+        "find the missing villagers"
+      ],
+      "fears": [
+        "retaliation against his family"
+      ]
+    },
+    {
+      "key": "character.doran",
+      "name": "Doran Vale",
+      "character_type": "npc",
+      "armor_class": 12,
+      "max_hp": 9,
+      "location_key": "location.iron_oak",
+      "public_knowledge": "Blacksmith and proprietor of Iron & Oak.",
+      "persona": {
+        "temperament": "direct and practical"
+      }
+    },
+    {
+      "key": "character.selene",
+      "name": "Selene Voss",
+      "character_type": "npc",
+      "armor_class": 11,
+      "max_hp": 7,
+      "location_key": "location.greenhaven",
+      "public_knowledge": "The town apothecary, known for treating travelers and farm injuries.",
+      "secret_knowledge": "Selene is a ranking member of the Ashen Circle and arranged the recent abductions."
+    }
+  ],
+  "items": [
+    {
+      "key": "item.longsword",
+      "name": "Longsword",
+      "category": "weapon",
+      "description": "A martial melee weapon.",
+      "weight_lb": 3,
+      "price": {
+        "gp": 15
+      },
+      "equippable": true,
+      "equipment_slot": "main_hand",
+      "rules_source": "SRD 5.2.1",
+      "rules_page": 91,
+      "metadata": {
+        "damage": "1d8",
+        "damage_type": "Slashing",
+        "properties": [
+          "Versatile (1d10)"
+        ],
+        "mastery": "Sap"
+      }
+    },
+    {
+      "key": "item.healing_potion",
+      "name": "Potion of Healing",
+      "category": "potion",
+      "description": "A red healing draught.",
+      "price": {
+        "gp": 50
+      },
+      "consumable": true,
+      "metadata": {
+        "effect": "healing"
+      }
+    },
+    {
+      "key": "item.ash_medallion",
+      "name": "Black-Ash Medallion",
+      "category": "quest_item",
+      "description": "A dark iron medallion stamped with a ring of ash.",
+      "base_price_cp": 0,
+      "source_kind": "source_canon"
+    }
+  ],
+  "spells": [
+    {
+      "key": "spell.ember_needle",
+      "name": "Ember Needle",
+      "level": 0,
+      "school": "Evocation",
+      "casting_time": "Action",
+      "range_kind": "distance",
+      "range_feet": 60,
+      "requires_verbal": true,
+      "requires_somatic": true,
+      "duration": "Instantaneous",
+      "requires_target": true,
+      "resolution": "attack",
+      "damage_expression": "1d8",
+      "damage_type": "Fire",
+      "source_kind": "source_canon"
+    },
+    {
+      "key": "spell.field_mend",
+      "name": "Field Mend",
+      "level": 1,
+      "school": "Evocation",
+      "casting_time": "Action",
+      "range_kind": "touch",
+      "requires_verbal": true,
+      "requires_somatic": true,
+      "duration": "Instantaneous",
+      "requires_target": true,
+      "resolution": "healing",
+      "healing_expression": "1d8+2",
+      "extra_healing_per_slot": "1d8",
+      "source_kind": "source_canon"
+    }
+  ],
+  "merchants": [
+    {
+      "key": "merchant.iron_oak",
+      "name": "Iron & Oak",
+      "location_key": "location.iron_oak",
+      "npc_key": "character.doran",
+      "wallet": {
+        "gp": 120
+      },
+      "stock": [
+        {
+          "item_key": "item.longsword",
+          "quantity": 2
+        },
+        {
+          "item_key": "item.healing_potion",
+          "quantity": 1,
+          "price": {
+            "gp": 55
+          }
+        }
+      ]
+    }
+  ],
+  "quests": [
+    {
+      "key": "quest.missing_villagers",
+      "name": "The Missing Villagers",
+      "status": "available",
+      "summary": "Learn what happened to three villagers last seen near the old mill.",
+      "source_location_key": "location.lantern_inn",
+      "objectives": [
+        "Question Halden",
+        "Investigate the old mill",
+        "Find the missing villagers"
+      ],
+      "rewards": {
+        "gp": 40
+      },
+      "dm_notes": "The trail ultimately points to the Ashen Circle beneath the mill."
+    }
+  ],
+  "factions": [
+    {
+      "key": "faction.ashen_circle",
+      "name": "Ashen Circle",
+      "summary": "A secret society searching the ruins beneath Greenhaven for forbidden relics.",
+      "public_knowledge": "None at the start of the campaign.",
+      "secret_knowledge": "Selene Voss directs the Greenhaven cell."
+    }
+  ],
+  "relationships": [
+    {
+      "source_key": "character.selene",
+      "target_key": "faction.ashen_circle",
+      "relation": "member_of",
+      "strength": 1.0,
+      "public": false
+    },
+    {
+      "source_key": "character.halden",
+      "target_key": "quest.missing_villagers",
+      "relation": "quest_giver",
+      "strength": 0.8,
+      "public": true
+    },
+    {
+      "source_key": "merchant.iron_oak",
+      "target_key": "character.doran",
+      "relation": "operated_by",
+      "strength": 1.0,
+      "public": true
+    }
+  ],
+  "secrets": [
+    {
+      "key": "secret.selene_circle",
+      "title": "Selene belongs to the Ashen Circle",
+      "truth": "Selene Voss is a ranking member of the Ashen Circle and arranged the recent abductions.",
+      "known_by": [
+        "character.selene"
+      ],
+      "reveal_conditions": [
+        "Halden is persuaded to share what he saw",
+        "The party finds the Black-Ash Medallion"
+      ]
+    }
+  ],
+  "timeline": [
+    {
+      "key": "timeline.third_night_ritual",
+      "name": "Ashen Circle Ritual",
+      "trigger_type": "time",
+      "trigger": {
+        "campaign_day": 3,
+        "minute_of_day": 1320
+      },
+      "effect": {
+        "quest": "quest.missing_villagers",
+        "consequence": "One captive is moved deeper into the ruins if the party has not intervened."
+      },
+      "dm_notes": "This event should advance the world even if the party ignores the mill."
+    }
+  ],
+  "encounters": [
+    {
+      "key": "encounter.mill_watchers",
+      "name": "Mill Watchers",
+      "location_key": "location.old_mill",
+      "summary": "Two armed watchers guard the mill after dark.",
+      "trigger": {
+        "condition": "party approaches the old mill after dusk"
+      },
+      "members": [
+        {
+          "key": "watcher",
+          "name": "Ashen Watcher",
+          "quantity": 2,
+          "team": "enemy",
+          "armor_class": 12,
+          "max_hp": 9,
+          "initiative_modifier": 1,
+          "metadata": {
+            "attack_bonus": 3,
+            "damage": "1d6+1"
+          }
+        }
+      ],
+      "rewards": {
+        "items": [
+          "item.ash_medallion"
+        ]
+      },
+      "alternate_resolutions": [
+        "The watchers can be bribed",
+        "A successful stealth approach can avoid combat"
+      ]
+    }
+  ],
+  "discoveries": [
+    {
+      "subject": "party",
+      "location_key": "location.south_gate"
+    },
+    {
+      "subject": "party",
+      "location_key": "location.lantern_inn"
+    },
+    {
+      "subject": "party",
+      "location_key": "location.iron_oak"
+    },
+    {
+      "subject": "party",
+      "location_key": "location.old_mill",
+      "note": "Halden gave directions to the old mill."
+    }
+  ]
+}

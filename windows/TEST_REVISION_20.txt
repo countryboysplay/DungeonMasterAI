@@ -1,0 +1,8 @@
+Windows test revision 20
+
+UI fixes:
+- Game Table content now stretches across the full application workspace instead of leaving unused space on the right.
+- The battlefield receives the intended majority of the Game Table width.
+- Quick Combat labels, target selector, and NPC-turn status now use high-contrast text and controls.
+
+No deterministic engine behavior was changed in this revision.

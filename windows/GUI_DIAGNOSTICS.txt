@@ -1,0 +1,16 @@
+Revision 13 GUI startup diagnostics
+
+Run:
+  powershell -ExecutionPolicy Bypass -File .\windows\WINDOWS_TEST.ps1 -LaunchApp
+
+The application now writes startup diagnostics to:
+  %LOCALAPPDATA%\DungeonMasterAI\Logs\startup.log
+
+The Windows test harness copies that log into the generated results ZIP as:
+  07-gui-startup.log
+
+If the GUI process exits within five seconds, the harness also captures recent .NET Runtime,
+Application Error, and Windows Error Reporting events into:
+  08-gui-windows-events.txt
+
+Unhandled WPF/UI startup failures now also display an error dialog instead of silently terminating.

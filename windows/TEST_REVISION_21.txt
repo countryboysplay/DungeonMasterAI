@@ -1,0 +1,7 @@
+Windows test revision 21
+
+UI fixes:
+- Fixed unreadable Quick Combat target dropdown text.
+- Added an explicit dark ComboBoxItem template with high-contrast normal, hover, and selected states.
+- Changed the Quick Combat selector itself to the dark application theme and widened it slightly for target names.
+- The ComboBox item contrast fix applies throughout the app so other dropdowns do not repeat the same white-on-light problem.

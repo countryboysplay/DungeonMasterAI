@@ -1,0 +1,14 @@
+DungeonMasterAI Windows Test Source r7
+
+Fixes after the 2026-08-15 21:23 Windows smoke-test run:
+
+- The native Windows application itself already built successfully with 0 warnings and 0 errors.
+- The smoke suite reached runtime execution and exposed a test-fixture problem.
+- AddCharacter intentionally initializes a character whose CurrentHp is <= 0 to MaxHp, so two smoke fixtures that attempted to create already-dying characters directly were not actually at 0 HP.
+- Updated both stabilization fixtures to create healthy PCs and reduce them to 0 HP through the normal deterministic damage engine before testing Stabilizing Cantrip and First Aid.
+- Added explicit setup assertions confirming those targets are living, Unconscious creatures at 0 HP.
+
+Run:
+  powershell -ExecutionPolicy Bypass -File .\windows\WINDOWS_TEST.ps1
+
+Upload the generated DungeonMasterAI-TestResults-*.zip whether the run passes or fails.
