@@ -146,6 +146,7 @@ public sealed partial class GameEngine
         {
             "opportunity_attack_reaction" => ResolveOpportunityAttackDecision(campaign, decision, option),
             "readied_attack_reaction" => ResolveReadiedAttackDecision(campaign, decision, option),
+            "readied_move_reaction" => ResolveReadiedMoveDecision(campaign, decision, option),
             "readied_spell_reaction" => ResolveReadiedSpellDecision(campaign, decision, option, dice ?? new DiceService()),
             _ => throw new InvalidOperationException($"Player decision type '{decision.DecisionType}' is not supported.")
         };

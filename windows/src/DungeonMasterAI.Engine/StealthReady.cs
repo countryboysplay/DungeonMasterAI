@@ -204,6 +204,8 @@ public sealed partial class GameEngine
         int gridX,
         int gridY)
     {
+        if (campaign.PendingPlayerDecision?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player decision first: {campaign.PendingPlayerDecision.Prompt}");
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         if (encounter.PendingMove is not null)
