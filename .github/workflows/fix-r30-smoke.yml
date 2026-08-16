@@ -1,0 +1,64 @@
+name: Fix r30 projectile smoke expectations
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/fix-r30-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrate projectile smoke expectation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''var rayCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceRays.Id, dice,
+              [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id], slotLevel: 2);
+          Assert(rayCast.TargetResults is { Count: 3 } && rayCast.TargetResults.All(r => r.SpellAttack is not null),
+              "multi-ray projectile spells make a separate spell attack roll for every ray");'''.replace('          ', '')
+          new = '''var rayCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceRays.Id, dice,
+              [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id], slotLevel: 2);
+          Assert(rayCast.TargetResults is { Count: 0 } && campaign.PendingPlayerRoll?.ResolutionKey == "projectile_spell_attack",
+              "player multi-ray projectile spells pause before the first ray for the player attack roll");
+          var rayResolved = rayCast;
+          for (var rayIndex = 0; rayIndex < 3; rayIndex++)
+          {
+              var rayAttackPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player attack roll for ray {rayIndex + 1}.");
+              Assert(rayAttackPending.ResolutionKey == "projectile_spell_attack", $"ray {rayIndex + 1} requests its own player attack roll");
+              rayResolved = engine.ResolvePendingProjectileSpellAttackRoll(campaign, rayAttackPending.Id, 10, null, dice);
+              var rayDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player damage roll for ray {rayIndex + 1}.");
+              Assert(rayDamagePending.ResolutionKey == "projectile_spell_damage", $"ray {rayIndex + 1} requests player damage after a hit");
+              rayResolved = engine.ResolvePendingProjectileSpellDamageRoll(campaign, rayDamagePending.Id, 1, dice);
+          }
+          Assert(rayResolved.TargetResults is { Count: 3 }
+              && rayResolved.TargetResults.All(r => r.SpellAttack is not null)
+              && campaign.PendingPlayerRoll is null,
+              "multi-ray projectile spells retain one separately player-resolved spell attack for every ray");'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Legacy projectile ray smoke block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: resolve player projectile spell rolls in smoke suite"
+          git push origin HEAD:${GITHUB_REF_NAME}
