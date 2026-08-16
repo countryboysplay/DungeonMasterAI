@@ -16,6 +16,7 @@ public sealed partial class GameEngine
         return resolutionKey.Trim().ToLowerInvariant() switch
         {
             "projectile_spell_sequence" => ResumePlayerProjectileSpellSequenceAfterConcentration(campaign, context, dice),
+            "auto_projectile_spell_sequence" => ResumePlayerAutoProjectileSpellSequenceAfterConcentration(campaign, context, dice),
             _ => null
         };
     }
