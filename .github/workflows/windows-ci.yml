@@ -59,6 +59,9 @@ jobs:
       - name: Run area spell roll tests
         run: dotnet run --project tests/DungeonMasterAI.AreaSpellRollTests/DungeonMasterAI.AreaSpellRollTests.csproj --configuration Release
 
+      - name: Run combat skill roll tests
+        run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
