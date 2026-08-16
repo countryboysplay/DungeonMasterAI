@@ -1686,22 +1686,23 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null) return;
         try
         {
-            foreach (var combatant in SelectedEncounter.Combatants)
+            var sequence = _engine.BeginInitiativeSequence(SelectedCampaign, SelectedEncounter.Id, _dice);
+            if (sequence.PendingRoll?.Required == true)
             {
-                var character = SelectedCampaign.Characters.First(c => c.Id == combatant.CharacterId);
-                var mode = combatant.Surprised ? D20RollMode.Disadvantage : D20RollMode.Normal;
-                var rolls = _dice.RollD20(mode);
-                var dexterity = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "dexterity"));
-                var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
-                _engine.SetInitiative(SelectedCampaign, SelectedEncounter.Id, combatant.Id, rolls.ChosenRoll + dexterity - exhaustionPenalty);
+                await PresentPendingGameTableRollAsync(sequence.PendingRoll);
+                return;
             }
-            _engine.FinalizeInitiative(SelectedCampaign, SelectedEncounter.Id);
-            StatusMessage = "Initiative rolled and turn order established.";
+
+            StatusMessage = sequence.Summary;
             RaiseCampaignProperties();
-            RefreshCombatSelections();
+            RefreshCombatSelections(keepSelection: true);
             await SaveAsync();
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task MoveCombatantAsync()
@@ -1768,13 +1769,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null) return;
         try
         {
-            var result = _engine.TakeHide(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var combatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedAttacker.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected combatant is no longer in the encounter.");
+            var actor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(combatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected combatant character no longer exists.");
+            if (IsPlayerCharacter(actor))
+            {
+                var pending = _engine.RequestHideRoll(SelectedCampaign, SelectedEncounter.Id, combatant.Id);
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.TakeHide(SelectedCampaign, SelectedEncounter.Id, combatant.Id, _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task SearchHiddenAsync()
@@ -1782,13 +1795,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.SearchForHiddenCombatant(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, SelectedTarget.CombatantId, _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var searcherCombatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedAttacker.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected searcher is no longer in the encounter.");
+            var searcher = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(searcherCombatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected searcher character no longer exists.");
+            if (IsPlayerCharacter(searcher))
+            {
+                var pending = _engine.RequestHiddenSearchRoll(SelectedCampaign, SelectedEncounter.Id, searcherCombatant.Id, SelectedTarget.CombatantId);
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.SearchForHiddenCombatant(SelectedCampaign, SelectedEncounter.Id, searcherCombatant.Id, SelectedTarget.CombatantId, _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task ReadyAttackAsync()
@@ -1908,13 +1933,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.TakeFirstAid(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, SelectedTarget.CombatantId, _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var helperCombatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedAttacker.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected helper is no longer in the encounter.");
+            var helper = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(helperCombatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected helper character no longer exists.");
+            if (IsPlayerCharacter(helper))
+            {
+                var pending = _engine.RequestFirstAidRoll(SelectedCampaign, SelectedEncounter.Id, helperCombatant.Id, SelectedTarget.CombatantId);
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.TakeFirstAid(SelectedCampaign, SelectedEncounter.Id, helperCombatant.Id, SelectedTarget.CombatantId, _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task CombatSkillActionAsync(string action)
@@ -1924,19 +1961,39 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!int.TryParse(CombatDcInput, out var dc) || dc < 1)
                 throw new InvalidOperationException("The action DC must be a positive whole number.");
+
+            var combatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedAttacker.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected combatant is no longer in the encounter.");
+            var actor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(combatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected combatant character no longer exists.");
+
+            if (IsPlayerCharacter(actor))
+            {
+                var pending = action switch
+                {
+                    "search" => _engine.RequestSearchActionRoll(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc),
+                    "study" => _engine.RequestStudyActionRoll(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc),
+                    "influence" => _engine.RequestInfluenceActionRoll(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc),
+                    _ => throw new InvalidOperationException("Unknown combat skill action.")
+                };
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
             var result = action switch
             {
-                "search" => _engine.TakeSearchAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, CombatSkillInput, dc, _dice),
-                "study" => _engine.TakeStudyAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, CombatSkillInput, dc, _dice),
-                "influence" => _engine.TakeInfluenceAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, CombatSkillInput, dc, _dice),
+                "search" => _engine.TakeSearchAction(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc, _dice),
+                "study" => _engine.TakeStudyAction(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc, _dice),
+                "influence" => _engine.TakeInfluenceAction(SelectedCampaign, SelectedEncounter.Id, combatant.Id, CombatSkillInput, dc, _dice),
                 _ => throw new InvalidOperationException("Unknown combat skill action.")
             };
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task GrappleAsync()
@@ -1944,13 +2001,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.ResolveUnarmedGrapple(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, SelectedTarget.CombatantId, _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var targetCombatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedTarget.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected grapple target is no longer in the encounter.");
+            var target = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(targetCombatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected grapple target character no longer exists.");
+            if (IsPlayerCharacter(target))
+            {
+                var pending = _engine.RequestUnarmedGrappleSaveRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, targetCombatant.Id);
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.ResolveUnarmedGrapple(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, targetCombatant.Id, _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task ShoveAsync(string effect)
@@ -1958,13 +2027,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.ResolveUnarmedShove(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, SelectedTarget.CombatantId, effect, _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var targetCombatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedTarget.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected shove target is no longer in the encounter.");
+            var target = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(targetCombatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected shove target character no longer exists.");
+            if (IsPlayerCharacter(target))
+            {
+                var pending = _engine.RequestUnarmedShoveSaveRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, targetCombatant.Id, effect);
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.ResolveUnarmedShove(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, targetCombatant.Id, effect, _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task EscapeGrappleAsync()
@@ -1972,13 +2053,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.EscapeGrapple(SelectedCampaign, SelectedEncounter.Id, SelectedAttacker.CombatantId, SelectedTarget.CombatantId, "athletics", _dice);
-            StatusMessage = result.Summary;
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
-            await SaveAsync();
+            var actorCombatant = SelectedEncounter.Combatants.FirstOrDefault(c => c.Id.Equals(SelectedAttacker.CombatantId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected escaping combatant is no longer in the encounter.");
+            var actor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(actorCombatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("Selected escaping character no longer exists.");
+            if (IsPlayerCharacter(actor))
+            {
+                var pending = _engine.RequestEscapeGrappleRoll(SelectedCampaign, SelectedEncounter.Id, actorCombatant.Id, SelectedTarget.CombatantId, "athletics");
+                await PresentPendingGameTableRollAsync(pending);
+                return;
+            }
+
+            var result = _engine.EscapeGrapple(SelectedCampaign, SelectedEncounter.Id, actorCombatant.Id, SelectedTarget.CombatantId, "athletics", _dice);
+            await PresentCompletedGameTableActionAsync(result.Summary);
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
     }
 
     private async Task ReleaseGrappleAsync()
