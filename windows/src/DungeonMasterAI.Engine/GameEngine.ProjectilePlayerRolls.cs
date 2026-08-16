@@ -11,6 +11,7 @@ internal sealed class PlayerProjectileSpellSequenceState
     public bool UsedSpellSlot { get; set; }
     public bool ConcentrationStarted { get; set; }
     public string? EncounterId { get; set; }
+    public bool ReadiedReaction { get; set; }
     public List<string> TargetIds { get; set; } = [];
     public int NextProjectileIndex { get; set; }
     public List<SpellTargetResolution> Results { get; set; } = [];
@@ -27,7 +28,8 @@ public sealed partial class GameEngine
         bool concentrationStarted,
         EncounterState? encounter,
         IReadOnlyList<string> allocations,
-        DiceService dice)
+        DiceService dice,
+        bool readiedReaction = false)
     {
         var state = new PlayerProjectileSpellSequenceState
         {
@@ -37,6 +39,7 @@ public sealed partial class GameEngine
             UsedSpellSlot = usedSlot,
             ConcentrationStarted = concentrationStarted,
             EncounterId = encounter?.Id,
+            ReadiedReaction = readiedReaction,
             TargetIds = allocations.ToList(),
             NextProjectileIndex = 0,
             Results = []
@@ -279,8 +282,13 @@ public sealed partial class GameEngine
             .Select(id => RequireCharacter(campaign, id).Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var slotText = spell.Level == 0 ? "as a cantrip" : $"using a level {state.CastAtLevel} spell slot";
-        var summary = $"{caster.Name} cast {spell.Name} {slotText}, resolving {state.TargetIds.Count} projectile{(state.TargetIds.Count == 1 ? "" : "s")} against {string.Join(", ", distinctTargets)}. "
+        var slotText = spell.Level == 0
+            ? "as a cantrip"
+            : state.ReadiedReaction
+                ? $"from the level {state.CastAtLevel} slot expended when it was readied"
+                : $"using a level {state.CastAtLevel} spell slot";
+        var verb = state.ReadiedReaction ? "released readied" : "cast";
+        var summary = $"{caster.Name} {verb} {spell.Name} {slotText}, resolving {state.TargetIds.Count} projectile{(state.TargetIds.Count == 1 ? "" : "s")} against {string.Join(", ", distinctTargets)}. "
             + string.Join(" ", state.Results.Select(r => r.Summary));
         Touch(campaign);
         Log(campaign, "spell_cast", summary);
@@ -359,7 +367,8 @@ public sealed partial class GameEngine
             throw new InvalidOperationException("The projectile spell's encounter is no longer active.");
         var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException("The projectile spellcaster is no longer in the encounter.");
-        EnsureCurrentTurn(encounter, casterCombatant.Id);
+        if (!state.ReadiedReaction)
+            EnsureCurrentTurn(encounter, casterCombatant.Id);
         return encounter;
     }
 

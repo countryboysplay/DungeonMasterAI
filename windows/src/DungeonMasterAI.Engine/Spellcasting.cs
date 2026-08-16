@@ -670,8 +670,11 @@ public sealed partial class GameEngine
         ValidateComponents(caster, spell);
         var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
         ValidateSpellConfiguration(spell, resolution);
-        if (resolution is "projectile_auto" or "projectile_attack" or "area_save" or "multi_buff" or "persistent_area")
-            throw new InvalidOperationException($"Readying {spell.Name}'s multi-target or area resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
+        if (resolution is "area_save" or "multi_buff" or "persistent_area")
+            throw new InvalidOperationException($"Readying {spell.Name}'s area or multi-target resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
+        if (resolution is "projectile_auto" or "projectile_attack"
+            && !caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Readied projectile spells are currently enabled for player-character casters only; NPC projectile Ready resolution will be generalized in a later engine pass.");
         var normalizedTrigger = NormalizeReadyTrigger(trigger);
         if (!combatant.ActionAvailable)
             throw new InvalidOperationException($"{caster.Name} has already used their action this turn and cannot take the Ready action.");
@@ -777,6 +780,7 @@ public sealed partial class GameEngine
         D20TestResult? savingThrow = null;
         DamageResolutionResult? damage = null;
         var healing = 0;
+        IReadOnlyList<SpellTargetResolution>? targetResults = null;
         var effectSummary = "";
         switch (resolution)
         {
@@ -843,6 +847,21 @@ public sealed partial class GameEngine
                     (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, encounter);
                 }
                 break;
+            case "projectile_attack":
+            case "projectile_auto":
+                if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target when the readied projectile spell is released.");
+                var projectileResult = BeginReadiedProjectileSpellSequence(
+                    campaign,
+                    caster,
+                    target,
+                    spell,
+                    castAtLevel,
+                    readied.UsedSpellSlot,
+                    encounter,
+                    dice);
+                effectSummary = projectileResult.Summary;
+                targetResults = projectileResult.TargetResults;
+                break;
             case "healing":
                 target ??= caster;
                 healing = ResolveHealingSpell(campaign, caster, target, spell, upcastLevels, dice);
@@ -876,7 +895,8 @@ public sealed partial class GameEngine
             damage,
             healing,
             spell.RequiresConcentration,
-            summary);
+            summary,
+            targetResults);
     }
 
     private static string ReadiedSpellConcentrationLabel(SpellDefinition spell) => $"Readied spell: {spell.Name}";

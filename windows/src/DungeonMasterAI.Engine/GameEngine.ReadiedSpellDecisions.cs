@@ -45,7 +45,9 @@ public sealed partial class GameEngine
             targetCombatant = RequireCombatant(encounter, targetCombatantId);
             target = RequireCharacter(campaign, targetCombatant.CharacterId);
         }
-        if (spell.RequiresTarget && target is null)
+        var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
+        var projectileResolution = resolution is "projectile_attack" or "projectile_auto";
+        if ((spell.RequiresTarget || projectileResolution) && target is null)
             throw new InvalidOperationException($"{spell.Name} requires a target when its trigger is accepted.");
         if (target is not null && target.Dead && !string.Equals(spell.Resolution, "healing", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"{target.Name} is dead and is not a valid target for this configured spell effect.");
