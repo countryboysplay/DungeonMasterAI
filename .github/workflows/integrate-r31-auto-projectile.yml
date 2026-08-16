@@ -1,0 +1,120 @@
+name: Integrate r31 player auto-projectile damage
+
+on:
+  push:
+    branches:
+      - feature/r31-player-auto-projectile-damage
+    paths:
+      - .github/workflows/integrate-r31-auto-projectile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Integrate auto-projectile player damage flow
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Route PC auto-hit projectiles through the pending damage sequence.
+          path = Path('windows/src/DungeonMasterAI.Engine/Spellcasting.cs')
+          text = path.read_text(encoding='utf-8')
+          marker = '        var results = new List<SpellTargetResolution>(projectileCount);\n'
+          branch = '''        if (resolution == "projectile_auto" && caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+          {
+              if (activeEncounter is not null && spell.RequiresVerbal)
+              {
+                  var casterCombatant = activeEncounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+                  if (casterCombatant is not null) BreakHidden(campaign, activeEncounter, casterCombatant, "casting a spell with a Verbal component");
+              }
+              return BeginPlayerAutoProjectileSpellSequence(
+                  campaign,
+                  caster,
+                  spell,
+                  castAtLevel,
+                  usedSlot,
+                  concentrationStarted,
+                  activeEncounter,
+                  allocations);
+          }
+
+          '''.replace('          ', '')
+          if marker not in text:
+              raise SystemExit('CastProjectileSpell results marker not found')
+          path.write_text(text.replace(marker, branch + marker, 1), encoding='utf-8')
+
+          # Route non-d20 auto-projectile damage through the Game Table roll control.
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
+          text = path.read_text(encoding='utf-8')
+          marker = '        if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))'
+          block = '''        if (pending.ResolutionKey.Equals("projectile_auto_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                  && !string.IsNullOrWhiteSpace(storedExpression)
+                  ? storedExpression
+                  : pending.Formula;
+              var damageAmount = _dice.RollDamage(baseDamageExpression);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveAutoProjectileSpellDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          '''.replace('          ', '')
+          if marker not in text:
+              raise SystemExit('PlayerRolls non-d20 marker not found')
+          text = text.replace(marker, block + marker, 1)
+
+          method_marker = '    private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)'
+          method = '''    private async Task ResolveActiveAutoProjectileSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+          {
+              if (SelectedCampaign is null) return;
+              try
+              {
+                  var result = _engine.ResolvePendingAutoProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+                  StatusMessage = result.Summary;
+                  SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+                  RaiseCharacterProperties();
+                  RaiseCampaignProperties();
+                  RefreshCombatSelections(keepSelection: true);
+                  await SaveAsync();
+              }
+              catch (Exception ex)
+              {
+                  StatusMessage = ex.Message;
+                  RaiseCampaignProperties();
+              }
+          }
+
+          '''.replace('          ', '    ')
+          if method_marker not in text:
+              raise SystemExit('PlayerRolls method insertion point not found')
+          path.write_text(text.replace(method_marker, method + method_marker, 1), encoding='utf-8')
+
+          # Update the DM tool contract.
+          path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
+          text = path.read_text(encoding='utf-8')
+          old = 'Auto-hit projectiles resolve automatically. Player-character projectile attack spells pause for each player attack and damage roll in firing order, including intervening Concentration saves.'
+          new = 'NPC auto-hit projectiles resolve automatically. Player-character auto-hit projectiles pause for each player damage roll. Player-character projectile attack spells pause for each player attack and damage roll in firing order. Both pipelines pause for intervening Concentration saves.'
+          if old not in text:
+              raise SystemExit('cast_projectile_spell description text not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r31: integrate player auto-projectile damage rolls"
+          git push origin HEAD:${GITHUB_REF_NAME}
