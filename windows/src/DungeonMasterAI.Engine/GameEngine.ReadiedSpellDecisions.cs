@@ -11,7 +11,8 @@ public sealed partial class GameEngine
         string? targetCombatantId = null,
         int? areaCenterX = null,
         int? areaCenterY = null,
-        string? areaDirection = null)
+        string? areaDirection = null,
+        IReadOnlyList<string>? targetCombatantIds = null)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         if (campaign.PendingPlayerRoll?.Required == true)
@@ -51,15 +52,28 @@ public sealed partial class GameEngine
         var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
         var projectileResolution = resolution is "projectile_attack" or "projectile_auto";
         var areaResolution = resolution == "area_save";
+        var multiBuffResolution = resolution == "multi_buff";
         ReadiedAreaSpellPlan? areaPlan = null;
+        ReadiedMultiBuffPlan? multiBuffPlan = null;
         if (areaResolution)
             areaPlan = PlanReadiedAreaSpell(campaign, caster, spell, encounter, areaCenterX, areaCenterY, areaDirection);
-        if ((spell.RequiresTarget || projectileResolution) && !areaResolution && target is null)
+        if (multiBuffResolution)
+        {
+            IReadOnlyList<string>? effectiveTargets = targetCombatantIds is { Count: > 0 }
+                ? targetCombatantIds
+                : targetCombatant is null ? null : [targetCombatant.Id];
+            var castAtLevel = spell.Level == 0 ? 0 : Math.Max(spell.Level, readied.CastAtLevel);
+            multiBuffPlan = PlanReadiedMultiBuffSpell(campaign, caster, spell, encounter, castAtLevel, effectiveTargets);
+        }
+        if ((spell.RequiresTarget || projectileResolution) && !areaResolution && !multiBuffResolution && target is null)
             throw new InvalidOperationException($"{spell.Name} requires a target when its trigger is accepted.");
         if (target is not null && target.Dead && !string.Equals(spell.Resolution, "healing", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"{target.Name} is dead and is not a valid target for this configured spell effect.");
-        ValidateSpellTargetType(target, spell);
-        ValidateSpellRange(campaign, encounter, caster, target, spell);
+        if (!multiBuffResolution)
+        {
+            ValidateSpellTargetType(target, spell);
+            ValidateSpellRange(campaign, encounter, caster, target, spell);
+        }
 
         var decision = new PendingPlayerDecision
         {
@@ -67,8 +81,10 @@ public sealed partial class GameEngine
             EncounterId = encounter.Id,
             CombatantId = combatant.Id,
             DecisionType = "readied_spell_reaction",
-            Prompt = areaPlan is not null
-                ? $"The trigger occurred for {caster.Name}'s readied {spell.Name}. Proposed area origin: ({areaPlan.PointX}, {areaPlan.PointY}), direction {areaPlan.Direction}; affected: {string.Join(", ", areaPlan.TargetNames)}. Use the Reaction to release it now?"
+            Prompt = multiBuffPlan is not null
+                ? $"The trigger occurred for {caster.Name}'s readied {spell.Name}. Proposed targets: {string.Join(", ", multiBuffPlan.TargetNames)}. Use the Reaction to release it now?"
+                : areaPlan is not null
+                    ? $"The trigger occurred for {caster.Name}'s readied {spell.Name}. Proposed area origin: ({areaPlan.PointX}, {areaPlan.PointY}), direction {areaPlan.Direction}; affected: {string.Join(", ", areaPlan.TargetNames)}. Use the Reaction to release it now?"
                 : target is null
                     ? $"The trigger occurred for {caster.Name}'s readied {spell.Name}. Use the Reaction to release it now?"
                     : $"The trigger occurred for {caster.Name}'s readied {spell.Name} at {target.Name}. Use the Reaction to release it now?",
@@ -105,6 +121,8 @@ public sealed partial class GameEngine
             decision.Context["area_center_y"] = areaPlan.PointY.ToString(System.Globalization.CultureInfo.InvariantCulture);
             decision.Context["area_direction"] = areaPlan.Direction;
         }
+        if (multiBuffPlan is not null)
+            decision.Context["target_combatant_ids_json"] = System.Text.Json.JsonSerializer.Serialize(multiBuffPlan.TargetCombatantIds);
 
         campaign.PendingPlayerDecision = decision;
         Touch(campaign);
@@ -146,6 +164,7 @@ public sealed partial class GameEngine
         var centerX = DecisionOptionalInt(decision, "area_center_x");
         var centerY = DecisionOptionalInt(decision, "area_center_y");
         decision.Context.TryGetValue("area_direction", out var areaDirection);
+        var targetCombatantIds = DecisionOptionalStringArrayJson(decision, "target_combatant_ids_json");
         var result = TriggerReadiedSpell(
             campaign,
             encounter.Id,
@@ -154,7 +173,8 @@ public sealed partial class GameEngine
             string.IsNullOrWhiteSpace(targetCombatantId) ? null : targetCombatantId,
             centerX,
             centerY,
-            areaDirection);
+            areaDirection,
+            targetCombatantIds);
         var followUp = campaign.PendingPlayerRoll?.Required == true ? campaign.PendingPlayerRoll : null;
         Log(campaign, "player_decision_resolved", $"{caster.Name}: {option.Label}.", dmOnly: true);
         Touch(campaign);
@@ -166,6 +186,22 @@ public sealed partial class GameEngine
             option.Label,
             result.Summary,
             followUp);
+    }
+
+    private static IReadOnlyList<string>? DecisionOptionalStringArrayJson(PendingPlayerDecision decision, string key)
+    {
+        if (!decision.Context.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return null;
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string[]>(raw)
+                ?.Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            throw new InvalidOperationException($"The readied spell decision contains invalid '{key}' JSON.", ex);
+        }
     }
 
     private static int? DecisionOptionalInt(PendingPlayerDecision decision, string key)
