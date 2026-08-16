@@ -1,0 +1,30 @@
+name: Apply r45 readied projectiles
+
+on:
+  push:
+    branches: [feature/r45-readied-projectile-spells]
+    paths:
+      - '.github/workflows/apply-r45-readied-projectiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r45-readied-projectile-spells
+          fetch-depth: 0
+      - name: Apply readied projectile integration codemod
+        run: python3 .github/scripts/apply_r45_readied_projectiles.py
+      - name: Commit readied projectile integration
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.ProjectilePlayerRolls.cs windows/src/DungeonMasterAI.Engine/GameEngine.AutoProjectilePlayerRolls.cs windows/src/DungeonMasterAI.Engine/Spellcasting.cs windows/src/DungeonMasterAI.Engine/GameEngine.ReadiedSpellDecisions.cs
+          git diff --cached --check
+          git commit -m "r45: enable player readied projectile spell sequences"
+          git push origin HEAD:feature/r45-readied-projectile-spells
