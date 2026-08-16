@@ -71,6 +71,9 @@ jobs:
       - name: Run player Opportunity Attack roll tests
         run: dotnet run --project tests/DungeonMasterAI.OpportunityAttackRollTests/DungeonMasterAI.OpportunityAttackRollTests.csproj --configuration Release
 
+      - name: Run player readied attack roll tests
+        run: dotnet run --project tests/DungeonMasterAI.ReadiedAttackRollTests/DungeonMasterAI.ReadiedAttackRollTests.csproj --configuration Release
+
       - name: Run first-class player decision tests
         run: dotnet run --project tests/DungeonMasterAI.PlayerDecisionTests/DungeonMasterAI.PlayerDecisionTests.csproj --configuration Release
 
