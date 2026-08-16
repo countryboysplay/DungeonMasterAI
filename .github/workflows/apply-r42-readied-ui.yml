@@ -18,13 +18,13 @@ jobs:
         with:
           ref: feature/r42-readied-player-rolls
           fetch-depth: 0
-      - name: Apply readied attack UI codemod
+      - name: Apply readied reaction integration codemod
         run: python3 .github/scripts/apply_r42_readied_ui.py
-      - name: Commit readied attack UI routing
+      - name: Commit readied reaction routing
         run: |
           git config user.name countryboysplay
           git config user.email 31964073+countryboysplay@users.noreply.github.com
-          git add windows/src/DungeonMasterAI.App/MainViewModel.cs windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
+          git add windows/src/DungeonMasterAI.App/MainViewModel.cs windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs windows/src/DungeonMasterAI.Engine/GameEngine.PlayerDecisions.cs windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
           git diff --cached --check
-          git commit -m "r42: route readied attacks through player-owned rolls"
+          git commit -m "r42: route readied reactions through player choice and rolls"
           git push origin HEAD:feature/r42-readied-player-rolls
