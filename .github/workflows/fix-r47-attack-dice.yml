@@ -1,0 +1,45 @@
+name: Fix r47 NPC attack test dice
+
+on:
+  push:
+    branches: [feature/r47-npc-readied-projectile-spells]
+    paths:
+      - '.github/workflows/fix-r47-attack-dice.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r47-npc-readied-projectile-spells
+          fetch-depth: 0
+      - name: Use reliable noncritical attack dice
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('windows/tests/DungeonMasterAI.ReadiedProjectileSpellTests/Program.cs')
+          text = p.read_text(encoding='utf-8')
+          marker = 'Run("NPC readied attack projectiles resolve automatically but pause for PC Concentration", () =>\n{\n    var f = CreateFixture(CreateAttackProjectileSpell(), targetType: "pc");\n    f.Caster.CharacterType = "monster";\n    var dice = MaximumDice();'
+          replacement = 'Run("NPC readied attack projectiles resolve automatically but pause for PC Concentration", () =>\n{\n    var f = CreateFixture(CreateAttackProjectileSpell(), targetType: "pc");\n    f.Caster.CharacterType = "monster";\n    var dice = ReliableHitDice();'
+          if text.count(marker) != 1:
+              raise SystemExit(f'Expected one NPC attack test marker, found {text.count(marker)}')
+          text = text.replace(marker, replacement, 1)
+          helper = 'static DiceService MaximumDice() => new((min, max) => max - 1);'
+          helper_replacement = 'static DiceService MaximumDice() => new((min, max) => max - 1);\nstatic DiceService ReliableHitDice() => new((min, max) => max == 21 ? 19 : max - 1);'
+          if text.count(helper) != 1:
+              raise SystemExit(f'Expected one MaximumDice helper, found {text.count(helper)}')
+          p.write_text(text.replace(helper, helper_replacement, 1), encoding='utf-8')
+          PY
+      - name: Commit test correction
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/tests/DungeonMasterAI.ReadiedProjectileSpellTests/Program.cs
+          git diff --cached --check
+          git commit -m "r47: keep NPC projectile attack test noncritical"
+          git push origin HEAD:feature/r47-npc-readied-projectile-spells
