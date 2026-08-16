@@ -1,0 +1,30 @@
+name: Apply r44 readied move
+
+on:
+  push:
+    branches: [feature/r44-readied-movement-player-choice]
+    paths:
+      - '.github/workflows/apply-r44-readied-move.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r44-readied-movement-player-choice
+          fetch-depth: 0
+      - name: Apply readied movement player-control codemod
+        run: python3 .github/scripts/apply_r44_readied_move.py
+      - name: Commit readied movement player control
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.PlayerDecisions.cs windows/src/DungeonMasterAI.Engine/DmToolRouter.cs windows/src/DungeonMasterAI.Engine/StealthReady.cs
+          git diff --cached --check
+          git commit -m "r44: route readied movement through player Reaction choice"
+          git push origin HEAD:feature/r44-readied-movement-player-choice
