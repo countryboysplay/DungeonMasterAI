@@ -14,9 +14,6 @@ public sealed partial class GameEngine
         EncounterState encounter,
         DiceService dice)
     {
-        if (!caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Readied projectile spell sequences currently require a player-character caster so all projectile dice remain player-owned.");
-
         var upcastLevels = Math.Max(0, castAtLevel - spell.Level);
         var projectileCount = checked(spell.BaseProjectiles + (upcastLevels * spell.ExtraProjectilesPerSlot));
         if (projectileCount < 1)
@@ -26,10 +23,11 @@ public sealed partial class GameEngine
         ValidateSpellRange(campaign, encounter, caster, target, spell);
         var allocations = Enumerable.Repeat(target.Id, projectileCount).ToArray();
         var resolution = (spell.Resolution ?? "").Trim().ToLowerInvariant();
+        var playerCaster = caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase);
 
         return resolution switch
         {
-            "projectile_attack" => BeginPlayerProjectileSpellSequence(
+            "projectile_attack" when playerCaster => BeginPlayerProjectileSpellSequence(
                 campaign,
                 caster,
                 spell,
@@ -40,7 +38,7 @@ public sealed partial class GameEngine
                 allocations,
                 dice,
                 readiedReaction: true),
-            "projectile_auto" => BeginPlayerAutoProjectileSpellSequence(
+            "projectile_attack" => BeginAutomaticReadiedProjectileSpellSequence(
                 campaign,
                 caster,
                 spell,
@@ -49,7 +47,28 @@ public sealed partial class GameEngine
                 spell.RequiresConcentration,
                 encounter,
                 allocations,
+                dice),
+            "projectile_auto" when playerCaster => BeginPlayerAutoProjectileSpellSequence(
+                campaign,
+                caster,
+                spell,
+                castAtLevel,
+                usedSlot,
+                spell.RequiresConcentration,
+                encounter,
+                allocations,
+                dice,
                 readiedReaction: true),
+            "projectile_auto" => BeginAutomaticReadiedAutoProjectileSpellSequence(
+                campaign,
+                caster,
+                spell,
+                castAtLevel,
+                usedSlot,
+                spell.RequiresConcentration,
+                encounter,
+                allocations,
+                dice),
             _ => throw new InvalidOperationException($"{spell.Name} is not configured as a projectile spell.")
         };
     }
