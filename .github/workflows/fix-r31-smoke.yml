@@ -1,0 +1,67 @@
+name: Fix r31 auto-projectile smoke expectations
+
+on:
+  push:
+    branches:
+      - feature/r31-player-auto-projectile-damage
+    paths:
+      - .github/workflows/fix-r31-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrate auto-projectile smoke expectation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''var missileCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceMissiles.Id, dice,
+              [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id, projectileTargetB.Id], slotLevel: 2);
+          Assert(missileCast.TargetResults is { Count: 4 } && projectileCaster.SpellSlots[2].Remaining == 2,
+              "an upcast auto-hit projectile spell resolves exactly one declared target allocation per projectile and spends one spell slot");
+          Assert(projectileTargetA.CurrentHp + projectileTargetB.CurrentHp < missileHpBefore,
+              "auto-hit projectile damage is applied to all declared projectile targets");'''.replace('          ', '')
+          new = '''var missileCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceMissiles.Id, dice,
+              [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id, projectileTargetB.Id], slotLevel: 2);
+          Assert(missileCast.TargetResults is { Count: 0 }
+              && projectileCaster.SpellSlots[2].Remaining == 2
+              && campaign.PendingPlayerRoll?.ResolutionKey == "projectile_auto_damage",
+              "an upcast player auto-hit projectile spell commits one slot and pauses for the first player damage roll");
+          var missileSequenceResult = missileCast;
+          for (var missileIndex = 0; missileIndex < 4; missileIndex++)
+          {
+              var missileDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player damage roll for missile {missileIndex + 1}.");
+              Assert(missileDamagePending.ResolutionKey == "projectile_auto_damage", $"missile {missileIndex + 1} requests player damage");
+              missileSequenceResult = engine.ResolvePendingAutoProjectileSpellDamageRoll(campaign, missileDamagePending.Id, 2, dice);
+          }
+          Assert(missileSequenceResult.TargetResults is { Count: 4 }
+              && campaign.PendingPlayerRoll is null
+              && projectileCaster.SpellSlots[2].Remaining == 2,
+              "an upcast auto-hit projectile spell resolves exactly one player damage roll per declared projectile and spends one spell slot");
+          Assert(projectileTargetA.CurrentHp + projectileTargetB.CurrentHp == missileHpBefore - 8,
+              "the supplied auto-hit projectile damage is applied to all declared projectile targets");'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('legacy auto-projectile smoke block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: resolve player auto-projectile damage in smoke suite"
+          git push origin HEAD:${GITHUB_REF_NAME}
