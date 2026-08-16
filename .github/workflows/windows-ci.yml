@@ -62,6 +62,9 @@ jobs:
       - name: Run combat skill roll tests
         run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
 
+      - name: Run stealth and first aid roll tests
+        run: dotnet run --project tests/DungeonMasterAI.StealthAidRollTests/DungeonMasterAI.StealthAidRollTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
