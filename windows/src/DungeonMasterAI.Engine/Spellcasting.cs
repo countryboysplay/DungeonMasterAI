@@ -370,7 +370,8 @@ public sealed partial class GameEngine
         usedSlot,
         concentrationStarted,
         activeEncounter,
-        allocations);
+        allocations,
+        dice);
 }
 
         var results = new List<SpellTargetResolution>(projectileCount);
@@ -672,9 +673,6 @@ public sealed partial class GameEngine
         ValidateSpellConfiguration(spell, resolution);
         if (resolution is "multi_buff" or "persistent_area")
             throw new InvalidOperationException($"Readying {spell.Name}'s multi-target or persistent-area resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
-        if (resolution is "projectile_auto" or "projectile_attack"
-            && !caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Readied projectile spells are currently enabled for player-character casters only; NPC projectile Ready resolution will be generalized in a later engine pass.");
         var normalizedTrigger = NormalizeReadyTrigger(trigger);
         if (!combatant.ActionAvailable)
             throw new InvalidOperationException($"{caster.Name} has already used their action this turn and cannot take the Ready action.");

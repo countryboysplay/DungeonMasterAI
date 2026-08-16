@@ -12,6 +12,7 @@ internal sealed class PlayerProjectileSpellSequenceState
     public bool ConcentrationStarted { get; set; }
     public string? EncounterId { get; set; }
     public bool ReadiedReaction { get; set; }
+    public bool AutomaticCasterRolls { get; set; }
     public List<string> TargetIds { get; set; } = [];
     public int NextProjectileIndex { get; set; }
     public List<SpellTargetResolution> Results { get; set; } = [];
@@ -40,6 +41,35 @@ public sealed partial class GameEngine
             ConcentrationStarted = concentrationStarted,
             EncounterId = encounter?.Id,
             ReadiedReaction = readiedReaction,
+            AutomaticCasterRolls = false,
+            TargetIds = allocations.ToList(),
+            NextProjectileIndex = 0,
+            Results = []
+        };
+        return AdvancePlayerProjectileSpellSequence(campaign, state, dice);
+    }
+
+    private SpellCastResult BeginAutomaticReadiedProjectileSpellSequence(
+        CampaignState campaign,
+        CharacterSheet caster,
+        SpellDefinition spell,
+        int castAtLevel,
+        bool usedSlot,
+        bool concentrationStarted,
+        EncounterState encounter,
+        IReadOnlyList<string> allocations,
+        DiceService dice)
+    {
+        var state = new PlayerProjectileSpellSequenceState
+        {
+            CasterId = caster.Id,
+            SpellId = spell.Id,
+            CastAtLevel = castAtLevel,
+            UsedSpellSlot = usedSlot,
+            ConcentrationStarted = concentrationStarted,
+            EncounterId = encounter.Id,
+            ReadiedReaction = true,
+            AutomaticCasterRolls = true,
             TargetIds = allocations.ToList(),
             NextProjectileIndex = 0,
             Results = []
@@ -233,6 +263,9 @@ public sealed partial class GameEngine
         var spell = RequireProjectileSpell(campaign, state.SpellId);
         var target = RequireCharacter(campaign, state.TargetIds[state.NextProjectileIndex]);
         var encounter = RequireProjectileEncounterIfAny(campaign, state, caster);
+        if (state.AutomaticCasterRolls)
+            return AdvanceAutomaticProjectileSpellAttack(campaign, state, caster, spell, target, encounter, dice);
+
         var casterCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
         var targetCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(target.Id, StringComparison.OrdinalIgnoreCase));
         var coverBonus = GetSpellCoverBonus(encounter, caster.Id, target.Id);
@@ -272,6 +305,36 @@ public sealed partial class GameEngine
         Touch(campaign);
         Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
         return BuildProjectileSequenceResult(campaign, state, pending.Purpose);
+    }
+
+    private SpellCastResult AdvanceAutomaticProjectileSpellAttack(
+        CampaignState campaign,
+        PlayerProjectileSpellSequenceState state,
+        CharacterSheet caster,
+        SpellDefinition spell,
+        CharacterSheet target,
+        EncounterState? encounter,
+        DiceService dice)
+    {
+        var projectileIndex = state.NextProjectileIndex;
+        var (attack, damage, attackSummary) = ResolveSpellAttack(campaign, caster, target, spell, 0, dice, encounter);
+        var projectileSummary = $"Projectile {projectileIndex + 1}: {attackSummary}" +
+            (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");
+        state.Results.Add(new SpellTargetResolution(target.Id, target.Name, projectileIndex + 1, attack, null, damage, 0, projectileSummary));
+        state.NextProjectileIndex++;
+
+        if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "projectile_spell_sequence";
+            campaign.PendingPlayerRoll.Context["continuation_sequence_json"] = JsonSerializer.Serialize(state);
+            Touch(campaign);
+            var waitSummary = state.NextProjectileIndex < state.TargetIds.Count
+                ? $"{projectileSummary} Resolve {target.Name}'s Concentration save before projectile {state.NextProjectileIndex + 1} can continue."
+                : $"{projectileSummary} Resolve {target.Name}'s Concentration save before the spell finishes resolving.";
+            return BuildProjectileSequenceResult(campaign, state, waitSummary);
+        }
+
+        return AdvancePlayerProjectileSpellSequence(campaign, state, dice);
     }
 
     private SpellCastResult FinalizePlayerProjectileSpellSequence(CampaignState campaign, PlayerProjectileSpellSequenceState state)

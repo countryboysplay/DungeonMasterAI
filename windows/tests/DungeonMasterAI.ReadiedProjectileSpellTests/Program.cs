@@ -104,16 +104,56 @@ Run("readied projectile decision requires a release target", () =>
     True(f.CasterCombatant.ReadiedAction is not null, "invalid target preserves readied spell");
 });
 
-Run("NPC projectile Ready remains blocked instead of partially resolving unsupported ownership", () =>
+Run("NPC readied attack projectiles resolve automatically but pause for PC Concentration", () =>
 {
     var f = CreateFixture(CreateAttackProjectileSpell(), targetType: "pc");
     f.Caster.CharacterType = "monster";
-    var rejected = false;
-    try { f.Engine.TakeReadySpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, f.Spell.Id, "the hero advances", 2); }
-    catch (InvalidOperationException) { rejected = true; }
-    True(rejected, "NPC projectile Ready is explicitly rejected in r45");
-    Equal(3, f.Caster.SpellSlots[2].Remaining, "rejected NPC Ready spends no slot");
-    True(f.CasterCombatant.ActionAvailable, "rejected NPC Ready spends no action");
+    var dice = MaximumDice();
+    var slotsBefore = f.Caster.SpellSlots[2].Remaining;
+    var hpBefore = f.Target.CurrentHp;
+    f.Engine.BeginConcentration(f.Campaign, f.Target.Id, "Bless");
+
+    f.Engine.TakeReadySpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, f.Spell.Id, "the hero advances", 2);
+    Equal(slotsBefore - 1, f.Caster.SpellSlots[2].Remaining, "NPC Ready spends its slot once");
+    f.Engine.NextTurn(f.Campaign, f.Encounter.Id, dice);
+    f.Engine.TriggerReadiedSpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, dice, f.TargetCombatant.Id);
+
+    for (var projectile = 1; projectile <= 3; projectile++)
+    {
+        var concentration = f.Campaign.PendingPlayerRoll ?? throw new Exception($"Concentration save missing after NPC projectile {projectile}");
+        Equal("concentration_check", concentration.ResolutionKey, $"NPC projectile {projectile} Concentration handoff");
+        Equal("projectile_spell_sequence", concentration.Context["continuation_resolution_key"], $"NPC projectile {projectile} continuation key");
+        f.Engine.ResolvePendingConcentrationCheckRoll(f.Campaign, concentration.Id, 20, null, dice);
+    }
+
+    True(f.Campaign.PendingPlayerRoll is null, "NPC attack-projectile sequence finishes after final Concentration save");
+    True(f.Target.CurrentHp < hpBefore, "NPC attack projectiles dealt automatic damage");
+    Equal(slotsBefore - 1, f.Caster.SpellSlots[2].Remaining, "NPC projectile release never spends a second slot");
+    True(!f.CasterCombatant.ReactionAvailable, "NPC projectile release spends Reaction");
+});
+
+Run("NPC readied auto-hit projectiles resolve damage automatically and preserve Concentration pauses", () =>
+{
+    var f = CreateFixture(CreateAutoProjectileSpell(), targetType: "pc");
+    f.Caster.CharacterType = "monster";
+    var dice = MaximumDice();
+    var hpBefore = f.Target.CurrentHp;
+    f.Engine.BeginConcentration(f.Campaign, f.Target.Id, "Bless");
+
+    f.Engine.TakeReadySpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, f.Spell.Id, "the hero advances", 1);
+    f.Engine.NextTurn(f.Campaign, f.Encounter.Id, dice);
+    f.Engine.TriggerReadiedSpell(f.Campaign, f.Encounter.Id, f.CasterCombatant.Id, dice, f.TargetCombatant.Id);
+
+    for (var projectile = 1; projectile <= 3; projectile++)
+    {
+        var concentration = f.Campaign.PendingPlayerRoll ?? throw new Exception($"Concentration save missing after NPC auto projectile {projectile}");
+        Equal("concentration_check", concentration.ResolutionKey, $"NPC auto projectile {projectile} Concentration handoff");
+        Equal("auto_projectile_spell_sequence", concentration.Context["continuation_resolution_key"], $"NPC auto projectile {projectile} continuation key");
+        f.Engine.ResolvePendingConcentrationCheckRoll(f.Campaign, concentration.Id, 20, null, dice);
+    }
+
+    True(f.Campaign.PendingPlayerRoll is null, "NPC auto-projectile sequence finishes cleanly");
+    True(f.Target.CurrentHp < hpBefore, "NPC auto projectiles dealt automatic damage");
 });
 
 if (failures.Count > 0)
@@ -237,6 +277,7 @@ static SpellDefinition CreateAutoProjectileSpell() => new()
 };
 
 static DiceService MinimumDice() => new((min, max) => min);
+static DiceService MaximumDice() => new((min, max) => max);
 
 static void True(bool value, string label)
 {

@@ -12,6 +12,7 @@ internal sealed class PlayerAutoProjectileSpellSequenceState
     public bool ConcentrationStarted { get; set; }
     public string? EncounterId { get; set; }
     public bool ReadiedReaction { get; set; }
+    public bool AutomaticCasterRolls { get; set; }
     public List<string> TargetIds { get; set; } = [];
     public int NextProjectileIndex { get; set; }
     public List<SpellTargetResolution> Results { get; set; } = [];
@@ -28,6 +29,7 @@ public sealed partial class GameEngine
         bool concentrationStarted,
         EncounterState? encounter,
         IReadOnlyList<string> allocations,
+        DiceService dice,
         bool readiedReaction = false)
     {
         var state = new PlayerAutoProjectileSpellSequenceState
@@ -39,11 +41,40 @@ public sealed partial class GameEngine
             ConcentrationStarted = concentrationStarted,
             EncounterId = encounter?.Id,
             ReadiedReaction = readiedReaction,
+            AutomaticCasterRolls = false,
             TargetIds = allocations.ToList(),
             NextProjectileIndex = 0,
             Results = []
         };
-        return AdvancePlayerAutoProjectileSpellSequence(campaign, state);
+        return AdvancePlayerAutoProjectileSpellSequence(campaign, state, dice);
+    }
+
+    private SpellCastResult BeginAutomaticReadiedAutoProjectileSpellSequence(
+        CampaignState campaign,
+        CharacterSheet caster,
+        SpellDefinition spell,
+        int castAtLevel,
+        bool usedSlot,
+        bool concentrationStarted,
+        EncounterState encounter,
+        IReadOnlyList<string> allocations,
+        DiceService dice)
+    {
+        var state = new PlayerAutoProjectileSpellSequenceState
+        {
+            CasterId = caster.Id,
+            SpellId = spell.Id,
+            CastAtLevel = castAtLevel,
+            UsedSpellSlot = usedSlot,
+            ConcentrationStarted = concentrationStarted,
+            EncounterId = encounter.Id,
+            ReadiedReaction = true,
+            AutomaticCasterRolls = true,
+            TargetIds = allocations.ToList(),
+            NextProjectileIndex = 0,
+            Results = []
+        };
+        return AdvancePlayerAutoProjectileSpellSequence(campaign, state, dice);
     }
 
     public SpellCastResult ResolvePendingAutoProjectileSpellDamageRoll(
@@ -93,12 +124,13 @@ public sealed partial class GameEngine
             return BuildAutoProjectileSequenceResult(campaign, state, waitSummary);
         }
 
-        return AdvancePlayerAutoProjectileSpellSequence(campaign, state);
+        return AdvancePlayerAutoProjectileSpellSequence(campaign, state, dice);
     }
 
     private SpellCastResult AdvancePlayerAutoProjectileSpellSequence(
         CampaignState campaign,
-        PlayerAutoProjectileSpellSequenceState state)
+        PlayerAutoProjectileSpellSequenceState state,
+        DiceService dice)
     {
         if (state.NextProjectileIndex >= state.TargetIds.Count)
             return FinalizePlayerAutoProjectileSpellSequence(campaign, state);
@@ -107,6 +139,33 @@ public sealed partial class GameEngine
         var spell = RequireAutoProjectileSpell(campaign, state.SpellId);
         var target = RequireCharacter(campaign, state.TargetIds[state.NextProjectileIndex]);
         var encounter = RequireAutoProjectileEncounterIfAny(campaign, state, caster);
+        if (state.AutomaticCasterRolls)
+        {
+            var projectileIndex = state.NextProjectileIndex;
+            var damageAmount = dice.RollDamage(spell.DamageExpression);
+            DamageResolutionResult? damage = null;
+            if (!target.Dead)
+                damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, spell.DamageType);
+            var summary = target.Dead && damage is null
+                ? $"Projectile {projectileIndex + 1} was already allocated to {target.Name}; the target had been reduced to death by an earlier declared projectile before this damage instance was applied."
+                : $"Projectile {projectileIndex + 1} automatically struck {target.Name} for {damageAmount} {spell.DamageType} damage." + (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");
+            state.Results.Add(new SpellTargetResolution(target.Id, target.Name, projectileIndex + 1, null, null, damage, 0, summary));
+            state.NextProjectileIndex++;
+
+            if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "auto_projectile_spell_sequence";
+                campaign.PendingPlayerRoll.Context["continuation_sequence_json"] = JsonSerializer.Serialize(state);
+                Touch(campaign);
+                var waitSummary = state.NextProjectileIndex < state.TargetIds.Count
+                    ? $"{summary} Resolve {target.Name}'s Concentration save before projectile {state.NextProjectileIndex + 1} can continue."
+                    : $"{summary} Resolve {target.Name}'s Concentration save before the spell finishes resolving.";
+                return BuildAutoProjectileSequenceResult(campaign, state, waitSummary);
+            }
+
+            return AdvancePlayerAutoProjectileSpellSequence(campaign, state, dice);
+        }
+
         var casterCombatant = encounter?.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
 
         var pending = new PendingRollRequest
@@ -191,7 +250,7 @@ public sealed partial class GameEngine
             throw new InvalidOperationException("The auto-projectile spell continuation is missing its sequence state.");
         var state = JsonSerializer.Deserialize<PlayerAutoProjectileSpellSequenceState>(json)
             ?? throw new InvalidOperationException("The auto-projectile spell continuation could not be restored.");
-        var result = AdvancePlayerAutoProjectileSpellSequence(campaign, state);
+        var result = AdvancePlayerAutoProjectileSpellSequence(campaign, state, dice);
         return result.Summary;
     }
 
