@@ -1,0 +1,112 @@
+name: Apply r38 wiring
+
+on:
+  push:
+    branches:
+      - feature/r38-player-opportunity-attacks
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout r38
+        uses: actions/checkout@v4
+        with:
+          ref: feature/r38-player-opportunity-attacks
+          fetch-depth: 0
+
+      - name: Wire player Opportunity Attack rolls
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Fix the sequence helper to use the domain's persisted pending-move type.
+          oa_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.OpportunityAttackPlayerRolls.cs')
+          oa = oa_path.read_text(encoding='utf-8')
+          oa = oa.replace('PendingMoveState pendingMove', 'PendingCombatMove pendingMove')
+          oa_path.write_text(oa, encoding='utf-8')
+
+          # The legacy automatic resolver remains for NPCs only. Player reactors must use pending rolls.
+          engine_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.cs')
+          engine = engine_path.read_text(encoding='utf-8')
+          method = engine.index('    public EncounterAttackResult ResolveOpportunityAttack(')
+          character_marker = '        var reactor = RequireCharacter(campaign, reactorCombatant.CharacterId);\n'
+          insert_at = engine.index(character_marker, method) + len(character_marker)
+          guard = '''        if (reactor.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+              throw new InvalidOperationException("Player-character Opportunity Attacks must use the authoritative player-roll request path.");
+          '''
+          if 'Player-character Opportunity Attacks must use the authoritative player-roll request path.' not in engine[method:method+5000]:
+              engine = engine[:insert_at] + guard + engine[insert_at:]
+              engine_path.write_text(engine, encoding='utf-8')
+
+          # DM tool routing chooses pending player rolls for PC reactors while NPC reactions stay automatic.
+          router_path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
+          router = router_path.read_text(encoding='utf-8')
+          router = router.replace(
+              'Tool("resolve_opportunity_attack", "Resolve one pending Opportunity Attack reaction with a legal melee attack. This spends the reactor\'s Reaction and commits the pending move after all reactions are resolved.",',
+              'Tool("resolve_opportunity_attack", "Resolve one pending Opportunity Attack reaction with a legal melee attack. NPC attacks resolve automatically. For a player reactor, call this only after the player chooses to spend the Reaction; the engine then creates a required player attack roll and, on a hit, a required player damage roll before movement can resume.",', 1)
+          router = router.replace(
+              '"resolve_opportunity_attack" => engine.ResolveOpportunityAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "reactor_combatant_id"), OptionalString(a, "attack_name"), dice),',
+              '"resolve_opportunity_attack" => ResolveOpportunityAttackTool(engine, dice, campaign, a),', 1)
+          router_path.write_text(router, encoding='utf-8')
+
+          # Universal Game Table roll control resolves player OA attack and damage dice.
+          vm_path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
+          vm = vm_path.read_text(encoding='utf-8')
+          if 'opportunity_attack_damage' not in vm:
+              marker = '        if (pending.ResolutionKey.Equals("combat_attack_damage", StringComparison.OrdinalIgnoreCase))\n'
+              insert = '''        if (pending.ResolutionKey.Equals("opportunity_attack_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                  && !string.IsNullOrWhiteSpace(storedExpression)
+                  ? storedExpression
+                  : pending.Formula;
+              var critical = pending.Context.TryGetValue("critical", out var criticalText)
+                  && bool.TryParse(criticalText, out var parsedCritical)
+                  && parsedCritical;
+              var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveOpportunityAttackDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          '''
+              if marker not in vm:
+                  raise SystemExit('Could not find combat attack damage dispatch marker.')
+              vm = vm.replace(marker, insert + marker, 1)
+
+          if 'pending.ResolutionKey.Equals("opportunity_attack"' not in vm:
+              marker = '        if (pending.ResolutionKey.Equals("combat_attack", StringComparison.OrdinalIgnoreCase))\n'
+              insert = '''        if (pending.ResolutionKey.Equals("opportunity_attack", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveOpportunityAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          '''
+              if marker not in vm:
+                  raise SystemExit('Could not find combat attack d20 dispatch marker.')
+              vm = vm.replace(marker, insert + marker, 1)
+          vm_path.write_text(vm, encoding='utf-8')
+          PY
+
+      - name: Commit r38 wiring
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "r38 wiring is already applied."
+            exit 0
+          fi
+          git config user.name "countryboysplay"
+          git config user.email "31964073+countryboysplay@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.OpportunityAttackPlayerRolls.cs \
+                  windows/src/DungeonMasterAI.Engine/GameEngine.cs \
+                  windows/src/DungeonMasterAI.Engine/DmToolRouter.cs \
+                  windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
+          git commit -m "r38: wire authoritative player Opportunity Attacks"
+          git push origin HEAD:feature/r38-player-opportunity-attacks
