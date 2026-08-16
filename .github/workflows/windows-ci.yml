@@ -50,6 +50,9 @@ jobs:
       - name: Run auto-projectile damage roll tests
         run: dotnet run --project tests/DungeonMasterAI.AutoProjectileRollTests/DungeonMasterAI.AutoProjectileRollTests.csproj --configuration Release
 
+      - name: Run spell saving throw roll tests
+        run: dotnet run --project tests/DungeonMasterAI.SpellSaveRollTests/DungeonMasterAI.SpellSaveRollTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
