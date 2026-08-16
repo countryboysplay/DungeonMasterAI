@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   apply-patch:
-    if: ${{ hashFiles('.github/patches/r24-player-roll-pipeline.patch.gz.b64') != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout feature branch
