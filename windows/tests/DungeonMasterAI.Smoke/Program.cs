@@ -91,7 +91,10 @@ try { engine.ApplyDamageDetailed(campaign, concentrationHero.Id, 1, "Force"); }
 catch (InvalidOperationException) { concentrationBypassRejected = true; }
 Assert(concentrationBypassRejected, "the engine rejects damage paths that would bypass a required Concentration save");
 var maintainedConcentration = engine.ApplyDamageWithConcentration(campaign, concentrationHero.Id, 2, dice, "Force");
-Assert(maintainedConcentration.Concentration is { Maintained: true, DifficultyClass: 10 } && concentrationHero.ConcentrationEffect == "Second Test Ward", "damage triggers an automatic Constitution save and preserves Concentration on success");
+Assert(maintainedConcentration.Concentration is null && campaign.PendingPlayerRoll?.ResolutionKey == "concentration_check" && concentrationHero.ConcentrationEffect == "Second Test Ward", "damage to a concentrating PC creates a required player Concentration save without auto-resolving it");
+var concentrationPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected a pending player Concentration save.");
+var concentrationResolved = engine.ResolvePendingConcentrationCheckRoll(campaign, concentrationPending.Id, 20, null, dice);
+Assert(concentrationResolved is { Maintained: true, DifficultyClass: 10 } && concentrationResolved.SavingThrow.ChosenRoll == 20 && concentrationHero.ConcentrationEffect == "Second Test Ward" && campaign.PendingPlayerRoll is null, "the supplied player d20 resolves the Concentration save and preserves Concentration on success");
 engine.AddCondition(campaign, concentrationHero.Id, "Incapacitated");
 Assert(concentrationHero.ConcentrationEffect is null, "becoming Incapacitated automatically ends Concentration");
 
