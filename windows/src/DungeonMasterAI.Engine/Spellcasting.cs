@@ -727,7 +727,10 @@ public sealed partial class GameEngine
         string encounterId,
         string reactorCombatantId,
         DiceService dice,
-        string? targetCombatantId = null)
+        string? targetCombatantId = null,
+        int? areaCenterX = null,
+        int? areaCenterY = null,
+        string? areaDirection = null)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(dice);
@@ -846,6 +849,21 @@ public sealed partial class GameEngine
                 {
                     (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, encounter);
                 }
+                break;
+            case "area_save":
+                var areaResult = BeginReadiedAreaSpellSequence(
+                    campaign,
+                    caster,
+                    spell,
+                    castAtLevel,
+                    readied.UsedSpellSlot,
+                    encounter,
+                    areaCenterX,
+                    areaCenterY,
+                    areaDirection,
+                    dice);
+                effectSummary = areaResult.Summary;
+                targetResults = areaResult.TargetResults;
                 break;
             case "projectile_attack":
             case "projectile_auto":

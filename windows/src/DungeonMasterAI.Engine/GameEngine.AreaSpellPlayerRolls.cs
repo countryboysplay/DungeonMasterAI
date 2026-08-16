@@ -18,6 +18,7 @@ internal sealed class PlayerAreaSpellSequenceState
     public int CastAtLevel { get; set; }
     public bool UsedSpellSlot { get; set; }
     public bool ConcentrationStarted { get; set; }
+    public bool ReadiedReaction { get; set; }
     public string EncounterId { get; set; } = "";
     public int PointX { get; set; }
     public int PointY { get; set; }
@@ -43,7 +44,8 @@ public sealed partial class GameEngine
         int pointY,
         string direction,
         IReadOnlyList<string> targetCombatantIds,
-        DiceService dice)
+        DiceService dice,
+        bool readiedReaction = false)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(caster);
@@ -59,6 +61,7 @@ public sealed partial class GameEngine
             CastAtLevel = castAtLevel,
             UsedSpellSlot = usedSpellSlot,
             ConcentrationStarted = concentrationStarted,
+            ReadiedReaction = readiedReaction,
             EncounterId = encounter.Id,
             PointX = pointX,
             PointY = pointY,
@@ -502,11 +505,14 @@ public sealed partial class GameEngine
         var spell = RequireAreaSequenceSpell(campaign, state.SpellId);
         var slotText = spell.Level == 0
             ? "as a cantrip"
-            : $"using a level {state.CastAtLevel} spell slot";
+            : state.ReadiedReaction
+                ? $"from the level {state.CastAtLevel} slot expended when it was readied"
+                : $"using a level {state.CastAtLevel} spell slot";
         var environmentText = string.IsNullOrWhiteSpace(spell.EnvironmentalEffect)
             ? ""
             : $" {spell.EnvironmentalEffect}";
-        var summary = $"{caster.Name} cast {spell.Name} {slotText}, affecting {state.Results.Count} creature{(state.Results.Count == 1 ? "" : "s")}. {string.Join(" ", state.Results.Select(r => r.Summary))}{environmentText}".Trim();
+        var verb = state.ReadiedReaction ? "released readied" : "cast";
+        var summary = $"{caster.Name} {verb} {spell.Name} {slotText}, affecting {state.Results.Count} creature{(state.Results.Count == 1 ? "" : "s")}. {string.Join(" ", state.Results.Select(r => r.Summary))}{environmentText}".Trim();
         Touch(campaign);
         Log(campaign, "spell_cast", summary);
         return BuildAreaSpellSequenceResult(campaign, state, summary);
@@ -579,7 +585,8 @@ public sealed partial class GameEngine
             throw new InvalidOperationException("The area spell's encounter is no longer active.");
         var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException("The area spellcaster is no longer in the encounter.");
-        EnsureCurrentTurn(encounter, casterCombatant.Id);
+        if (!state.ReadiedReaction)
+            EnsureCurrentTurn(encounter, casterCombatant.Id);
         return encounter;
     }
 
