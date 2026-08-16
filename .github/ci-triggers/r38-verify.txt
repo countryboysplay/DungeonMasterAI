@@ -1,0 +1,1 @@
+r38 verification trigger after authoritative Opportunity Attack and Concentration movement sequencing changes.
