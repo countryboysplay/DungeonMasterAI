@@ -67,6 +67,12 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))
+        {
+            await ResolveActiveInitiativeFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+            return;
+        }
+
         StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
     }
 
@@ -222,6 +228,31 @@ public sealed partial class MainViewModel
         try
         {
             var result = _engine.ResolvePendingSavingThrowRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+            LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = $"🎲 {CleanSessionNarration(result.Summary)}"
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private async Task ResolveActiveInitiativeFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingInitiativeRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
             LastDiceResult = $"{LastDiceResult} • {result.Summary}";
             StatusMessage = result.Summary;
             SelectedCampaign.Chat.Add(new ChatMessage
