@@ -31,6 +31,21 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("readied_attack_damage", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                && !string.IsNullOrWhiteSpace(storedExpression)
+                ? storedExpression
+                : pending.Formula;
+            var critical = pending.Context.TryGetValue("critical", out var criticalText)
+                && bool.TryParse(criticalText, out var parsedCritical)
+                && parsedCritical;
+            var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+            LastDiceResult = $"{pending.Formula}: {damageAmount}";
+            await ResolveActiveReadiedAttackDamageFromRollAsync(pending.Id, damageAmount);
+            return;
+        }
+
         if (pending.ResolutionKey.Equals("combat_attack_damage", StringComparison.OrdinalIgnoreCase))
         {
             var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
@@ -120,6 +135,12 @@ public sealed partial class MainViewModel
     await ResolveActiveOpportunityAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
     return;
 }
+
+        if (pending.ResolutionKey.Equals("readied_attack", StringComparison.OrdinalIgnoreCase))
+        {
+            await ResolveActiveReadiedAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+            return;
+        }
 
         if (pending.ResolutionKey.Equals("combat_attack", StringComparison.OrdinalIgnoreCase))
         {

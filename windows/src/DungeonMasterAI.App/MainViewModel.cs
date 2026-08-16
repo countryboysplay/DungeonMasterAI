@@ -1875,6 +1875,15 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             var ready = combatant.ReadiedAction ?? throw new InvalidOperationException($"{SelectedAttacker.Name} has no readied action waiting for a trigger.");
             if (ready.Kind.Equals("attack", StringComparison.OrdinalIgnoreCase))
             {
+                var reactor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(combatant.CharacterId, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidOperationException("The readied attacker character no longer exists.");
+                if (IsPlayerCharacter(reactor))
+                {
+                    var pending = _engine.RequestReadiedAttackRoll(SelectedCampaign, SelectedEncounter.Id, combatant.Id);
+                    await PresentPendingGameTableRollAsync(pending);
+                    return;
+                }
+
                 var result = _engine.TriggerReadiedAttack(SelectedCampaign, SelectedEncounter.Id, combatant.Id, _dice);
                 StatusMessage = result.Summary;
             }
