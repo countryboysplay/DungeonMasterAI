@@ -1,0 +1,67 @@
+name: Fix r29 Guiding Bolt smoke expectation
+
+on:
+  push:
+    branches:
+      - feature/r29-player-spell-attack-rolls
+    paths:
+      - .github/workflows/fix-r29-guiding-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrate Guiding Bolt smoke expectation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''EncounterAttackResult? advantageAttack = null;
+          var guidingApplied = false;
+          for (var attempt = 0; attempt < 20 && !guidingApplied; attempt++)
+          {
+              var cast = engine.CastSpell(campaign, effectCaster.Id, guidingTest.Id, dice, holdTarget.Id, encounterId: effectEncounter.Id);
+              guidingApplied = cast.SpellAttack?.Hit == true;
+              if (!guidingApplied)
+              {
+                  engine.NextTurn(campaign, effectEncounter.Id, dice); // ally
+                  engine.NextTurn(campaign, effectEncounter.Id, dice); // target
+                  engine.NextTurn(campaign, effectEncounter.Id, dice); // caster
+              }
+          }
+          Assert(guidingApplied && campaign.ActiveEffects.Any(e => e.TargetCharacterId == holdTarget.Id && e.NextAttackAgainstTargetHasAdvantage), "a successful Guiding-Bolt-style hit creates the next-attack Advantage marker");'''.replace('          ', '')
+          new = '''EncounterAttackResult? advantageAttack = null;
+          var guidingCast = engine.CastSpell(campaign, effectCaster.Id, guidingTest.Id, dice, holdTarget.Id, encounterId: effectEncounter.Id);
+          var guidingAttackPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Test Guiding Bolt to request a player spell attack roll.");
+          Assert(guidingCast.SpellAttack is null && guidingAttackPending.ResolutionKey == "spell_attack", "Guiding-Bolt-style player spell attacks pause for the player d20");
+          var guidingAttackResolved = engine.ResolvePendingSpellAttackRoll(campaign, guidingAttackPending.Id, 19, null, dice);
+          Assert(guidingAttackResolved.SpellAttack is { Hit: true, D20: 19 }, "the supplied Guiding-Bolt-style player d20 resolves as a hit");
+          var guidingDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Test Guiding Bolt to request player damage after the hit.");
+          Assert(guidingDamagePending.ResolutionKey == "spell_attack_damage", "a Guiding-Bolt-style hit requests player damage before applying its hit effect");
+          var guidingComplete = engine.ResolvePendingSpellAttackDamageRoll(campaign, guidingDamagePending.Id, 1, dice);
+          var guidingApplied = guidingComplete.SpellAttack?.Hit == true;
+          Assert(guidingApplied && campaign.PendingPlayerRoll is null && campaign.ActiveEffects.Any(e => e.TargetCharacterId == holdTarget.Id && e.NextAttackAgainstTargetHasAdvantage), "a successful Guiding-Bolt-style hit creates the next-attack Advantage marker after the player damage roll resolves");'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find legacy Guiding Bolt smoke loop')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: resolve player Guiding Bolt rolls in smoke suite"
+          git push origin HEAD:${GITHUB_REF_NAME}
