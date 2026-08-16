@@ -1,0 +1,1 @@
+r40 Game Table player input routing verified on Windows CI.
