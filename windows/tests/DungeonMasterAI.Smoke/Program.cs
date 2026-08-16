@@ -166,7 +166,10 @@ engine.EndConcentration(campaign, spellTester.Id);
 var cantripSlotsBefore = spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining;
 var rayTarget = engine.AddCharacter(campaign, new CharacterSheet { Name = "Ray Target", CharacterType = "monster", MaxHp = 20, CurrentHp = 20, ArmorClass = 100 });
 var ray = engine.CastSpell(campaign, spellTester.Id, practiceRay.Id, dice, rayTarget.Id);
-Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore, "cantrips cast without expending a spell slot");
+Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore && campaign.PendingPlayerRoll?.ResolutionKey == "spell_attack", "cantrips cast without expending a spell slot and player spell attacks pause for the player d20");
+var rayPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Practice Ray to request a player spell attack roll.");
+var rayResolved = engine.ResolvePendingSpellAttackRoll(campaign, rayPending.Id, 1, null, dice);
+Assert(rayResolved.SpellAttack is { Hit: false, D20: 1 } && campaign.PendingPlayerRoll is null, "the smoke fixture supplies Practice Ray's player d20 before continuing");
 spellTester.CanProvideVerbalComponents = false;
 var componentRejected = false;
 try { engine.CastSpell(campaign, spellTester.Id, focusWard.Id, dice, slotLevel: 1); }
@@ -312,19 +315,16 @@ Assert(wrongTypeRejected && effectCaster.SpellSlots[2].Remaining == slotBeforeWr
 
 // Guiding-Bolt-style next-attack Advantage is consumed by exactly the next attack roll against the target.
 EncounterAttackResult? advantageAttack = null;
-var guidingApplied = false;
-for (var attempt = 0; attempt < 20 && !guidingApplied; attempt++)
-{
-    var cast = engine.CastSpell(campaign, effectCaster.Id, guidingTest.Id, dice, holdTarget.Id, encounterId: effectEncounter.Id);
-    guidingApplied = cast.SpellAttack?.Hit == true;
-    if (!guidingApplied)
-    {
-        engine.NextTurn(campaign, effectEncounter.Id, dice); // ally
-        engine.NextTurn(campaign, effectEncounter.Id, dice); // target
-        engine.NextTurn(campaign, effectEncounter.Id, dice); // caster
-    }
-}
-Assert(guidingApplied && campaign.ActiveEffects.Any(e => e.TargetCharacterId == holdTarget.Id && e.NextAttackAgainstTargetHasAdvantage), "a successful Guiding-Bolt-style hit creates the next-attack Advantage marker");
+var guidingCast = engine.CastSpell(campaign, effectCaster.Id, guidingTest.Id, dice, holdTarget.Id, encounterId: effectEncounter.Id);
+var guidingAttackPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Test Guiding Bolt to request a player spell attack roll.");
+Assert(guidingCast.SpellAttack is null && guidingAttackPending.ResolutionKey == "spell_attack", "Guiding-Bolt-style player spell attacks pause for the player d20");
+var guidingAttackResolved = engine.ResolvePendingSpellAttackRoll(campaign, guidingAttackPending.Id, 19, null, dice);
+Assert(guidingAttackResolved.SpellAttack is { Hit: true, D20: 19 }, "the supplied Guiding-Bolt-style player d20 resolves as a hit");
+var guidingDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Test Guiding Bolt to request player damage after the hit.");
+Assert(guidingDamagePending.ResolutionKey == "spell_attack_damage", "a Guiding-Bolt-style hit requests player damage before applying its hit effect");
+var guidingComplete = engine.ResolvePendingSpellAttackDamageRoll(campaign, guidingDamagePending.Id, 1, dice);
+var guidingApplied = guidingComplete.SpellAttack?.Hit == true;
+Assert(guidingApplied && campaign.PendingPlayerRoll is null && campaign.ActiveEffects.Any(e => e.TargetCharacterId == holdTarget.Id && e.NextAttackAgainstTargetHasAdvantage), "a successful Guiding-Bolt-style hit creates the next-attack Advantage marker after the player damage roll resolves");
 engine.NextTurn(campaign, effectEncounter.Id, dice); // ally
 advantageAttack = engine.ResolveEncounterAttack(campaign, effectEncounter.Id, effectAllyCombatant.Id, holdTargetCombatant.Id, "Test Strike", dice);
 Assert(advantageAttack.Attack.Summary.Contains("Advantage", StringComparison.OrdinalIgnoreCase) && !campaign.ActiveEffects.Any(e => e.TargetCharacterId == holdTarget.Id && e.NextAttackAgainstTargetHasAdvantage), "the next attack against a Guiding-Bolt-style target gains Advantage and consumes the marker even if the attack misses");
