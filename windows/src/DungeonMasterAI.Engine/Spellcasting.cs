@@ -782,11 +782,66 @@ public sealed partial class GameEngine
         {
             case "attack":
                 if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its spell attack.");
-                (spellAttack, damage, effectSummary) = ResolveSpellAttack(campaign, caster, target, spell, upcastLevels, dice, encounter);
+                if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pending = RequestPlayerSpellAttackRoll(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        readied.UsedSpellSlot,
+                        false,
+                        spell.RequiresConcentration,
+                        encounter);
+                    pending.Context["readied_reaction"] = "true";
+                    effectSummary = pending.Purpose;
+                }
+                else
+                {
+                    (spellAttack, damage, effectSummary) = ResolveSpellAttack(campaign, caster, target, spell, upcastLevels, dice, encounter);
+                }
                 break;
             case "save":
                 if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its saving throw.");
-                (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, encounter);
+                var saveAbility = string.IsNullOrWhiteSpace(spell.SaveAbility) ? "" : CharacterMechanics.NormalizeAbility(spell.SaveAbility);
+                if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(saveAbility)
+                    && !CharacterMechanics.AutomaticallyFailsSavingThrow(target, saveAbility))
+                {
+                    var pending = RequestPlayerSpellSavingThrowRoll(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        readied.UsedSpellSlot,
+                        false,
+                        spell.RequiresConcentration,
+                        encounter);
+                    pending.Context["readied_reaction"] = "true";
+                    effectSummary = pending.Purpose;
+                }
+                else if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(spell.DamageExpression))
+                {
+                    (savingThrow, effectSummary) = ResolveSaveForPlayerCasterBeforeDamage(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        readied.UsedSpellSlot,
+                        false,
+                        spell.RequiresConcentration,
+                        dice,
+                        encounter);
+                    MarkReadiedSpellPending(campaign);
+                }
+                else
+                {
+                    (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, encounter);
+                }
                 break;
             case "healing":
                 target ??= caster;

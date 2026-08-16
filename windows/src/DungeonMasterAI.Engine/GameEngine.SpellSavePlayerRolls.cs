@@ -134,7 +134,7 @@ public sealed partial class GameEngine
                 throw new InvalidOperationException("The encounter is no longer active.");
             var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException("The spellcaster is no longer in the active encounter.");
-            EnsureCurrentTurn(encounter, casterCombatant.Id);
+            if (!IsReadiedSpellPending(pending)) EnsureCurrentTurn(encounter, casterCombatant.Id);
         }
         ValidateSpellTargetType(target, spell);
         ValidateSpellRange(campaign, encounter, caster, target, spell);
@@ -189,6 +189,8 @@ public sealed partial class GameEngine
                     ritual,
                     concentrationStarted,
                     encounter);
+                if (IsReadiedSpellPending(pending))
+                    damagePending.Context["readied_reaction"] = "true";
                 var slotTextPending = spell.Level == 0
                     ? "as a cantrip"
                     : ritual

@@ -103,7 +103,7 @@ public sealed partial class GameEngine
   targetCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(target.Id, StringComparison.OrdinalIgnoreCase));
   if (casterCombatant is null || targetCombatant is null)
       throw new InvalidOperationException("The pending spell attack combatants are no longer present in the encounter.");
-  EnsureCurrentTurn(encounter, casterCombatant.Id);
+  if (!IsReadiedSpellPending(pending)) EnsureCurrentTurn(encounter, casterCombatant.Id);
         }
         ValidateSpellTargetType(target, spell);
         ValidateSpellRange(campaign, encounter, caster, target, spell);
@@ -206,6 +206,8 @@ public sealed partial class GameEngine
       ["help_used"] = helpUsed ? "true" : "false"
   }
         };
+        if (IsReadiedSpellPending(pending))
+            damagePending.Context["readied_reaction"] = "true";
         campaign.PendingPlayerRoll = damagePending;
         Touch(campaign);
         Log(campaign, "player_roll_requested", damagePending.Purpose, dmOnly: true);
@@ -243,7 +245,7 @@ public sealed partial class GameEngine
       throw new InvalidOperationException("The encounter is no longer active.");
   var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
       ?? throw new InvalidOperationException("The spellcaster is no longer in the active encounter.");
-  EnsureCurrentTurn(encounter, casterCombatant.Id);
+  if (!IsReadiedSpellPending(pending)) EnsureCurrentTurn(encounter, casterCombatant.Id);
         }
 
         var critical = SpellContextBool(pending, "critical");

@@ -145,7 +145,7 @@ public sealed partial class GameEngine
                 throw new InvalidOperationException("The encounter is no longer active.");
             var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException("The spellcaster is no longer in the active encounter.");
-            EnsureCurrentTurn(encounter, casterCombatant.Id);
+            if (!IsReadiedSpellPending(pending)) EnsureCurrentTurn(encounter, casterCombatant.Id);
         }
         ValidateSpellTargetType(target, spell);
         ValidateSpellRange(campaign, encounter, caster, target, spell);

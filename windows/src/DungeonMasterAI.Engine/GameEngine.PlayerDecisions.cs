@@ -128,7 +128,8 @@ public sealed partial class GameEngine
     public PlayerDecisionResolution ResolvePendingPlayerDecision(
         CampaignState campaign,
         string decisionId,
-        string optionId)
+        string optionId,
+        DiceService? dice = null)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         var decision = campaign.PendingPlayerDecision
@@ -145,6 +146,7 @@ public sealed partial class GameEngine
         {
             "opportunity_attack_reaction" => ResolveOpportunityAttackDecision(campaign, decision, option),
             "readied_attack_reaction" => ResolveReadiedAttackDecision(campaign, decision, option),
+            "readied_spell_reaction" => ResolveReadiedSpellDecision(campaign, decision, option, dice ?? new DiceService()),
             _ => throw new InvalidOperationException($"Player decision type '{decision.DecisionType}' is not supported.")
         };
     }

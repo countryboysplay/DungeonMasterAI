@@ -98,7 +98,8 @@ public sealed partial class GameEngine
     private PlayerDecisionResolution ResolveReadiedSpellDecision(
         CampaignState campaign,
         PendingPlayerDecision decision,
-        PlayerDecisionOption option)
+        PlayerDecisionOption option,
+        DiceService dice)
     {
         if (string.IsNullOrWhiteSpace(decision.EncounterId) || string.IsNullOrWhiteSpace(decision.CombatantId))
             throw new InvalidOperationException("The readied spell decision is missing combat context.");
@@ -129,7 +130,7 @@ public sealed partial class GameEngine
             campaign,
             encounter.Id,
             combatant.Id,
-            new DiceService(),
+            dice,
             string.IsNullOrWhiteSpace(targetCombatantId) ? null : targetCombatantId);
         var followUp = campaign.PendingPlayerRoll?.Required == true ? campaign.PendingPlayerRoll : null;
         Log(campaign, "player_decision_resolved", $"{caster.Name}: {option.Label}.", dmOnly: true);

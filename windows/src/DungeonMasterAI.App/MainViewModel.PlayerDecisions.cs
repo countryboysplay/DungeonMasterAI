@@ -50,7 +50,7 @@ public sealed partial class MainViewModel
             if (option is null)
                 throw new InvalidOperationException("The pending player decision has no matching option.");
 
-            var result = _engine.ResolvePendingPlayerDecision(SelectedCampaign, decision.Id, option.Id);
+            var result = _engine.ResolvePendingPlayerDecision(SelectedCampaign, decision.Id, option.Id, _dice);
             StatusMessage = result.Summary;
             SelectedCampaign.Chat.Add(new ChatMessage
             {
