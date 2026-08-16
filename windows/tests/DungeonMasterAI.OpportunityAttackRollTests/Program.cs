@@ -99,6 +99,24 @@ Run("Opportunity Attack damage hands off to player Concentration before movement
     Equal(3, f.MoverCombatant.GridY, "movement resumes only after Concentration resolves");
 });
 
+Run("NPC Opportunity Attack also freezes movement for player Concentration", () =>
+{
+    var f = CreateFixture(playerReactor: false, playerMover: true);
+    f.Engine.BeginConcentration(f.Campaign, f.Mover.Id, "Bless");
+    f.Engine.MoveCombatant(f.Campaign, f.Encounter.Id, f.MoverCombatant.Id, 0, 3);
+    f.Engine.ResolveOpportunityAttack(f.Campaign, f.Encounter.Id, f.ReactorCombatant.Id, "Blade", MaximumDice());
+    var concentrationPending = f.Campaign.PendingPlayerRoll ?? throw new Exception("NPC damage should request player Concentration");
+    Equal("concentration_check", concentrationPending.ResolutionKey, "NPC OA damage hands off to player Concentration");
+    Equal("opportunity_attack_move", concentrationPending.Context["continuation_resolution_key"], "NPC OA preserves movement continuation");
+    True(f.Encounter.PendingMove is not null, "NPC OA keeps movement frozen during player Concentration");
+    Equal(1, f.MoverCombatant.GridY, "mover stays at trigger origin during Concentration");
+
+    f.Engine.ResolvePendingConcentrationCheckRoll(f.Campaign, concentrationPending.Id, 20, null, MinimumDice());
+    True(f.Campaign.PendingPlayerRoll is null, "player Concentration clears after supplied d20");
+    True(f.Encounter.PendingMove is null, "NPC OA movement resumes after Concentration");
+    Equal(3, f.MoverCombatant.GridY, "mover reaches destination only after Concentration resolves");
+});
+
 Run("NPC Opportunity Attack keeps automatic deterministic resolution", () =>
 {
     var f = CreateFixture(playerReactor: false, playerMover: true);

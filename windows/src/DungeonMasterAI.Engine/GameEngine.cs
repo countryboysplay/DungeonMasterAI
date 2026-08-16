@@ -1402,13 +1402,24 @@ if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
             ? $"{reactor.Name} used a Reaction for an Opportunity Attack with {profile.Name} against {mover.Name}: {attack.Summary}{helpText}"
             : $"{reactor.Name} used a Reaction for an Opportunity Attack with {profile.Name} against {mover.Name}: miss.{helpText}";
         if (concentration is not null) summary += $" {concentration.Summary}";
-        window.Resolved = true;
-        window.Declined = false;
-        window.ResolutionSummary = summary;
-        Log(campaign, "opportunity_attack", summary);
-        FinalizePendingMoveIfReady(campaign, encounter);
-        Touch(campaign);
-        return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);
+if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
+{
+    campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "opportunity_attack_move";
+    campaign.PendingPlayerRoll.Context["opportunity_attack_encounter_id"] = encounter.Id;
+    campaign.PendingPlayerRoll.Context["opportunity_attack_reactor_combatant_id"] = reactorCombatant.Id;
+    campaign.PendingPlayerRoll.Context["opportunity_attack_summary"] = summary;
+    summary += $" {mover.Name} must resolve Concentration before the pending movement can continue.";
+}
+else
+{
+    window.Resolved = true;
+    window.Declined = false;
+    window.ResolutionSummary = summary;
+    FinalizePendingMoveIfReady(campaign, encounter);
+}
+Log(campaign, "opportunity_attack", summary);
+Touch(campaign);
+return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);
     }
 
     public string DeclineOpportunityAttack(CampaignState campaign, string encounterId, string reactorCombatantId)
