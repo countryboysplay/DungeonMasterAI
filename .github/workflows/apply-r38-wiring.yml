@@ -25,13 +25,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Fix the sequence helper to use the domain's persisted pending-move type.
           oa_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.OpportunityAttackPlayerRolls.cs')
           oa = oa_path.read_text(encoding='utf-8')
           oa = oa.replace('PendingMoveState pendingMove', 'PendingCombatMove pendingMove')
           oa_path.write_text(oa, encoding='utf-8')
 
-          # The legacy automatic resolver remains for NPCs only. Player reactors must use pending rolls.
           engine_path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.cs')
           engine = engine_path.read_text(encoding='utf-8')
           method = engine.index('    public EncounterAttackResult ResolveOpportunityAttack(')
@@ -42,9 +40,40 @@ jobs:
           '''
           if 'Player-character Opportunity Attacks must use the authoritative player-roll request path.' not in engine[method:method+5000]:
               engine = engine[:insert_at] + guard + engine[insert_at:]
-              engine_path.write_text(engine, encoding='utf-8')
 
-          # DM tool routing chooses pending player rolls for PC reactors while NPC reactions stay automatic.
+          old_tail = '''        if (concentration is not null) summary += $" {concentration.Summary}";
+          window.Resolved = true;
+          window.Declined = false;
+          window.ResolutionSummary = summary;
+          Log(campaign, "opportunity_attack", summary);
+          FinalizePendingMoveIfReady(campaign, encounter);
+          Touch(campaign);
+          return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);'''
+          new_tail = '''        if (concentration is not null) summary += $" {concentration.Summary}";
+          if (campaign.PendingPlayerRoll?.ResolutionKey.Equals("concentration_check", StringComparison.OrdinalIgnoreCase) == true)
+          {
+              campaign.PendingPlayerRoll.Context["continuation_resolution_key"] = "opportunity_attack_move";
+              campaign.PendingPlayerRoll.Context["opportunity_attack_encounter_id"] = encounter.Id;
+              campaign.PendingPlayerRoll.Context["opportunity_attack_reactor_combatant_id"] = reactorCombatant.Id;
+              campaign.PendingPlayerRoll.Context["opportunity_attack_summary"] = summary;
+              summary += $" {mover.Name} must resolve Concentration before the pending movement can continue.";
+          }
+          else
+          {
+              window.Resolved = true;
+              window.Declined = false;
+              window.ResolutionSummary = summary;
+              FinalizePendingMoveIfReady(campaign, encounter);
+          }
+          Log(campaign, "opportunity_attack", summary);
+          Touch(campaign);
+          return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile.Name, attack, damage, summary, concentration, true, 0);'''
+          if old_tail in engine:
+              engine = engine.replace(old_tail, new_tail, 1)
+          elif 'must resolve Concentration before the pending movement can continue' not in engine[method:method+7000]:
+              raise SystemExit('Could not find automatic Opportunity Attack completion block.')
+          engine_path.write_text(engine, encoding='utf-8')
+
           router_path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
           router = router_path.read_text(encoding='utf-8')
           router = router.replace(
@@ -55,7 +84,6 @@ jobs:
               '"resolve_opportunity_attack" => ResolveOpportunityAttackTool(engine, dice, campaign, a),', 1)
           router_path.write_text(router, encoding='utf-8')
 
-          # Universal Game Table roll control resolves player OA attack and damage dice.
           vm_path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
           vm = vm_path.read_text(encoding='utf-8')
           if 'opportunity_attack_damage' not in vm:
@@ -93,6 +121,34 @@ jobs:
                   raise SystemExit('Could not find combat attack d20 dispatch marker.')
               vm = vm.replace(marker, insert + marker, 1)
           vm_path.write_text(vm, encoding='utf-8')
+
+          test_path = Path('windows/tests/DungeonMasterAI.OpportunityAttackRollTests/Program.cs')
+          tests = test_path.read_text(encoding='utf-8')
+          if 'NPC Opportunity Attack also freezes movement for player Concentration' not in tests:
+              marker = 'Run("NPC Opportunity Attack keeps automatic deterministic resolution", () =>\n'
+              block = '''Run("NPC Opportunity Attack also freezes movement for player Concentration", () =>
+          {
+              var f = CreateFixture(playerReactor: false, playerMover: true);
+              f.Engine.BeginConcentration(f.Campaign, f.Mover.Id, "Bless");
+              f.Engine.MoveCombatant(f.Campaign, f.Encounter.Id, f.MoverCombatant.Id, 0, 3);
+              f.Engine.ResolveOpportunityAttack(f.Campaign, f.Encounter.Id, f.ReactorCombatant.Id, "Blade", MaximumDice());
+              var concentrationPending = f.Campaign.PendingPlayerRoll ?? throw new Exception("NPC damage should request player Concentration");
+              Equal("concentration_check", concentrationPending.ResolutionKey, "NPC OA damage hands off to player Concentration");
+              Equal("opportunity_attack_move", concentrationPending.Context["continuation_resolution_key"], "NPC OA preserves movement continuation");
+              True(f.Encounter.PendingMove is not null, "NPC OA keeps movement frozen during player Concentration");
+              Equal(1, f.MoverCombatant.GridY, "mover stays at trigger origin during Concentration");
+
+              f.Engine.ResolvePendingConcentrationCheckRoll(f.Campaign, concentrationPending.Id, 20, null, MinimumDice());
+              True(f.Campaign.PendingPlayerRoll is null, "player Concentration clears after supplied d20");
+              True(f.Encounter.PendingMove is null, "NPC OA movement resumes after Concentration");
+              Equal(3, f.MoverCombatant.GridY, "mover reaches destination only after Concentration resolves");
+          });
+
+          '''
+              if marker not in tests:
+                  raise SystemExit('Could not find NPC Opportunity Attack test insertion marker.')
+              tests = tests.replace(marker, block + marker, 1)
+              test_path.write_text(tests, encoding='utf-8')
           PY
 
       - name: Commit r38 wiring
@@ -107,6 +163,7 @@ jobs:
           git add windows/src/DungeonMasterAI.Engine/GameEngine.OpportunityAttackPlayerRolls.cs \
                   windows/src/DungeonMasterAI.Engine/GameEngine.cs \
                   windows/src/DungeonMasterAI.Engine/DmToolRouter.cs \
-                  windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
-          git commit -m "r38: wire authoritative player Opportunity Attacks"
+                  windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs \
+                  windows/tests/DungeonMasterAI.OpportunityAttackRollTests/Program.cs
+          git commit -m "r38: preserve movement through Opportunity Attack Concentration"
           git push origin HEAD:feature/r38-player-opportunity-attacks
