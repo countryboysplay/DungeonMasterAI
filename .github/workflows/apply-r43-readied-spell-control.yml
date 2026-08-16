@@ -1,0 +1,30 @@
+name: Apply r43 readied spell control
+
+on:
+  push:
+    branches: [feature/r43-readied-spell-player-control]
+    paths:
+      - '.github/workflows/apply-r43-readied-spell-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r43-readied-spell-player-control
+          fetch-depth: 0
+      - name: Apply readied spell player-control codemod
+        run: python3 .github/scripts/apply_r43_readied_spell_control.py
+      - name: Commit readied spell player control
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.Engine/Spellcasting.cs windows/src/DungeonMasterAI.Engine/GameEngine.SpellPlayerRolls.cs windows/src/DungeonMasterAI.Engine/GameEngine.SpellSavePlayerRolls.cs windows/src/DungeonMasterAI.Engine/GameEngine.SpellSaveDamageRolls.cs windows/src/DungeonMasterAI.Engine/GameEngine.PlayerDecisions.cs windows/src/DungeonMasterAI.Engine/GameEngine.ReadiedSpellDecisions.cs windows/src/DungeonMasterAI.Engine/DmToolRouter.cs windows/src/DungeonMasterAI.App/MainViewModel.PlayerDecisions.cs
+          git diff --cached --check
+          git commit -m "r43: route readied spells through player choice and rolls"
+          git push origin HEAD:feature/r43-readied-spell-player-control
