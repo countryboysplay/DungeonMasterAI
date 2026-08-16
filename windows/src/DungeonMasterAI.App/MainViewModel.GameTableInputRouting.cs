@@ -4,9 +4,6 @@ namespace DungeonMasterAI.App;
 
 public sealed partial class MainViewModel
 {
-    private static bool IsPlayerCharacter(CharacterSheet character) =>
-        character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase);
-
     private async Task PresentPendingGameTableRollAsync(PendingRollRequest pending)
     {
         StatusMessage = pending.Purpose;
