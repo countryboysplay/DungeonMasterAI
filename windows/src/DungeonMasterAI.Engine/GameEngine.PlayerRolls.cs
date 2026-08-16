@@ -252,6 +252,9 @@ public sealed partial class GameEngine
         var helpUsed = ContextBool(pending, "help_used");
 
         var concentrationBefore = target.ConcentrationEffect;
+        // The attack-damage request is now satisfied. Clear it before applying damage so a
+        // concentrating player target can replace it with the required Concentration save.
+        campaign.PendingPlayerRoll = null;
         var resolution = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);
         var damage = resolution.Damage;
         var concentration = resolution.Concentration;
@@ -267,7 +270,8 @@ public sealed partial class GameEngine
         else if (!string.IsNullOrWhiteSpace(concentrationBefore) && string.IsNullOrWhiteSpace(target.ConcentrationEffect) && damage.EffectiveDamage > 0)
             summary += $" {target.Name} lost Concentration on {concentrationBefore}.";
 
-        campaign.PendingPlayerRoll = null;
+        // Do not clear PendingPlayerRoll here. Applying the damage may have created a
+        // new required player Concentration check, and that request must remain authoritative.
         Touch(campaign);
         Log(campaign, "combat_attack", summary);
         return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, damage, summary, concentration, false, coverBonus);
