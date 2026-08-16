@@ -1,0 +1,36 @@
+name: Apply r27 initiative patch
+
+on:
+  push:
+    branches:
+      - feature/r27-player-initiative-rolls
+    paths:
+      - .github/patches/r27-player-initiative-rolls.patch
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify and apply patch
+        shell: bash
+        run: |
+          git apply --check .github/patches/r27-player-initiative-rolls.patch
+          git apply .github/patches/r27-player-initiative-rolls.patch
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows .github/workflows/windows-ci.yml
+          git commit -m "r27: make player initiative rolls authoritative"
+          git push origin HEAD:${GITHUB_REF_NAME}
