@@ -166,7 +166,10 @@ engine.EndConcentration(campaign, spellTester.Id);
 var cantripSlotsBefore = spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining;
 var rayTarget = engine.AddCharacter(campaign, new CharacterSheet { Name = "Ray Target", CharacterType = "monster", MaxHp = 20, CurrentHp = 20, ArmorClass = 100 });
 var ray = engine.CastSpell(campaign, spellTester.Id, practiceRay.Id, dice, rayTarget.Id);
-Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore, "cantrips cast without expending a spell slot");
+Assert(!ray.UsedSpellSlot && spellTester.SpellSlots[1].Remaining + spellTester.SpellSlots[2].Remaining == cantripSlotsBefore && campaign.PendingPlayerRoll?.ResolutionKey == "spell_attack", "cantrips cast without expending a spell slot and player spell attacks pause for the player d20");
+var rayPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected Practice Ray to request a player spell attack roll.");
+var rayResolved = engine.ResolvePendingSpellAttackRoll(campaign, rayPending.Id, 1, null, dice);
+Assert(rayResolved.SpellAttack is { Hit: false, D20: 1 } && campaign.PendingPlayerRoll is null, "the smoke fixture supplies Practice Ray's player d20 before continuing");
 spellTester.CanProvideVerbalComponents = false;
 var componentRejected = false;
 try { engine.CastSpell(campaign, spellTester.Id, focusWard.Id, dice, slotLevel: 1); }
