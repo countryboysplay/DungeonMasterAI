@@ -670,8 +670,8 @@ public sealed partial class GameEngine
         ValidateComponents(caster, spell);
         var resolution = (spell.Resolution ?? "utility").Trim().ToLowerInvariant();
         ValidateSpellConfiguration(spell, resolution);
-        if (resolution is "area_save" or "multi_buff" or "persistent_area")
-            throw new InvalidOperationException($"Readying {spell.Name}'s area or multi-target resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
+        if (resolution is "multi_buff" or "persistent_area")
+            throw new InvalidOperationException($"Readying {spell.Name}'s multi-target or persistent-area resolution is not implemented yet. Cast it normally; the engine will not partially resolve an unsupported Ready interaction.");
         if (resolution is "projectile_auto" or "projectile_attack"
             && !caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Readied projectile spells are currently enabled for player-character casters only; NPC projectile Ready resolution will be generalized in a later engine pass.");
