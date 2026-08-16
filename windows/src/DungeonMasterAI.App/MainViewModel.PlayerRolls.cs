@@ -16,9 +16,24 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("combat_attack_damage", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                && !string.IsNullOrWhiteSpace(storedExpression)
+                ? storedExpression
+                : pending.Formula;
+            var critical = pending.Context.TryGetValue("critical", out var criticalText)
+                && bool.TryParse(criticalText, out var parsedCritical)
+                && parsedCritical;
+            var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+            LastDiceResult = $"{pending.Formula}: {damageAmount}";
+            await ResolveActiveAttackDamageFromRollAsync(pending.Id, damageAmount);
+            return;
+        }
+
         if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))
         {
-            StatusMessage = $"The required roll is {pending.Formula}, not a d20. That roll type is not wired to this control yet.";
+            StatusMessage = $"The required roll is {pending.Formula}. That roll type is not wired to this control yet.";
             return;
         }
 
@@ -115,6 +130,35 @@ public sealed partial class MainViewModel
                 pendingRollId,
                 rollOne,
                 rollTwo,
+                _dice);
+
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = CleanSessionNarration(result.Summary)
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private async Task ResolveActiveAttackDamageFromRollAsync(string pendingRollId, int damageAmount)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingEncounterAttackDamageRoll(
+                SelectedCampaign,
+                pendingRollId,
+                damageAmount,
                 _dice);
 
             StatusMessage = result.Summary;
