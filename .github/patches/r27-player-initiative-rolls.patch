@@ -1,0 +1,451 @@
+diff --git a/windows/src/DungeonMasterAI.Engine/GameEngine.InitiativeRolls.cs b/windows/src/DungeonMasterAI.Engine/GameEngine.InitiativeRolls.cs
+new file mode 100644
+--- /dev/null
++++ b/windows/src/DungeonMasterAI.Engine/GameEngine.InitiativeRolls.cs
+@@ -0,0 +1,173 @@
++using DungeonMasterAI.Domain;
++
++namespace DungeonMasterAI.Engine;
++
++public sealed record InitiativeSequenceResult(
++    bool Completed,
++    PendingRollRequest? PendingRoll,
++    IReadOnlyList<InitiativeEntry> Order,
++    IReadOnlyList<string> ResolvedNpcRolls,
++    string Summary);
++
++public sealed partial class GameEngine
++{
++    public InitiativeSequenceResult BeginInitiativeSequence(
++        CampaignState campaign,
++        string encounterId,
++        DiceService dice)
++    {
++        ArgumentNullException.ThrowIfNull(campaign);
++        ArgumentNullException.ThrowIfNull(dice);
++        var encounter = RequireEncounter(campaign, encounterId);
++        if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("The encounter is not active.");
++        if (encounter.Combatants.Count == 0)
++            throw new InvalidOperationException("The encounter has no combatants.");
++
++        if (campaign.PendingPlayerRoll?.Required == true)
++        {
++            var existing = campaign.PendingPlayerRoll;
++            if (existing.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase)
++                && existing.EncounterId?.Equals(encounter.Id, StringComparison.OrdinalIgnoreCase) == true)
++            {
++                return new InitiativeSequenceResult(
++                    false,
++                    existing,
++                    Array.Empty<InitiativeEntry>(),
++                    Array.Empty<string>(),
++                    existing.Purpose);
++            }
++
++            throw new InvalidOperationException($"Resolve the required player roll first: {existing.Purpose}");
++        }
++
++        if (encounter.Combatants.All(c => c.Initiative.HasValue))
++        {
++            var existingOrder = GetInitiativeOrder(campaign, encounter.Id);
++            return new InitiativeSequenceResult(
++                true,
++                null,
++                existingOrder,
++                Array.Empty<string>(),
++                $"Initiative is already established for encounter '{encounter.Name}'.");
++        }
++
++        return AdvanceInitiativeSequence(campaign, encounter, dice);
++    }
++
++    public InitiativeSequenceResult ResolvePendingInitiativeRoll(
++        CampaignState campaign,
++        string pendingRollId,
++        int rollOne,
++        int? rollTwo,
++        DiceService dice)
++    {
++        ArgumentNullException.ThrowIfNull(campaign);
++        ArgumentNullException.ThrowIfNull(dice);
++        if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
++        if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
++
++        var pending = campaign.PendingPlayerRoll
++            ?? throw new InvalidOperationException("There is no required player roll to resolve.");
++        if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("The supplied roll does not match the active pending player roll.");
++        if (!pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not Initiative.");
++        if (string.IsNullOrWhiteSpace(pending.EncounterId) || string.IsNullOrWhiteSpace(pending.CombatantId))
++            throw new InvalidOperationException("The pending Initiative roll is missing combat context.");
++
++        var encounter = RequireEncounter(campaign, pending.EncounterId);
++        var combatant = RequireCombatant(encounter, pending.CombatantId);
++        var character = RequireCharacter(campaign, combatant.CharacterId);
++        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("The pending Initiative roll no longer belongs to a player character.");
++        if (!character.Id.Equals(pending.ActorCharacterId, StringComparison.OrdinalIgnoreCase))
++            throw new InvalidOperationException("The pending Initiative actor no longer matches the combatant.");
++        if (combatant.Initiative.HasValue)
++            throw new InvalidOperationException($"{character.Name} already has an Initiative result.");
++
++        var mode = ParseInitiativeMode(pending.RollMode);
++        if (mode != D20RollMode.Normal && !rollTwo.HasValue)
++            throw new InvalidOperationException($"This Initiative roll requires two d20 results because it has {mode}.");
++        var chosen = mode switch
++        {
++            D20RollMode.Advantage => Math.Max(rollOne, rollTwo!.Value),
++            D20RollMode.Disadvantage => Math.Min(rollOne, rollTwo!.Value),
++            _ => rollOne
++        };
++        var total = chosen + pending.Modifier;
++        SetInitiative(campaign, encounter.Id, combatant.Id, total);
++        campaign.PendingPlayerRoll = null;
++        Log(campaign, "initiative_roll", $"{character.Name} rolled Initiative {chosen} + {pending.Modifier} = {total}.");
++
++        var continuation = AdvanceInitiativeSequence(campaign, encounter, dice);
++        var playerSummary = $"{character.Name} Initiative: {total}.";
++        var summary = continuation.Completed
++            ? $"{playerSummary} {continuation.Summary}"
++            : $"{playerSummary} {continuation.PendingRoll?.Purpose ?? continuation.Summary}";
++        return continuation with { Summary = summary };
++    }
++
++    private InitiativeSequenceResult AdvanceInitiativeSequence(
++        CampaignState campaign,
++        EncounterState encounter,
++        DiceService dice)
++    {
++        var resolvedNpcRolls = new List<string>();
++        foreach (var combatant in encounter.Combatants.Where(c => !c.Initiative.HasValue))
++        {
++            var character = RequireCharacter(campaign, combatant.CharacterId);
++            var mode = InitiativeModeFor(character, combatant);
++            var dexterity = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "dexterity"));
++            var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
++            var modifier = dexterity - exhaustionPenalty;
++
++            if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
++            {
++                var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
++                var pending = new PendingRollRequest
++                {
++                    ActorCharacterId = character.Id,
++                    EncounterId = encounter.Id,
++                    CombatantId = combatant.Id,
++                    Formula = "1d20",
++                    RollType = "d20",
++                    RollMode = mode.ToString().ToLowerInvariant(),
++                    Purpose = $"{character.Name} must roll Initiative{modeText}.",
++                    ResolutionKey = "initiative",
++                    Modifier = modifier,
++                    TargetLabel = "Initiative",
++                    Required = true,
++                    Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
++                    {
++                        ["dexterity_modifier"] = dexterity.ToString(System.Globalization.CultureInfo.InvariantCulture),
++                        ["exhaustion_penalty"] = exhaustionPenalty.ToString(System.Globalization.CultureInfo.InvariantCulture)
++                    }
++                };
++                campaign.PendingPlayerRoll = pending;
++                Touch(campaign);
++                Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
++                return new InitiativeSequenceResult(false, pending, Array.Empty<InitiativeEntry>(), resolvedNpcRolls, pending.Purpose);
++            }
++
++            var roll = dice.RollD20(mode);
++            var total = roll.ChosenRoll + modifier;
++            SetInitiative(campaign, encounter.Id, combatant.Id, total);
++            var modeTextNpc = mode == D20RollMode.Normal ? "" : $" ({mode})";
++            var summary = $"{character.Name}: {roll.ChosenRoll} + {modifier} = {total}{modeTextNpc}";
++            resolvedNpcRolls.Add(summary);
++            Log(campaign, "initiative_roll", summary, dmOnly: true);
++        }
++
++        var order = FinalizeInitiative(campaign, encounter.Id);
++        var npcText = resolvedNpcRolls.Count == 0 ? "" : $" NPC rolls: {string.Join("; ", resolvedNpcRolls)}.";
++        return new InitiativeSequenceResult(
++            true,
++            null,
++            order,
++            resolvedNpcRolls,
++            $"Initiative order is established for '{encounter.Name}'.{npcText}");
++    }
++
++    private static D20RollMode InitiativeModeFor(CharacterSheet character, CombatantState combatant)
++    {
++        var disadvantage = combatant.Surprised || CharacterMechanics.IsIncapacitated(character);
++        var advantage = CharacterMechanics.HasCondition(character, "Invisible");
++        return advantage == disadvantage
++            ? D20RollMode.Normal
++            : advantage ? D20RollMode.Advantage : D20RollMode.Disadvantage;
++    }
++
++    private static D20RollMode ParseInitiativeMode(string? value) => (value ?? "normal").Trim().ToLowerInvariant() switch
++    {
++        "advantage" or "adv" => D20RollMode.Advantage,
++        "disadvantage" or "dis" => D20RollMode.Disadvantage,
++        _ => D20RollMode.Normal
++    };
++}
+diff --git a/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs b/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
+--- a/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
++++ b/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
+@@ -48,7 +48,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
+-        Tool("roll_initiative", "Roll Initiative for every combatant. Surprised combatants roll with Disadvantage; Exhaustion modifies the D20 Test.", Props(("encounter_id","string",true))),
++        Tool("roll_initiative", "Begin or resume deterministic Initiative for the encounter. NPC Initiative is rolled automatically. Each player character receives a required player-controlled d20 request, including Advantage or Disadvantage and Exhaustion, and the sequence resumes automatically after each supplied roll.", Props(("encounter_id","string",true))),
+@@ -264,43 +264,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
+     private object RollInitiative(CampaignState campaign, string encounterId)
+     {
+-        var encounter = campaign.Encounters.FirstOrDefault(e => e.Id == encounterId)
+-            ?? throw new KeyNotFoundException("Encounter not found.");
+-        if (encounter.Combatants.Count == 0) throw new InvalidOperationException("The encounter has no combatants.");
+-        var rolls = new List<object>();
+-        foreach (var combatant in encounter.Combatants)
+-        {
+-            var character = RequireCharacter(campaign, combatant.CharacterId);
+-            var disadvantage = combatant.Surprised || CharacterMechanics.IsIncapacitated(character);
+-            var advantage = CharacterMechanics.HasCondition(character, "Invisible");
+-            var mode = advantage == disadvantage
+-                ? D20RollMode.Normal
+-                : advantage ? D20RollMode.Advantage : D20RollMode.Disadvantage;
+-            var result = dice.RollD20(mode);
+-            var dexterity = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "dexterity"));
+-            var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+-            var total = result.ChosenRoll + dexterity - exhaustionPenalty;
+-            engine.SetInitiative(campaign, encounter.Id, combatant.Id, total);
+-            rolls.Add(new
+-            {
+-                combatant_id = combatant.Id,
+-                character_id = character.Id,
+-                character.Name,
+-                roll_one = result.RollOne,
+-                roll_two = result.RollTwo,
+-                chosen_roll = result.ChosenRoll,
+-                dexterity_modifier = dexterity,
+-                exhaustion_penalty = exhaustionPenalty,
+-                surprised = combatant.Surprised,
+-                total
+-            });
+-        }
+-        var order = engine.FinalizeInitiative(campaign, encounter.Id);
+-        return new { rolls, order, encounter.Round, encounter.TurnIndex };
++        return engine.BeginInitiativeSequence(campaign, encounterId, dice);
+     }
+diff --git a/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs b/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
+--- a/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
++++ b/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
+@@ -70,6 +70,12 @@ public sealed partial class MainViewModel
+             return;
+         }
+ 
++        if (pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))
++        {
++            await ResolveActiveInitiativeFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
++            return;
++        }
++
+         StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
+     }
+@@ -239,6 +245,31 @@ public sealed partial class MainViewModel
+         }
+     }
+ 
++    private async Task ResolveActiveInitiativeFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
++    {
++        if (SelectedCampaign is null) return;
++        try
++        {
++            var result = _engine.ResolvePendingInitiativeRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
++            LastDiceResult = $"{LastDiceResult} • {result.Summary}";
++            StatusMessage = result.Summary;
++            SelectedCampaign.Chat.Add(new ChatMessage
++            {
++                Role = "assistant",
++                Content = $"🎲 {CleanSessionNarration(result.Summary)}"
++            });
++            RaiseCharacterProperties();
++            RaiseCampaignProperties();
++            RefreshCombatSelections(keepSelection: true);
++            await SaveAsync();
++        }
++        catch (Exception ex)
++        {
++            StatusMessage = ex.Message;
++            RaiseCampaignProperties();
++        }
++    }
++
+     private async Task AdvanceNpcTurnsAfterPlayerRollAsync()
+     {
+         if (SelectedCampaign is null || !HasActiveCombat) return;
+diff --git a/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj b/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj
+new file mode 100644
+--- /dev/null
++++ b/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj
+@@ -0,0 +1,13 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <OutputType>Exe</OutputType>
++    <TargetFramework>net10.0</TargetFramework>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Nullable>enable</Nullable>
++  </PropertyGroup>
++  <ItemGroup>
++    <ProjectReference Include="..\..\src\DungeonMasterAI.Domain\DungeonMasterAI.Domain.csproj" />
++    <ProjectReference Include="..\..\src\DungeonMasterAI.Engine\DungeonMasterAI.Engine.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/windows/tests/DungeonMasterAI.InitiativeTests/Program.cs b/windows/tests/DungeonMasterAI.InitiativeTests/Program.cs
+new file mode 100644
+--- /dev/null
++++ b/windows/tests/DungeonMasterAI.InitiativeTests/Program.cs
+@@ -0,0 +1,129 @@
++using DungeonMasterAI.Domain;
++using DungeonMasterAI.Engine;
++
++var failures = new List<string>();
++var passed = 0;
++
++Run("initiative pauses for each player and uses the supplied d20 results", () =>
++{
++    var (engine, campaign, encounter, aricCombatant, miraCombatant, watcherCombatant) = CreateEncounter();
++    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => 10);
++
++    var started = engine.BeginInitiativeSequence(campaign, encounter.Id, deterministicDice);
++    True(!started.Completed, "initiative should pause for the first PC");
++    var firstPending = campaign.PendingPlayerRoll ?? throw new Exception("first player Initiative request was not created");
++    Equal("initiative", firstPending.ResolutionKey, "first resolution key");
++    Equal("pc-aric", firstPending.ActorCharacterId, "first Initiative actor");
++    Equal(2, firstPending.Modifier, "Aric Initiative modifier");
++    True(!watcherCombatant.Initiative.HasValue, "NPC should wait until preceding player rolls resolve");
++
++    var firstResolved = engine.ResolvePendingInitiativeRoll(campaign, firstPending.Id, 12, null, deterministicDice);
++    True(!firstResolved.Completed, "initiative should pause for the second PC");
++    Equal(14, aricCombatant.Initiative, "Aric authoritative Initiative total");
++    var secondPending = campaign.PendingPlayerRoll ?? throw new Exception("second player Initiative request was not created");
++    Equal("pc-mira", secondPending.ActorCharacterId, "second Initiative actor");
++    Equal("advantage", secondPending.RollMode, "Invisible PC Initiative mode");
++
++    var missingSecondRollRejected = false;
++    try { engine.ResolvePendingInitiativeRoll(campaign, secondPending.Id, 5, null, deterministicDice); }
++    catch (InvalidOperationException) { missingSecondRollRejected = true; }
++    True(missingSecondRollRejected, "Advantage Initiative should require two supplied d20 results");
++    Equal(secondPending.Id, campaign.PendingPlayerRoll?.Id, "failed resolution should preserve pending Initiative");
++
++    var completed = engine.ResolvePendingInitiativeRoll(campaign, secondPending.Id, 5, 17, deterministicDice);
++    True(completed.Completed, "initiative sequence should complete after the final PC roll");
++    True(campaign.PendingPlayerRoll is null, "initiative pending roll should clear");
++    Equal(20, miraCombatant.Initiative, "Mira authoritative Initiative total");
++    Equal(11, watcherCombatant.Initiative, "NPC deterministic Initiative total");
++    Equal(3, completed.Order.Count, "initiative order count");
++    Equal("pc-mira", completed.Order[0].CharacterId, "highest Initiative character");
++    Equal("pc-aric", completed.Order[1].CharacterId, "second Initiative character");
++    Equal("npc-watcher", completed.Order[2].CharacterId, "third Initiative character");
++});
++
++Run("surprise and invisibility cancel to a normal player Initiative roll", () =>
++{
++    var (engine, campaign, encounter, _, miraCombatant, _) = CreateEncounter();
++    miraCombatant.Surprised = true;
++    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => 10);
++
++    var first = engine.BeginInitiativeSequence(campaign, encounter.Id, deterministicDice);
++    var aricPending = first.PendingRoll ?? throw new Exception("Aric pending Initiative missing");
++    engine.ResolvePendingInitiativeRoll(campaign, aricPending.Id, 10, null, deterministicDice);
++    var miraPending = campaign.PendingPlayerRoll ?? throw new Exception("Mira pending Initiative missing");
++    Equal("normal", miraPending.RollMode, "Advantage and Disadvantage should cancel");
++});
++
++if (failures.Count > 0)
++{
++    Console.Error.WriteLine($"Initiative roll tests failed: {failures.Count}");
++    foreach (var failure in failures) Console.Error.WriteLine($" - {failure}");
++    Environment.Exit(1);
++}
++
++Console.WriteLine($"Initiative roll tests passed: {passed}");
++
++void Run(string name, Action test)
++{
++    try
++    {
++        test();
++        passed++;
++        Console.WriteLine($"PASS: {name}");
++    }
++    catch (Exception ex)
++    {
++        failures.Add($"{name}: {ex.Message}");
++        Console.Error.WriteLine($"FAIL: {name}: {ex.Message}");
++    }
++}
++
++static (GameEngine Engine, CampaignState Campaign, EncounterState Encounter, CombatantState Aric, CombatantState Mira, CombatantState Watcher) CreateEncounter()
++{
++    var engine = new GameEngine();
++    var aric = new CharacterSheet
++    {
++        Id = "pc-aric",
++        Name = "Aric",
++        CharacterType = "pc",
++        MaxHp = 14,
++        CurrentHp = 14,
++        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["dexterity"] = 14 }
++    };
++    var mira = new CharacterSheet
++    {
++        Id = "pc-mira",
++        Name = "Mira",
++        CharacterType = "pc",
++        MaxHp = 12,
++        CurrentHp = 12,
++        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["dexterity"] = 16 },
++        Conditions = ["Invisible"]
++    };
++    var watcher = new CharacterSheet
++    {
++        Id = "npc-watcher",
++        Name = "Ashen Watcher",
++        CharacterType = "npc",
++        MaxHp = 20,
++        CurrentHp = 20,
++        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["dexterity"] = 12 }
++    };
++    var campaign = new CampaignState
++    {
++        Id = "campaign-initiative",
++        Name = "Initiative Campaign",
++        Characters = [aric, mira, watcher]
++    };
++    var encounter = engine.StartEncounter(campaign, "Initiative Test");
++    var aricCombatant = engine.AddCombatant(campaign, encounter.Id, aric.Id);
++    var miraCombatant = engine.AddCombatant(campaign, encounter.Id, mira.Id);
++    var watcherCombatant = engine.AddCombatant(campaign, encounter.Id, watcher.Id);
++    return (engine, campaign, encounter, aricCombatant, miraCombatant, watcherCombatant);
++}
++
++static void True(bool value, string label)
++{
++    if (!value) throw new Exception(label);
++}
++
++static void Equal<T>(T expected, T actual, string label)
++{
++    if (!EqualityComparer<T>.Default.Equals(expected, actual))
++        throw new Exception($"{label}: expected {expected}, got {actual}");
++}
+diff --git a/.github/workflows/windows-ci.yml b/.github/workflows/windows-ci.yml
+--- a/.github/workflows/windows-ci.yml
++++ b/.github/workflows/windows-ci.yml
+@@ -31,6 +31,9 @@ jobs:
+       - name: Run focused roll-state tests
+         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
+ 
++      - name: Run Initiative roll tests
++        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
++
+       - name: Run full smoke suite
+         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
