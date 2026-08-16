@@ -18,6 +18,21 @@ jobs:
         with:
           ref: feature/r46-readied-area-spells
           fetch-depth: 0
+      - name: Correct temporary codemod bookkeeping
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/apply_r46_readied_area.py')
+          text = p.read_text(encoding='utf-8')
+          for line in [
+              "decisions.write_text(text, encoding='utf-8')\n",
+              "router_helper.write_text(text, encoding='utf-8')\n",
+              "router.write_text(text, encoding='utf-8')\n",
+              "vm.write_text(text, encoding='utf-8')\n",
+          ]:
+              text = text.replace(line, '')
+          p.write_text(text, encoding='utf-8')
+          PY
       - name: Apply readied area spell integration codemod
         run: python3 .github/scripts/apply_r46_readied_area.py
       - name: Commit readied area spell integration
