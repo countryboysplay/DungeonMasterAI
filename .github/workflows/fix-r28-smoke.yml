@@ -1,0 +1,51 @@
+name: Fix r28 Concentration smoke expectation
+
+on:
+  push:
+    branches:
+      - feature/r28-player-concentration-rolls
+    paths:
+      - .github/workflows/fix-r28-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update smoke test for player-controlled Concentration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''var maintainedConcentration = engine.ApplyDamageWithConcentration(campaign, concentrationHero.Id, 2, dice, "Force");
+          Assert(maintainedConcentration.Concentration is { Maintained: true, DifficultyClass: 10 } && concentrationHero.ConcentrationEffect == "Second Test Ward", "damage triggers an automatic Constitution save and preserves Concentration on success");
+          engine.AddCondition(campaign, concentrationHero.Id, "Incapacitated");'''.replace('          ', '')
+          new = '''var maintainedConcentration = engine.ApplyDamageWithConcentration(campaign, concentrationHero.Id, 2, dice, "Force");
+          Assert(maintainedConcentration.Concentration is null && campaign.PendingPlayerRoll?.ResolutionKey == "concentration_check" && concentrationHero.ConcentrationEffect == "Second Test Ward", "damage to a concentrating PC creates a required player Concentration save without auto-resolving it");
+          var concentrationPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException("Expected a pending player Concentration save.");
+          var concentrationResolved = engine.ResolvePendingConcentrationCheckRoll(campaign, concentrationPending.Id, 20, null, dice);
+          Assert(concentrationResolved is { Maintained: true, DifficultyClass: 10 } && concentrationResolved.SavingThrow.ChosenRoll == 20 && concentrationHero.ConcentrationEffect == "Second Test Ward" && campaign.PendingPlayerRoll is null, "the supplied player d20 resolves the Concentration save and preserves Concentration on success");
+          engine.AddCondition(campaign, concentrationHero.Id, "Incapacitated");'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Could not find legacy automatic Concentration smoke assertion')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit smoke migration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: expect player-controlled Concentration saves"
+          git push origin HEAD:${GITHUB_REF_NAME}
