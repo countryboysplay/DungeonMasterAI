@@ -1,0 +1,48 @@
+name: Fix r30 smoke local name collision
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/fix-r30-smoke-name.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rename the r30 smoke result local
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/tests/DungeonMasterAI.Smoke/Program.cs')
+          text = path.read_text(encoding='utf-8')
+          start_marker = 'var rayCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceRays.Id, dice,'
+          end_marker = '// Deterministic multi-target buffs and tactical area spell geometry.'
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
+          block = text[start:end]
+          if 'var rayResolved = rayCast;' not in block:
+              raise SystemExit('r30 smoke local rayResolved was not found in the projectile block')
+          block = block.replace('rayResolved', 'projectileRaySequenceResult')
+          path.write_text(text[:start] + block + text[end:], encoding='utf-8')
+          PY
+
+      - name: Commit smoke fix
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows/tests/DungeonMasterAI.Smoke/Program.cs
+          git commit -m "tests: avoid projectile smoke local name collision"
+          git push origin HEAD:${GITHUB_REF_NAME}
