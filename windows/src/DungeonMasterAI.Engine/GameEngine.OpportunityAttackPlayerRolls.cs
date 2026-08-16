@@ -297,7 +297,7 @@ public sealed partial class GameEngine
         return encounter;
     }
 
-    private static OpportunityAttackWindow RequireOpportunityWindow(PendingMoveState pendingMove, string reactorCombatantId)
+    private static OpportunityAttackWindow RequireOpportunityWindow(PendingCombatMove pendingMove, string reactorCombatantId)
         => pendingMove.OpportunityAttacks.FirstOrDefault(x =>
             x.ReactorCombatantId.Equals(reactorCombatantId, StringComparison.OrdinalIgnoreCase) && !x.Resolved)
             ?? throw new InvalidOperationException("That Opportunity Attack reaction window is no longer unresolved.");

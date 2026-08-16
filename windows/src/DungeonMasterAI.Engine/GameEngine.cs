@@ -1368,6 +1368,8 @@ if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
         var reactorCombatant = RequireCombatant(encounter, reactorCombatantId);
         var moverCombatant = RequireCombatant(encounter, pending.CombatantId);
         var reactor = RequireCharacter(campaign, reactorCombatant.CharacterId);
+        if (reactor.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Player-character Opportunity Attacks must use the authoritative player-roll request path.");
         var mover = RequireCharacter(campaign, moverCombatant.CharacterId);
         if (!reactorCombatant.ReactionAvailable) throw new InvalidOperationException($"{reactor.Name} has already used a Reaction since the start of their last turn.");
         if (!CanTakeReaction(reactor)) throw new InvalidOperationException($"{reactor.Name} cannot take a Reaction right now.");

@@ -204,7 +204,7 @@ public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, Ru
                 "release_grapple" => engine.ReleaseGrapple(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "grappler_combatant_id"), RequiredString(a, "target_combatant_id")),
                 "stand_from_prone" => engine.StandFromProne(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "combatant_id")),
                 "get_pending_opportunity_attacks" => engine.GetPendingOpportunityAttacks(campaign, RequiredString(a, "encounter_id")),
-                "resolve_opportunity_attack" => engine.ResolveOpportunityAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "reactor_combatant_id"), OptionalString(a, "attack_name"), dice),
+                "resolve_opportunity_attack" => ResolveOpportunityAttackTool(engine, dice, campaign, a),
                 "decline_opportunity_attack" => engine.DeclineOpportunityAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "reactor_combatant_id")),
                 "combat_attack" => CombatAttack(campaign, a),
                 "next_combat_turn" => NextCombatTurn(campaign, RequiredString(a, "encounter_id")),
