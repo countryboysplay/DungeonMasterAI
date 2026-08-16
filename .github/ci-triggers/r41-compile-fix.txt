@@ -1,1 +1,0 @@
-Verify r41 after removing the duplicate Game Table helper.
