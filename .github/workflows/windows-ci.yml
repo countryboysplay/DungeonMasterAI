@@ -68,6 +68,9 @@ jobs:
       - name: Run grapple shove and escape player roll tests
         run: dotnet run --project tests/DungeonMasterAI.UnarmedPlayerRollTests/DungeonMasterAI.UnarmedPlayerRollTests.csproj --configuration Release
 
+      - name: Run player Opportunity Attack roll tests
+        run: dotnet run --project tests/DungeonMasterAI.OpportunityAttackRollTests/DungeonMasterAI.OpportunityAttackRollTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
