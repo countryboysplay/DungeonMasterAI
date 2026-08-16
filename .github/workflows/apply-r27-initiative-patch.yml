@@ -23,8 +23,8 @@ jobs:
       - name: Verify and apply patch
         shell: bash
         run: |
-          git apply --check .github/patches/r27-player-initiative-rolls.patch
-          git apply .github/patches/r27-player-initiative-rolls.patch
+          git apply --unidiff-zero --check .github/patches/r27-player-initiative-rolls.patch
+          git apply --unidiff-zero .github/patches/r27-player-initiative-rolls.patch
 
       - name: Commit source changes
         shell: bash
