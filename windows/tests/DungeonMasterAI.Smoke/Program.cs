@@ -830,8 +830,22 @@ Assert(badProjectileAllocationRejected && projectileCaster.SpellSlots[2].Remaini
     "an invalid projectile allocation is rejected before a spell slot is spent");
 var rayCast = engine.CastProjectileSpell(campaign, projectileCaster.Id, practiceRays.Id, dice,
     [projectileTargetA.Id, projectileTargetB.Id, projectileTargetA.Id], slotLevel: 2);
-Assert(rayCast.TargetResults is { Count: 3 } && rayCast.TargetResults.All(r => r.SpellAttack is not null),
-    "multi-ray projectile spells make a separate spell attack roll for every ray");
+Assert(rayCast.TargetResults is { Count: 0 } && campaign.PendingPlayerRoll?.ResolutionKey == "projectile_spell_attack",
+    "player multi-ray projectile spells pause before the first ray for the player attack roll");
+var rayResolved = rayCast;
+for (var rayIndex = 0; rayIndex < 3; rayIndex++)
+{
+    var rayAttackPending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player attack roll for ray {rayIndex + 1}.");
+    Assert(rayAttackPending.ResolutionKey == "projectile_spell_attack", $"ray {rayIndex + 1} requests its own player attack roll");
+    rayResolved = engine.ResolvePendingProjectileSpellAttackRoll(campaign, rayAttackPending.Id, 10, null, dice);
+    var rayDamagePending = campaign.PendingPlayerRoll ?? throw new InvalidOperationException($"Expected player damage roll for ray {rayIndex + 1}.");
+    Assert(rayDamagePending.ResolutionKey == "projectile_spell_damage", $"ray {rayIndex + 1} requests player damage after a hit");
+    rayResolved = engine.ResolvePendingProjectileSpellDamageRoll(campaign, rayDamagePending.Id, 1, dice);
+}
+Assert(rayResolved.TargetResults is { Count: 3 }
+    && rayResolved.TargetResults.All(r => r.SpellAttack is not null)
+    && campaign.PendingPlayerRoll is null,
+    "multi-ray projectile spells retain one separately player-resolved spell attack for every ray");
 
 
 // Deterministic multi-target buffs and tactical area spell geometry.
