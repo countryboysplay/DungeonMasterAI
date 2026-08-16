@@ -2,7 +2,7 @@ diff --git a/windows/src/DungeonMasterAI.Engine/GameEngine.InitiativeRolls.cs b/
 new file mode 100644
 --- /dev/null
 +++ b/windows/src/DungeonMasterAI.Engine/GameEngine.InitiativeRolls.cs
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,187 @@
 +using DungeonMasterAI.Domain;
 +
 +namespace DungeonMasterAI.Engine;
@@ -193,12 +193,12 @@ new file mode 100644
 diff --git a/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs b/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
 --- a/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
 +++ b/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
-@@ -48,7 +48,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
+@@ -52 +52 @@
 -        Tool("roll_initiative", "Roll Initiative for every combatant. Surprised combatants roll with Disadvantage; Exhaustion modifies the D20 Test.", Props(("encounter_id","string",true))),
 +        Tool("roll_initiative", "Begin or resume deterministic Initiative for the encounter. NPC Initiative is rolled automatically. Each player character receives a required player-controlled d20 request, including Advantage or Disadvantage and Exhaustion, and the sequence resumes automatically after each supplied roll.", Props(("encounter_id","string",true))),
-@@ -264,43 +264,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
-     private object RollInitiative(CampaignState campaign, string encounterId)
-     {
+@@ -278,36 +278,4 @@
+-    private object RollInitiative(CampaignState campaign, string encounterId)
+-    {
 -        var encounter = campaign.Encounters.FirstOrDefault(e => e.Id == encounterId)
 -            ?? throw new KeyNotFoundException("Encounter not found.");
 -        if (encounter.Combatants.Count == 0) throw new InvalidOperationException("The encounter has no combatants.");
@@ -232,27 +232,25 @@ diff --git a/windows/src/DungeonMasterAI.Engine/DmToolRouter.cs b/windows/src/Du
 -        }
 -        var order = engine.FinalizeInitiative(campaign, encounter.Id);
 -        return new { rolls, order, encounter.Round, encounter.TurnIndex };
+-    }
++    private object RollInitiative(CampaignState campaign, string encounterId)
++    {
 +        return engine.BeginInitiativeSequence(campaign, encounterId, dice);
-     }
++    }
 diff --git a/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs b/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
 --- a/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
 +++ b/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
-@@ -70,6 +70,12 @@ public sealed partial class MainViewModel
-             return;
-         }
- 
+@@ -70 +70,7 @@
+-        StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
 +        if (pending.ResolutionKey.Equals("initiative", StringComparison.OrdinalIgnoreCase))
 +        {
 +            await ResolveActiveInitiativeFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
 +            return;
 +        }
 +
-         StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
-     }
-@@ -239,6 +245,31 @@ public sealed partial class MainViewModel
-         }
-     }
- 
++        StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
+@@ -244 +250,26 @@
+-    private async Task AdvanceNpcTurnsAfterPlayerRollAsync()
 +    private async Task ResolveActiveInitiativeFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
 +    {
 +        if (SelectedCampaign is null) return;
@@ -278,14 +276,12 @@ diff --git a/windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs b/wind
 +        }
 +    }
 +
-     private async Task AdvanceNpcTurnsAfterPlayerRollAsync()
-     {
-         if (SelectedCampaign is null || !HasActiveCombat) return;
++    private async Task AdvanceNpcTurnsAfterPlayerRollAsync()
 diff --git a/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj b/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj
 new file mode 100644
 --- /dev/null
 +++ b/windows/tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,12 @@
 +<Project Sdk="Microsoft.NET.Sdk">
 +  <PropertyGroup>
 +    <OutputType>Exe</OutputType>
@@ -302,7 +298,7 @@ diff --git a/windows/tests/DungeonMasterAI.InitiativeTests/Program.cs b/windows/
 new file mode 100644
 --- /dev/null
 +++ b/windows/tests/DungeonMasterAI.InitiativeTests/Program.cs
-@@ -0,0 +1,129 @@
+@@ -0,0 +1,134 @@
 +using DungeonMasterAI.Domain;
 +using DungeonMasterAI.Engine;
 +
@@ -440,12 +436,9 @@ new file mode 100644
 diff --git a/.github/workflows/windows-ci.yml b/.github/workflows/windows-ci.yml
 --- a/.github/workflows/windows-ci.yml
 +++ b/.github/workflows/windows-ci.yml
-@@ -31,6 +31,9 @@ jobs:
-       - name: Run focused roll-state tests
-         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
- 
+@@ -38 +38,4 @@
+-      - name: Run full smoke suite
 +      - name: Run Initiative roll tests
 +        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
 +
-       - name: Run full smoke suite
-         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
++      - name: Run full smoke suite
