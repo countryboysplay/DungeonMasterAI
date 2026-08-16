@@ -37,7 +37,7 @@ public sealed partial class GameEngine
         var pointY = origin == "point"
             ? centerY ?? throw new InvalidOperationException($"{spell.Name} requires an area center Y coordinate when its trigger occurs.")
             : casterCombatant.GridY;
-        var normalizedDirection = SpellAreaGeometry.NormalizeDirection(direction);
+        var normalizedDirection = NormalizeReadiedAreaDirection(direction);
 
         if (origin == "point")
         {
@@ -58,6 +58,24 @@ public sealed partial class GameEngine
 
         var names = affected.Select(c => RequireCharacter(campaign, c.CharacterId).Name).ToArray();
         return new ReadiedAreaSpellPlan(pointX, pointY, normalizedDirection, affected.Select(c => c.Id).ToArray(), names);
+    }
+
+    private static string NormalizeReadiedAreaDirection(string? direction)
+    {
+        var normalized = (direction ?? "north").Trim().ToLowerInvariant().Replace("_", "-").Replace(" ", "-");
+        _ = SpellAreaGeometry.NormalizeDirection(normalized);
+        return normalized switch
+        {
+            "n" => "north",
+            "ne" or "northeast" => "north-east",
+            "e" => "east",
+            "se" or "southeast" => "south-east",
+            "s" => "south",
+            "sw" or "southwest" => "south-west",
+            "w" => "west",
+            "nw" or "northwest" => "north-west",
+            _ => normalized
+        };
     }
 
     private SpellCastResult BeginReadiedAreaSpellSequence(
