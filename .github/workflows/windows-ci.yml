@@ -80,6 +80,9 @@ jobs:
       - name: Run readied spell player-control tests
         run: dotnet run --project tests/DungeonMasterAI.ReadiedSpellRollTests/DungeonMasterAI.ReadiedSpellRollTests.csproj --configuration Release
 
+      - name: Run readied projectile spell tests
+        run: dotnet run --project tests/DungeonMasterAI.ReadiedProjectileSpellTests/DungeonMasterAI.ReadiedProjectileSpellTests.csproj --configuration Release
+
       - name: Run readied movement decision tests
         run: dotnet run --project tests/DungeonMasterAI.ReadiedMoveDecisionTests/DungeonMasterAI.ReadiedMoveDecisionTests.csproj --configuration Release
 
