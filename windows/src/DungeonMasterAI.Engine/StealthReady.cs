@@ -12,6 +12,8 @@ public sealed partial class GameEngine
         var combatant = RequireCombatant(encounter, combatantId);
         EnsureCurrentTurn(encounter, combatant.Id);
         var character = RequireCharacter(campaign, combatant.CharacterId);
+        if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Player-character Hide checks must use the authoritative player-roll request path.");
         if (!combatant.Positioned)
             throw new InvalidOperationException($"{character.Name} must be positioned on the tactical grid before using Hide.");
         if (character.Dead || character.Conditions.Any(c => c.Equals("Incapacitated", StringComparison.OrdinalIgnoreCase) || c.Equals("Unconscious", StringComparison.OrdinalIgnoreCase)))
@@ -61,6 +63,8 @@ public sealed partial class GameEngine
             throw new InvalidOperationException("A creature cannot search for itself.");
 
         var searcher = RequireCharacter(campaign, searcherCombatant.CharacterId);
+        if (searcher.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Player-character hidden Search checks must use the authoritative player-roll request path.");
         var target = RequireCharacter(campaign, targetCombatant.CharacterId);
         ConsumeAction(searcherCombatant, searcher, "Search");
         var dc = Math.Max(1, targetCombatant.HideCheckTotal);

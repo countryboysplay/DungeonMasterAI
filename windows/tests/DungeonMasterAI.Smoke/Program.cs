@@ -584,7 +584,9 @@ engine.SetCombatantPosition(campaign, aidEncounter.Id, fallenCombatant.Id, 0, 1)
 engine.SetInitiative(campaign, aidEncounter.Id, medicCombatant.Id, 20);
 engine.SetInitiative(campaign, aidEncounter.Id, fallenCombatant.Id, 10);
 engine.FinalizeInitiative(campaign, aidEncounter.Id);
-var aidResult = engine.TakeFirstAid(campaign, aidEncounter.Id, medicCombatant.Id, fallenCombatant.Id, dice);
+var aidPending = engine.RequestFirstAidRoll(campaign, aidEncounter.Id, medicCombatant.Id, fallenCombatant.Id);
+Assert(medicCombatant.ActionAvailable && campaign.PendingPlayerRoll?.Id == aidPending.Id, "player First Aid pauses before spending the helper action");
+var aidResult = engine.ResolvePendingFirstAidRoll(campaign, aidPending.Id, 20);
 Assert(aidResult.Stabilized && fallen.Stable && fallen.DeathSaveFailures == 0 && fallen.DeathSaveSuccesses == 0 && !medicCombatant.ActionAvailable, "first aid uses the helper's action and a DC 10 Wisdom (Medicine) check to stabilize a living creature at 0 HP");
 engine.EndEncounter(campaign, aidEncounter.Id);
 
@@ -662,7 +664,9 @@ engine.AddTerrainFeature(campaign, stealthEncounter.Id, new TerrainFeature { Nam
 engine.SetInitiative(campaign, stealthEncounter.Id, stealthHeroCombatant.Id, 20);
 engine.SetInitiative(campaign, stealthEncounter.Id, stealthSeekerCombatant.Id, 10);
 engine.FinalizeInitiative(campaign, stealthEncounter.Id);
-var hideResult = engine.TakeHide(campaign, stealthEncounter.Id, stealthHeroCombatant.Id, dice);
+var hidePending = engine.RequestHideRoll(campaign, stealthEncounter.Id, stealthHeroCombatant.Id);
+Assert(stealthHeroCombatant.ActionAvailable && campaign.PendingPlayerRoll?.Id == hidePending.Id, "player Hide pauses before spending the action");
+var hideResult = engine.ResolvePendingHideRoll(campaign, hidePending.Id, 20);
 Assert(hideResult.Hidden && stealthHeroCombatant.IsHidden && hideResult.PerceptionDc >= 15 && !stealthHeroCombatant.ActionAvailable, "Hide consumes the action, enforces DC 15 Stealth, and records the successful check as the Perception DC");
 engine.NextTurn(campaign, stealthEncounter.Id);
 stealthHeroCombatant.HideCheckTotal = 1;
@@ -679,7 +683,8 @@ engine.AddTerrainFeature(campaign, hiddenAttackEncounter.Id, new TerrainFeature 
 engine.SetInitiative(campaign, hiddenAttackEncounter.Id, hiddenAttacker.Id, 20);
 engine.SetInitiative(campaign, hiddenAttackEncounter.Id, hiddenTarget.Id, 10);
 engine.FinalizeInitiative(campaign, hiddenAttackEncounter.Id);
-engine.TakeHide(campaign, hiddenAttackEncounter.Id, hiddenAttacker.Id, dice);
+var hiddenAttackHidePending = engine.RequestHideRoll(campaign, hiddenAttackEncounter.Id, hiddenAttacker.Id);
+engine.ResolvePendingHideRoll(campaign, hiddenAttackHidePending.Id, 20);
 engine.NextTurn(campaign, hiddenAttackEncounter.Id);
 engine.NextTurn(campaign, hiddenAttackEncounter.Id);
 var hiddenAttack = engine.ResolveEncounterAttack(campaign, hiddenAttackEncounter.Id, hiddenAttacker.Id, hiddenTarget.Id, "Dagger", dice);

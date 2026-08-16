@@ -118,6 +118,24 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("hide_check", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveHideFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
+if (pending.ResolutionKey.Equals("search_hidden_check", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveHiddenSearchFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
+if (pending.ResolutionKey.Equals("first_aid_check", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveFirstAidFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
         if (pending.ResolutionKey.Equals("combat_skill_action", StringComparison.OrdinalIgnoreCase))
 {
     await ResolveActiveCombatSkillActionFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);

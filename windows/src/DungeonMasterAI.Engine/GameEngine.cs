@@ -1115,6 +1115,8 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         if (helperCombatant.Id.Equals(targetCombatant.Id, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("A creature cannot administer first aid to itself with this action.");
         var helper = RequireCharacter(campaign, helperCombatant.CharacterId);
+        if (helper.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Player-character First Aid checks must use the authoritative player-roll request path.");
         var target = RequireCharacter(campaign, targetCombatant.CharacterId);
         if (target.Dead) throw new InvalidOperationException($"{target.Name} is dead and cannot be stabilized with first aid.");
         var unconscious = target.Conditions.Any(c => c.Equals("Unconscious", StringComparison.OrdinalIgnoreCase));
