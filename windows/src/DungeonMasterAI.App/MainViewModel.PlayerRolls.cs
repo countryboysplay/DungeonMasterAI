@@ -108,6 +108,12 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("spell_saving_throw", StringComparison.OrdinalIgnoreCase))
+        {
+            await ResolveActiveSpellSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+            return;
+        }
+
         if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
         {
             await ResolveActiveSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
@@ -379,6 +385,31 @@ private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendin
         try
         {
             var result = _engine.ResolvePendingAbilityCheckRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo);
+            LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = $"🎲 {CleanSessionNarration(result.Summary)}"
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private async Task ResolveActiveSpellSavingThrowFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingSpellSavingThrowRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
             LastDiceResult = $"{LastDiceResult} • {result.Summary}";
             StatusMessage = result.Summary;
             SelectedCampaign.Chat.Add(new ChatMessage
