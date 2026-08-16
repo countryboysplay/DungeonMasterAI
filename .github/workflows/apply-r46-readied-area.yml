@@ -1,0 +1,30 @@
+name: Apply r46 readied area
+
+on:
+  push:
+    branches: [feature/r46-readied-area-spells]
+    paths:
+      - '.github/workflows/apply-r46-readied-area.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r46-readied-area-spells
+          fetch-depth: 0
+      - name: Apply readied area spell integration codemod
+        run: python3 .github/scripts/apply_r46_readied_area.py
+      - name: Commit readied area spell integration
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.Engine/GameEngine.AreaSpellPlayerRolls.cs windows/src/DungeonMasterAI.Engine/Spellcasting.cs windows/src/DungeonMasterAI.Engine/GameEngine.ReadiedSpellDecisions.cs windows/src/DungeonMasterAI.Engine/DmToolRouter.ReadiedSpellDecisions.cs windows/src/DungeonMasterAI.Engine/DmToolRouter.cs windows/src/DungeonMasterAI.App/MainViewModel.cs
+          git diff --cached --check
+          git commit -m "r46: enable readied area spells with player-controlled resolution"
+          git push origin HEAD:feature/r46-readied-area-spells
