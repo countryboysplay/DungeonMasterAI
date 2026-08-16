@@ -1,1 +1,0 @@
-Validate the latest r39 player decision state, Game Table wiring, AI guard, full regression suite, and Windows installer.
