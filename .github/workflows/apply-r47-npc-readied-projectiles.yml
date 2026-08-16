@@ -18,6 +18,18 @@ jobs:
         with:
           ref: feature/r47-npc-readied-projectile-spells
           fetch-depth: 0
+      - name: Harden ambiguous sequence anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/apply_r47_npc_readied_projectiles.py')
+          text = p.read_text(encoding='utf-8')
+          old = """    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, found {count}')\n    path.write_text(text.replace(old, new, 1), encoding='utf-8')\n"""
+          new = """    if label == 'route NPC attack projectile through automatic sequence' and count == 2:\n        before, match, after = text.rpartition(old)\n        if not match:\n            raise SystemExit(f'{label}: could not isolate the sequence-advance occurrence')\n        path.write_text(before + new + after, encoding='utf-8')\n        return\n    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, found {count}')\n    path.write_text(text.replace(old, new, 1), encoding='utf-8')\n"""
+          if text.count(old) != 1:
+              raise SystemExit('Could not locate replace_once helper in r47 codemod.')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply r47 codemod
         run: python3 .github/scripts/apply_r47_npc_readied_projectiles.py
       - name: Commit r47 integration
