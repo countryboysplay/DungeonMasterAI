@@ -31,6 +31,6 @@ jobs:
         run: |
           git config user.name "ChatGPT"
           git config user.email "chatgpt@local.invalid"
-          git add windows .github/workflows/windows-ci.yml
+          git add windows
           git commit -m "r27: make player initiative rolls authoritative"
           git push origin HEAD:${GITHUB_REF_NAME}
