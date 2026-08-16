@@ -277,7 +277,7 @@ static SpellDefinition CreateAutoProjectileSpell() => new()
 };
 
 static DiceService MinimumDice() => new((min, max) => min);
-static DiceService MaximumDice() => new((min, max) => max);
+static DiceService MaximumDice() => new((min, max) => max - 1);
 
 static void True(bool value, string label)
 {
