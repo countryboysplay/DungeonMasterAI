@@ -1,0 +1,30 @@
+name: Apply r42 readied UI
+
+on:
+  push:
+    branches: [feature/r42-readied-player-rolls]
+    paths:
+      - '.github/workflows/apply-r42-readied-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r42-readied-player-rolls
+          fetch-depth: 0
+      - name: Apply readied attack UI codemod
+        run: python3 .github/scripts/apply_r42_readied_ui.py
+      - name: Commit readied attack UI routing
+        run: |
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.App/MainViewModel.cs windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs
+          git diff --cached --check
+          git commit -m "r42: route readied attacks through player-owned rolls"
+          git push origin HEAD:feature/r42-readied-player-rolls
