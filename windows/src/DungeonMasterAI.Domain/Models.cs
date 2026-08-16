@@ -22,7 +22,7 @@ public sealed class AppSettings
     public bool PlayerSafeMode { get; set; } = true;
 }
 
-public sealed class CampaignState
+public sealed partial class CampaignState
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "Untitled Campaign";

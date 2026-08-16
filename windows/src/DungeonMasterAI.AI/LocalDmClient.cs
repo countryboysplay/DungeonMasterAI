@@ -137,6 +137,13 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
             {
                 if (string.IsNullOrWhiteSpace(content)) throw new InvalidDataException("Local AI returned neither narration nor tool calls.");
 
+                if (campaign.PendingPlayerDecision?.Required == true)
+                {
+                    var decision = campaign.PendingPlayerDecision;
+                    audit.Add($"guard: stopped for required player decision '{decision.DecisionType}'");
+                    return new DmTurnResult(decision.Prompt, toolCount, audit);
+                }
+
                 if (TryGetAutonomousCombatant(campaign, out var autonomousName))
                 {
                     audit.Add($"guard: rejected narration while autonomous combatant '{autonomousName}' still had the active turn");
@@ -168,6 +175,13 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
                 audit.Add($"{name}: {(result.Ok ? "ok" : "error")} {(result.Error ?? "")}".Trim());
                 var resultJson = JsonSerializer.Serialize(result, _json);
                 messages.Add(new { role = "tool", tool_call_id = id, name, content = resultJson });
+
+                if (campaign.PendingPlayerDecision?.Required == true)
+                {
+                    var decision = campaign.PendingPlayerDecision;
+                    audit.Add($"guard: stopped for required player decision '{decision.DecisionType}'");
+                    return new DmTurnResult(decision.Prompt, toolCount, audit);
+                }
 
                 if (campaign.PendingPlayerRoll?.Required == true)
                 {
@@ -217,6 +231,7 @@ Run non-player creatures yourself. When the active combatant is an NPC or hostil
 A player character does NOT make a Death Saving Throw immediately when they drop to 0 HP. Continue the current creature's turn and any intervening NPC turns normally. When a player character STARTS their turn at 0 HP and is not Stable or Dead, STOP before resolving that turn. Never call death_save for a player character. The Game Table will require the player to roll the Death Saving Throw themselves.
 For ability_check and saving_throw, call the deterministic tool with the correct player character, ability, skill when applicable, and DC. For a player character, those tools create a required player d20 request instead of rolling the d20 for them. Do not make a second roll or narrate success or failure until the application receives the player's roll.
 When tactical combat begins, ensure every participating combatant has a sensible initial grid position using the positioning tools before the first player decision so the live battlefield can render immediately.
+If pending_player_decision is present and Required is true, never choose an option for the player, never call tools to bypass it, and never narrate past it. Stop and let the Game Table collect the player choice.
 If pending_player_roll is present and Required is true, do not resolve, invent, or bypass that roll. Stop and let the application collect it from the player.
 If the player says "next turn", "continue", or ends a player turn, advance combat and autonomously resolve intervening NPC turns until the next player-character decision point, including stopping at a required player-controlled Death Saving Throw.
 Keep live-play narration immersive and compact: normally 2 to 5 short paragraphs. Do not dump tool names, raw coordinates, action-economy flags, JSON, audit text, or full stat blocks into narration unless the player explicitly asks for mechanics.
@@ -331,9 +346,20 @@ End with a brief clear choice or "What do you do?" only when a player character 
                 campaign.PendingPlayerRoll.Modifier,
                 campaign.PendingPlayerRoll.TargetNumber,
                 campaign.PendingPlayerRoll.TargetLabel,
-                campaign.PendingPlayerRoll.Required
-            }
-        });
+campaign.PendingPlayerRoll.Required
+    },
+    pending_player_decision = campaign.PendingPlayerDecision is null ? null : new
+    {
+        campaign.PendingPlayerDecision.Id,
+        campaign.PendingPlayerDecision.ActorCharacterId,
+        campaign.PendingPlayerDecision.EncounterId,
+        campaign.PendingPlayerDecision.CombatantId,
+        campaign.PendingPlayerDecision.DecisionType,
+        campaign.PendingPlayerDecision.Prompt,
+        campaign.PendingPlayerDecision.Required,
+        options = campaign.PendingPlayerDecision.Options.Select(o => new { o.Id, o.Label, o.Description, o.Value, o.Emphasis })
+    }
+});
     }
 
     private static object[] AvailableAttacks(CharacterSheet character)

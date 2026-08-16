@@ -390,6 +390,23 @@
                                                     </DockPanel>
                                                 </Border>
 
+
+                                                <!-- Voluntary player choices are first-class state. The AI cannot choose them on the player's behalf. -->
+                                                <Border Background="#2B2415" BorderBrush="#9A7B35" BorderThickness="1" CornerRadius="9" Padding="12,9">
+                                                    <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
+                                                    <DockPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Foreground="{StaticResource GoldBrush}" FontSize="10" FontWeight="Bold" Text="PLAYER DECISION REQUIRED"/>
+                                                            <TextBlock Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,3,0,0" Text="{Binding PendingPlayerDecisionPrompt}" TextWrapping="Wrap"/>
+                                                            <TextBlock Foreground="#C7B98D" FontSize="10" Margin="0,3,0,0" Text="The game is paused. This choice belongs to you, not the AI Dungeon Master."/>
+                                                        </StackPanel>
+                                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,0">
+                                                            <Button Style="{StaticResource PrimaryButton}" Command="{Binding ResolvePrimaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionPrimaryLabel}" MinWidth="160"/>
+                                                            <Button Command="{Binding ResolveSecondaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionSecondaryLabel}" MinWidth="120" Margin="8,0,0,0"/>
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </Border>
+
                                                 <!-- Any other authoritative player roll blocks normal combat controls until the player supplies it. -->
                                                 <Border Background="#172032" BorderBrush="#49658C" BorderThickness="1" CornerRadius="9" Padding="12,9">
                                                     <Border.Style>
@@ -445,6 +462,9 @@
                                                             <Setter Property="Visibility" Value="Visible"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding PlayerRollRequired}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True">
                                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding ActivePlayerUnableToActAtZero}" Value="True">

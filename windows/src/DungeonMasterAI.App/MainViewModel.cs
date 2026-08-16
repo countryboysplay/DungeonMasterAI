@@ -1298,6 +1298,12 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (SelectedCampaign is null || string.IsNullOrWhiteSpace(input) || IsDmBusy) return;
         _engine.EnsurePendingPlayerRollForActiveCombat(SelectedCampaign);
+        if (SelectedCampaign.PendingPlayerDecision?.Required == true)
+        {
+            StatusMessage = $"Player decision pending: {SelectedCampaign.PendingPlayerDecision.Prompt}";
+            RaiseCampaignProperties();
+            return;
+        }
         if (SelectedCampaign.PendingPlayerRoll?.Required == true)
         {
             StatusMessage = $"Required roll pending: {SelectedCampaign.PendingPlayerRoll.Purpose}";
@@ -2005,6 +2011,14 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private async Task ResolveOpportunityAttackAsync()
     {
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+
+        if (PendingPlayerDecision?.Required == true
+            && PendingPlayerDecision.DecisionType.Equals("opportunity_attack_reaction", StringComparison.OrdinalIgnoreCase)
+            && PendingPlayerDecision.CombatantId?.Equals(SelectedOpportunityAttack.ReactorCombatantId, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            await ResolvePlayerDecisionAsync(primary: true);
+            return;
+        }
         try
         {
             var result = _engine.ResolveOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId, null, _dice);
@@ -2020,6 +2034,14 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private async Task DeclineOpportunityAttackAsync()
     {
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedOpportunityAttack is null) return;
+
+        if (PendingPlayerDecision?.Required == true
+            && PendingPlayerDecision.DecisionType.Equals("opportunity_attack_reaction", StringComparison.OrdinalIgnoreCase)
+            && PendingPlayerDecision.CombatantId?.Equals(SelectedOpportunityAttack.ReactorCombatantId, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            await ResolvePlayerDecisionAsync(primary: false);
+            return;
+        }
         try
         {
             StatusMessage = _engine.DeclineOpportunityAttack(SelectedCampaign, SelectedEncounter.Id, SelectedOpportunityAttack.ReactorCombatantId);
@@ -2153,6 +2175,12 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(ActiveTurnName));
         OnPropertyChanged(nameof(ActiveTurnCharacter));
         OnPropertyChanged(nameof(ActiveTurnCombatant));
+        OnPropertyChanged(nameof(PendingPlayerDecision));
+        OnPropertyChanged(nameof(PlayerDecisionRequired));
+        OnPropertyChanged(nameof(PendingPlayerDecisionPrompt));
+        OnPropertyChanged(nameof(PendingPlayerDecisionPrimaryLabel));
+        OnPropertyChanged(nameof(PendingPlayerDecisionSecondaryLabel));
+        OnPropertyChanged(nameof(PendingPlayerDecisionActorName));
         OnPropertyChanged(nameof(PendingPlayerRoll));
         OnPropertyChanged(nameof(PlayerRollRequired));
         OnPropertyChanged(nameof(RollD20ButtonText));

@@ -1476,7 +1476,17 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
     private void FinalizePendingMoveIfReady(CampaignState campaign, EncounterState encounter)
     {
         var pending = encounter.PendingMove;
-        if (pending is null || pending.OpportunityAttacks.Any(x => !x.Resolved)) return;
+        if (pending is null)
+        {
+            ClearOpportunityAttackDecision(campaign);
+            return;
+        }
+        if (pending.OpportunityAttacks.Any(x => !x.Resolved))
+        {
+            SyncOpportunityAttackPlayerDecision(campaign, encounter);
+            return;
+        }
+        ClearOpportunityAttackDecision(campaign);
         var combatant = RequireCombatant(encounter, pending.CombatantId);
         var character = RequireCharacter(campaign, combatant.CharacterId);
         if (character.Dead || character.Conditions.Any(c => c.Equals("Unconscious", StringComparison.OrdinalIgnoreCase)) || CharacterMechanics.EffectiveSpeed(character, campaign.ActiveEffects) <= 0)
