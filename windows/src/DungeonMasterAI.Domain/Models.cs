@@ -374,9 +374,11 @@ public sealed class PendingRollRequest
     public string RollType { get; set; } = "d20";
     public string Purpose { get; set; } = "";
     public string ResolutionKey { get; set; } = "";
+    public string RollMode { get; set; } = "normal";
     public int Modifier { get; set; }
     public int? TargetNumber { get; set; }
     public string TargetLabel { get; set; } = "";
+    public Dictionary<string, string> Context { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool Required { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

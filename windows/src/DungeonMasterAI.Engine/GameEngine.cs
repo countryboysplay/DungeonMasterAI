@@ -814,6 +814,9 @@ public sealed partial class GameEngine
         dice ??= new DiceService();
         var endingCombatant = encounter.Combatants[Math.Clamp(encounter.TurnIndex, 0, encounter.Combatants.Count - 1)];
         var endingCharacter = RequireCharacter(campaign, endingCombatant.CharacterId);
+        if (campaign.PendingPlayerRoll?.Required == true
+            && string.Equals(campaign.PendingPlayerRoll.EncounterId, encounter.Id, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Resolve the required player roll before ending the turn: {campaign.PendingPlayerRoll.Purpose}");
         if (endingCombatant.DeathSaveRequiredThisTurn && !endingCombatant.DeathSaveResolvedThisTurn)
             throw new InvalidOperationException($"{endingCharacter.Name} must make the required Death Saving Throw before this turn can end.");
         ProcessEndOfTurnEffects(campaign, encounter, endingCombatant, dice);
