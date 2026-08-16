@@ -20,15 +20,14 @@ jobs:
           fetch-depth: 0
       - name: Apply r48 codemod
         run: python3 .github/scripts/apply_r48_readied_multi_buff.py
-      - name: Commit r48 integration
+      - name: Commit r48 engine integration
         run: |
           git config user.name countryboysplay
           git config user.email 31964073+countryboysplay@users.noreply.github.com
           git add windows/src/DungeonMasterAI.Engine/Spellcasting.cs \
                   windows/src/DungeonMasterAI.Engine/GameEngine.ReadiedSpellDecisions.cs \
                   windows/src/DungeonMasterAI.Engine/DmToolRouter.ReadiedSpellDecisions.cs \
-                  windows/src/DungeonMasterAI.Engine/DmToolRouter.cs \
-                  .github/workflows/windows-ci.yml
+                  windows/src/DungeonMasterAI.Engine/DmToolRouter.cs
           git diff --cached --check
           git commit -m "r48: enable readied multi-target buff spells"
           git push origin HEAD:feature/r48-readied-multi-buff-spells
