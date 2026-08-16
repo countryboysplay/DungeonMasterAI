@@ -1,0 +1,305 @@
+name: Apply r40 Game Table wiring
+
+on:
+  push:
+    branches: [feature/r40-game-table-player-inputs]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r40-game-table-player-inputs
+          fetch-depth: 0
+
+      - name: Patch Game Table handlers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.cs')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_method(source: str, signature: str, replacement: str) -> str:
+              start = source.find(signature)
+              if start < 0:
+                  raise SystemExit(f'Method signature not found: {signature}')
+              brace = source.find('{', start)
+              if brace < 0:
+                  raise SystemExit(f'Opening brace not found: {signature}')
+              depth = 0
+              in_string = False
+              verbatim = False
+              escape = False
+              i = brace
+              while i < len(source):
+                  ch = source[i]
+                  nxt = source[i + 1] if i + 1 < len(source) else ''
+                  if in_string:
+                      if verbatim:
+                          if ch == '"' and nxt == '"':
+                              i += 2
+                              continue
+                          if ch == '"':
+                              in_string = False
+                              verbatim = False
+                      else:
+                          if escape:
+                              escape = False
+                          elif ch == '\\':
+                              escape = True
+                          elif ch == '"':
+                              in_string = False
+                      i += 1
+                      continue
+                  if ch == '@' and nxt == '"':
+                      in_string = True
+                      verbatim = True
+                      i += 2
+                      continue
+                  if ch == '"':
+                      in_string = True
+                      verbatim = False
+                      i += 1
+                      continue
+                  if ch == '{':
+                      depth += 1
+                  elif ch == '}':
+                      depth -= 1
+                      if depth == 0:
+                          end = i + 1
+                          return source[:start] + replacement.rstrip() + source[end:]
+                  i += 1
+              raise SystemExit(f'Closing brace not found: {signature}')
+
+          text = replace_method(text, '    private async Task RollInitiativeAsync()', r'''    private async Task RollInitiativeAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null) return;
+                  try
+                  {
+                      _engine.BeginInitiativeSequence(SelectedCampaign, SelectedEncounter.Id, _dice);
+                      if (SelectedCampaign.PendingPlayerRoll?.Required == true)
+                      {
+                          await CommitPendingGameTableInputAsync(SelectedCampaign.PendingPlayerRoll);
+                          return;
+                      }
+
+                      StatusMessage = "Initiative rolled and turn order started.";
+                      RefreshCombatSelections(keepSelection: true);
+                      RaiseCampaignProperties();
+                      await SaveAsync();
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task CombatSkillActionAsync(string actionName)', r'''    private async Task CombatSkillActionAsync(string actionName)
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null) return;
+                  try
+                  {
+                      var skill = string.IsNullOrWhiteSpace(CombatSkill)
+                          ? actionName switch
+                          {
+                              "Study" => "investigation",
+                              "Influence" => "persuasion",
+                              _ => "perception"
+                          }
+                          : CombatSkill.Trim();
+                      var actor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttackerCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The active combatant character could not be found.");
+
+                      if (IsPlayerCharacter(actor))
+                      {
+                          var pending = actionName switch
+                          {
+                              "Search" => _engine.RequestSearchActionRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15),
+                              "Study" => _engine.RequestStudyActionRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15),
+                              "Influence" => _engine.RequestInfluenceActionRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15),
+                              _ => throw new InvalidOperationException($"Unsupported combat skill action '{actionName}'.")
+                          };
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      CombatSkillActionResult result = actionName switch
+                      {
+                          "Search" => _engine.TakeSearchAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15, _dice),
+                          "Study" => _engine.TakeStudyAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15, _dice),
+                          "Influence" => _engine.TakeInfluenceAction(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, skill, 15, _dice),
+                          _ => throw new InvalidOperationException($"Unsupported combat skill action '{actionName}'.")
+                      };
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task TakeHideAsync()', r'''    private async Task TakeHideAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null) return;
+                  try
+                  {
+                      var actor = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttackerCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The active combatant character could not be found.");
+                      if (IsPlayerCharacter(actor))
+                      {
+                          var pending = _engine.RequestHideRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id);
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.TakeHide(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task SearchHiddenAsync()', r'''    private async Task SearchHiddenAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null || SelectedTargetCombatant is null) return;
+                  try
+                  {
+                      var searcher = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttackerCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The searching combatant character could not be found.");
+                      if (IsPlayerCharacter(searcher))
+                      {
+                          var pending = _engine.RequestHiddenSearchRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id);
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.SearchForHiddenCombatant(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task TakeFirstAidAsync()', r'''    private async Task TakeFirstAidAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null || SelectedTargetCombatant is null) return;
+                  try
+                  {
+                      var helper = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttackerCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The first-aid helper character could not be found.");
+                      if (IsPlayerCharacter(helper))
+                      {
+                          var pending = _engine.RequestFirstAidRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id);
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.TakeFirstAid(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task ResolveUnarmedGrappleAsync()', r'''    private async Task ResolveUnarmedGrappleAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null || SelectedTargetCombatant is null) return;
+                  try
+                  {
+                      var target = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedTargetCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The grapple target character could not be found.");
+                      if (RequiresPlayerStrengthOrDexteritySave(target))
+                      {
+                          var pending = _engine.RequestUnarmedGrappleSaveRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id);
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.ResolveUnarmedGrapple(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task ResolveUnarmedShoveAsync(string effect)', r'''    private async Task ResolveUnarmedShoveAsync(string effect)
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null || SelectedTargetCombatant is null) return;
+                  try
+                  {
+                      var target = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedTargetCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The shove target character could not be found.");
+                      if (RequiresPlayerStrengthOrDexteritySave(target))
+                      {
+                          var pending = _engine.RequestUnarmedShoveSaveRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, effect);
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.ResolveUnarmedShove(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, effect, _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          text = replace_method(text, '    private async Task EscapeGrappleAsync()', r'''    private async Task EscapeGrappleAsync()
+              {
+                  if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttackerCombatant is null || SelectedTargetCombatant is null) return;
+                  try
+                  {
+                      var escapee = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttackerCombatant.CharacterId)
+                          ?? throw new InvalidOperationException("The grappled character could not be found.");
+                      if (IsPlayerCharacter(escapee))
+                      {
+                          var pending = _engine.RequestEscapeGrappleRoll(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, "athletics");
+                          await CommitPendingGameTableInputAsync(pending);
+                          return;
+                      }
+
+                      var result = _engine.EscapeGrapple(SelectedCampaign, SelectedEncounter.Id, SelectedAttackerCombatant.Id, SelectedTargetCombatant.Id, "athletics", _dice);
+                      await CommitCompletedGameTableActionAsync(result.Summary);
+                  }
+                  catch (Exception ex)
+                  {
+                      StatusMessage = ex.Message;
+                      RaiseCampaignProperties();
+                  }
+              }''')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit r40 wiring
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name countryboysplay
+          git config user.email 31964073+countryboysplay@users.noreply.github.com
+          git add windows/src/DungeonMasterAI.App/MainViewModel.cs
+          git commit -m "r40: route Game Table controls through player input state"
+          git push origin HEAD:feature/r40-game-table-player-inputs
