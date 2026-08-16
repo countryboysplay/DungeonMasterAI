@@ -1,6 +1,0 @@
-Windows test revision 14
-
-Fixes:
-- Forces all display-only Run.Text bindings to Mode=OneWay. This fixes the WPF startup exception raised for read-only MainViewModel properties such as SpellImplementedCount.
-- Creates windows\READY-TO-RUN-APP after publishing and launches the GUI from that copy. This prevents the running app from locking DLLs inside test-results\...\publish while the results ZIP is being created.
-- Keeps startup diagnostics enabled.

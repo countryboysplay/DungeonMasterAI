@@ -12,7 +12,7 @@ using Microsoft.Win32;
 
 namespace DungeonMasterAI.App;
 
-public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
+public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly AppDataStore _store = new();
     private readonly CampaignImportService _importer = new();
@@ -88,7 +88,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         AddQuickCharacterCommand = new AsyncRelayCommand(AddQuickCharacterAsync);
         DamageCharacterCommand = new AsyncRelayCommand(() => DamageSelectedAsync(1));
         HealCharacterCommand = new AsyncRelayCommand(() => HealSelectedAsync(1));
-        RollD20Command = new RelayCommand(RollD20);
+        RollD20Command = new AsyncRelayCommand(RollD20Async);
         AdvanceTenMinutesCommand = new AsyncRelayCommand(() => AdvanceTimeAsync(10));
         RevealLocationCommand = new AsyncRelayCommand(RevealSelectedLocationAsync);
         MovePartyCommand = new AsyncRelayCommand(MoveToSelectedLocationAsync);
@@ -398,20 +398,29 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public PendingRollRequest? PendingPlayerRoll => SelectedCampaign?.PendingPlayerRoll;
+    public bool PlayerRollRequired => PendingPlayerRoll?.Required == true;
+    public string RollD20ButtonText => PlayerRollRequired && PendingPlayerRoll?.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase) == true
+        ? "Roll d20 • Required"
+        : "Roll d20";
+    public string PendingPlayerRollPrompt => PendingPlayerRoll?.Purpose ?? "No required player roll.";
+
     public bool PlayerDeathSaveRequired
     {
         get
         {
-            var character = ActiveTurnCharacter;
-            var combatant = ActiveTurnCombatant;
+            var pending = PendingPlayerRoll;
+            if (pending is null
+                || !pending.Required
+                || !pending.ResolutionKey.Equals("combat_death_save", StringComparison.OrdinalIgnoreCase)
+                || SelectedCampaign is null)
+                return false;
+
+            var character = SelectedCampaign.Characters.FirstOrDefault(c => c.Id.Equals(pending.ActorCharacterId, StringComparison.OrdinalIgnoreCase));
             return character is not null
-                && combatant is not null
-                && character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
-                && combatant.DeathSaveRequiredThisTurn
                 && character.CurrentHp == 0
                 && !character.Stable
-                && !character.Dead
-                && !combatant.DeathSaveResolvedThisTurn;
+                && !character.Dead;
         }
     }
 
@@ -438,9 +447,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public string ActiveDeathSavePrompt => ActiveTurnCharacter is null
-        ? "Death Saving Throw"
-        : $"{ActiveTurnCharacter.Name} starts the turn at 0 HP.";
+    public string ActiveDeathSavePrompt => PlayerDeathSaveRequired && PendingPlayerRoll is not null
+        ? PendingPlayerRoll.Purpose
+        : ActiveTurnCharacter is null
+            ? "Death Saving Throw"
+            : $"{ActiveTurnCharacter.Name} starts the turn at 0 HP.";
 
     public string ActiveTurnSummary => HasActiveCombat ? $"{CombatStatus} • {ActiveTurnName}" : $"{CurrentLocationName} • {CampaignTime}";
     public IEnumerable<Merchant> Merchants => SelectedCampaign?.Merchants ?? [];
@@ -1027,13 +1038,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(SelectedCharacter)); RaiseCampaignProperties(); await SaveAsync();
     }
 
-    private void RollD20()
-    {
-        var result = _dice.Roll("1d20");
-        LastDiceResult = $"d20: {result.Total}";
-        StatusMessage = LastDiceResult;
-    }
-
     private async Task AdvanceTimeAsync(int minutes)
     {
         if (SelectedCampaign is null) return;
@@ -1265,6 +1269,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private async Task SendPlayerInputCoreAsync(string input)
     {
         if (SelectedCampaign is null || string.IsNullOrWhiteSpace(input) || IsDmBusy) return;
+        _engine.EnsurePendingPlayerRollForActiveCombat(SelectedCampaign);
+        if (SelectedCampaign.PendingPlayerRoll?.Required == true)
+        {
+            StatusMessage = $"Required roll pending: {SelectedCampaign.PendingPlayerRoll.Purpose}";
+            RaiseCampaignProperties();
+            return;
+        }
         IsDmBusy = true;
         StatusMessage = "Dungeon Master is resolving the scene…";
 
@@ -1377,53 +1388,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             StatusMessage = result.Summary;
             RaiseCharacterProperties();
             RaiseCampaignProperties();
-            await SaveAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
-
-    private async Task RollActiveDeathSaveAsync()
-    {
-        if (SelectedCampaign is null || SelectedEncounter is null || ActiveTurnCharacter is null || ActiveTurnCombatant is null) return;
-        try
-        {
-            if (!PlayerDeathSaveRequired)
-                throw new InvalidOperationException("A player-controlled Death Saving Throw is not required right now.");
-
-            var character = ActiveTurnCharacter;
-            var result = _engine.ResolveCombatDeathSavingThrow(SelectedCampaign, SelectedEncounter.Id, ActiveTurnCombatant.Id, _dice);
-            StatusMessage = result.Summary;
-
-            SelectedCampaign.Chat.Add(new ChatMessage
-            {
-                Role = "assistant",
-                Content = $"🎲 {result.Summary}"
-            });
-
-            if (result.CurrentHp == 0)
-            {
-                SelectedCampaign.Chat.Add(new ChatMessage
-                {
-                    Role = "assistant",
-                    Content = result.Dead
-                        ? $"{character.Name} has died."
-                        : result.Stable
-                            ? $"{character.Name} is stable but remains unconscious at 0 HP."
-                            : $"{character.Name} remains unconscious. Their turn can now end."
-                });
-            }
-            else
-            {
-                SelectedCampaign.Chat.Add(new ChatMessage
-                {
-                    Role = "assistant",
-                    Content = $"{character.Name} regains consciousness at {result.CurrentHp} HP and can continue the turn."
-                });
-            }
-
-            RaiseCharacterProperties();
-            RaiseCampaignProperties();
-            RefreshCombatSelections(keepSelection: true);
             await SaveAsync();
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
@@ -2124,6 +2088,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void RaiseCampaignProperties()
     {
+        if (SelectedCampaign is not null) _engine.EnsurePendingPlayerRollForActiveCombat(SelectedCampaign);
         _rehearsalReport = null;
         OnPropertyChanged(nameof(CurrentLocationName));
         OnPropertyChanged(nameof(CampaignTime));
@@ -2146,6 +2111,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(ActiveTurnName));
         OnPropertyChanged(nameof(ActiveTurnCharacter));
         OnPropertyChanged(nameof(ActiveTurnCombatant));
+        OnPropertyChanged(nameof(PendingPlayerRoll));
+        OnPropertyChanged(nameof(PlayerRollRequired));
+        OnPropertyChanged(nameof(RollD20ButtonText));
+        OnPropertyChanged(nameof(PendingPlayerRollPrompt));
         OnPropertyChanged(nameof(PlayerDeathSaveRequired));
         OnPropertyChanged(nameof(ActivePlayerUnableToActAtZero));
         OnPropertyChanged(nameof(ActiveDeathSaveStatus));

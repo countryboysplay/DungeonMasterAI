@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$LaunchApp
 )
 
@@ -10,6 +10,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $root
 $appProject = Join-Path $root 'src\DungeonMasterAI.App\DungeonMasterAI.App.csproj'
 $smokeProject = Join-Path $root 'tests\DungeonMasterAI.Smoke\DungeonMasterAI.Smoke.csproj'
+$rollTestsProject = Join-Path $root 'tests\DungeonMasterAI.RollTests\DungeonMasterAI.RollTests.csproj'
 $sampleCampaign = Join-Path $projectRoot 'reference-python\demo\sample_campaign_manifest.json'
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $resultsRoot = Join-Path $root "test-results\$timestamp"
@@ -90,10 +91,12 @@ try {
 
     Invoke-LoggedStep '01-dotnet-info' { dotnet --info }
     Invoke-LoggedStep '02-restore-app' { dotnet restore $appProject }
-    Invoke-LoggedStep '03-restore-smoke' { dotnet restore $smokeProject }
-    Invoke-LoggedStep '04-build-app' { dotnet build $appProject --configuration Release --no-restore }
-    Invoke-LoggedStep '05-smoke-tests' { dotnet run --project $smokeProject --configuration Release --no-restore -- $sampleCampaign }
-    Invoke-LoggedStep '06-publish-win-x64' {
+    Invoke-LoggedStep '03-restore-roll-tests' { dotnet restore $rollTestsProject }
+    Invoke-LoggedStep '04-restore-smoke' { dotnet restore $smokeProject }
+    Invoke-LoggedStep '05-build-app' { dotnet build $appProject --configuration Release --no-restore }
+    Invoke-LoggedStep '06-roll-state-tests' { dotnet run --project $rollTestsProject --configuration Release --no-restore }
+    Invoke-LoggedStep '07-smoke-tests' { dotnet run --project $smokeProject --configuration Release --no-restore -- $sampleCampaign }
+    Invoke-LoggedStep '08-publish-win-x64' {
         dotnet publish $appProject --configuration Release --runtime win-x64 --self-contained true `
             -p:PublishSingleFile=false -p:PublishReadyToRun=true -o $publishDir
     }

@@ -199,103 +199,6 @@ public sealed partial class GameEngine
         return character.TempHp;
     }
 
-    public DeathSaveResult ResolveDeathSavingThrow(CampaignState campaign, string characterId, int roll, int savingThrowBonus = 0)
-    {
-        if (roll is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(roll));
-        var character = RequireCharacter(campaign, characterId);
-        if (character.Dead) throw new InvalidOperationException($"{character.Name} is dead.");
-        if (character.CurrentHp != 0) throw new InvalidOperationException("Death Saving Throws are made only while at 0 Hit Points.");
-        if (character.Stable) throw new InvalidOperationException($"{character.Name} is Stable and does not make Death Saving Throws.");
-
-        var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
-        var modifiedTotal = roll + savingThrowBonus - exhaustionPenalty;
-        string summary;
-        if (roll == 20)
-        {
-            character.CurrentHp = 1;
-            character.DeathSaveSuccesses = 0;
-            character.DeathSaveFailures = 0;
-            character.Stable = false;
-            RemoveConditionInternal(character, "Unconscious");
-            summary = $"{character.Name} rolled a natural 20 on a Death Saving Throw and regained 1 HP.";
-        }
-        else if (roll == 1)
-        {
-            character.DeathSaveFailures = Math.Min(3, character.DeathSaveFailures + 2);
-            if (character.DeathSaveFailures >= 3) MarkDead(character);
-            summary = character.Dead
-                ? $"{character.Name} rolled a natural 1, suffered two failures, and died."
-                : $"{character.Name} rolled a natural 1 and suffered two Death Saving Throw failures.";
-        }
-        else if (modifiedTotal >= 10)
-        {
-            character.DeathSaveSuccesses = Math.Min(3, character.DeathSaveSuccesses + 1);
-            if (character.DeathSaveSuccesses >= 3)
-            {
-                character.Stable = true;
-                character.DeathSaveSuccesses = 0;
-                character.DeathSaveFailures = 0;
-                summary = $"{character.Name} reached three Death Saving Throw successes and is Stable.";
-            }
-            else summary = $"{character.Name} succeeded on a Death Saving Throw with a modified total of {modifiedTotal} ({character.DeathSaveSuccesses}/3).";
-        }
-        else
-        {
-            character.DeathSaveFailures = Math.Min(3, character.DeathSaveFailures + 1);
-            if (character.DeathSaveFailures >= 3) MarkDead(character);
-            summary = character.Dead
-                ? $"{character.Name} reached three Death Saving Throw failures and died."
-                : $"{character.Name} failed a Death Saving Throw with a modified total of {modifiedTotal} ({character.DeathSaveFailures}/3).";
-        }
-
-        if (character.Dead) EndGrapplesForCharacter(campaign, character.Id, includeTarget: true);
-        Touch(campaign);
-        Log(campaign, "death_save", summary);
-        return new DeathSaveResult(roll, character.DeathSaveSuccesses, character.DeathSaveFailures, character.Stable, character.Dead, character.CurrentHp, summary);
-    }
-
-    public DeathSaveResult ResolveDeathSavingThrowWithDice(CampaignState campaign, string characterId, DiceService dice)
-    {
-        ArgumentNullException.ThrowIfNull(dice);
-        var roll = dice.Roll("1d20").Total;
-        var effectBonus = RollActiveSavingThrowBonus(campaign, characterId, dice);
-        return ResolveDeathSavingThrow(campaign, characterId, roll, effectBonus);
-    }
-
-    public DeathSaveResult ResolveCombatDeathSavingThrow(CampaignState campaign, string encounterId, string combatantId, DiceService dice)
-    {
-        ArgumentNullException.ThrowIfNull(dice);
-        var encounter = RequireEncounter(campaign, encounterId);
-        if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("The encounter is not active.");
-        var combatant = RequireCombatant(encounter, combatantId);
-        EnsureCurrentTurn(encounter, combatant.Id);
-        var character = RequireCharacter(campaign, combatant.CharacterId);
-        if (!combatant.DeathSaveRequiredThisTurn)
-            throw new InvalidOperationException($"{character.Name} did not start this turn needing a Death Saving Throw.");
-        if (combatant.DeathSaveResolvedThisTurn)
-            throw new InvalidOperationException($"{character.Name} has already made a Death Saving Throw this turn.");
-
-        var result = ResolveDeathSavingThrowWithDice(campaign, character.Id, dice);
-        combatant.DeathSaveResolvedThisTurn = true;
-
-        // An ordinary death save leaves the creature at 0 HP and Unconscious, so it
-        // cannot use normal turn resources. A natural 20 restores 1 HP and lets the
-        // character continue the rest of the turn normally.
-        if (character.CurrentHp == 0)
-        {
-            combatant.MovementRemainingFeet = 0;
-            combatant.ActionAvailable = false;
-            combatant.BonusActionAvailable = false;
-            combatant.AttackActionInProgress = false;
-            combatant.AttacksRemainingInAction = 0;
-        }
-
-        Touch(campaign);
-        Log(campaign, "combat_death_save", result.Summary);
-        return result;
-    }
-
     public D20TestResult ResolveAbilityCheck(
         CampaignState campaign,
         string characterId,
@@ -681,6 +584,7 @@ public sealed partial class GameEngine
         encounter.TurnIndex = 0;
         encounter.SpellSlotCasterIdsThisTurn.Clear();
         encounter.PendingMove = null;
+        if (campaign.PendingPlayerRoll?.EncounterId == encounter.Id) campaign.PendingPlayerRoll = null;
         foreach (var combatant in encounter.Combatants)
         {
             combatant.Initiative = null;
@@ -793,6 +697,7 @@ public sealed partial class GameEngine
         var startingCombatant = encounter.Combatants[encounter.TurnIndex];
         ResetTurnResources(campaign, startingCombatant);
         ProcessBattlefieldEffectsAtTurnStart(campaign, encounter, startingCombatant, new DiceService());
+        SyncPendingPlayerRollForCurrentTurn(campaign, encounter, startingCombatant);
         Touch(campaign);
 
         var ties = encounter.Combatants
@@ -933,6 +838,7 @@ public sealed partial class GameEngine
         current.Surprised = false;
         ResetTurnResources(campaign, current);
         ProcessBattlefieldEffectsAtTurnStart(campaign, encounter, current, dice);
+        SyncPendingPlayerRollForCurrentTurn(campaign, encounter, current);
         Touch(campaign);
         var character = RequireCharacter(campaign, current.CharacterId);
         Log(campaign, "combat_turn", $"Round {encounter.Round}: {character.Name}'s turn.");
@@ -1945,6 +1851,7 @@ public sealed partial class GameEngine
         var encounter = RequireEncounter(campaign, encounterId);
         encounter.Status = "completed";
         encounter.PendingMove = null;
+        if (campaign.PendingPlayerRoll?.EncounterId == encounter.Id) campaign.PendingPlayerRoll = null;
         foreach (var grapple in encounter.Grapples.ToArray())
         {
             var target = RequireCombatant(encounter, grapple.TargetCombatantId);

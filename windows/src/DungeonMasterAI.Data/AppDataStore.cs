@@ -5,6 +5,7 @@ namespace DungeonMasterAI.Data;
 
 public sealed class AppDataStore
 {
+    public const int CurrentSchemaVersion = 2;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -27,10 +28,10 @@ public sealed class AppDataStore
     {
         Directory.CreateDirectory(DataDirectory);
         LastRecoveryMessage = null;
-        if (!File.Exists(StatePath)) return new AppState();
+        if (!File.Exists(StatePath)) return Normalize(Migrate(new AppState()));
 
         var current = await TryLoadAsync(StatePath, cancellationToken);
-        if (current is not null) return Normalize(current);
+        if (current is not null) return Normalize(Migrate(current));
 
         PreserveUnreadableState(StatePath);
         if (File.Exists(PreviousStatePath))
@@ -39,7 +40,7 @@ public sealed class AppDataStore
             if (previous is not null)
             {
                 LastRecoveryMessage = "The newest state file was unreadable, so the previous safe copy was restored.";
-                return Normalize(previous);
+                return Normalize(Migrate(previous));
             }
             PreserveUnreadableState(PreviousStatePath);
         }
@@ -62,7 +63,7 @@ public sealed class AppDataStore
             bufferSize: 64 * 1024,
             options: FileOptions.Asynchronous | FileOptions.WriteThrough))
         {
-            await JsonSerializer.SerializeAsync(stream, Normalize(state), _json, cancellationToken);
+            await JsonSerializer.SerializeAsync(stream, Normalize(Migrate(state)), _json, cancellationToken);
             await stream.FlushAsync(cancellationToken);
             stream.Flush(flushToDisk: true);
         }
@@ -111,6 +112,28 @@ public sealed class AppDataStore
         {
             // Recovery preservation must never prevent the app from opening.
         }
+    }
+
+    private static AppState Migrate(AppState state)
+    {
+        if (state.SchemaVersion <= 0) state.SchemaVersion = 1;
+
+        while (state.SchemaVersion < CurrentSchemaVersion)
+        {
+            switch (state.SchemaVersion)
+            {
+                case 1:
+                    // v2 introduces structured PendingPlayerRoll state. Existing saves need no
+                    // data transformation because the field is nullable and is reconstructed
+                    // from authoritative combat state when the campaign is opened.
+                    state.SchemaVersion = 2;
+                    break;
+                default:
+                    throw new InvalidDataException($"No migration is defined from state schema version {state.SchemaVersion}.");
+            }
+        }
+
+        return state;
     }
 
     private static AppState Normalize(AppState state)

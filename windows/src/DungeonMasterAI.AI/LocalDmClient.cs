@@ -136,6 +136,19 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
             if (!message.TryGetProperty("tool_calls", out var calls) || calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() == 0)
             {
                 if (string.IsNullOrWhiteSpace(content)) throw new InvalidDataException("Local AI returned neither narration nor tool calls.");
+
+                if (TryGetAutonomousCombatant(campaign, out var autonomousName))
+                {
+                    audit.Add($"guard: rejected narration while autonomous combatant '{autonomousName}' still had the active turn");
+                    messages.Add(new { role = "assistant", content = content.Trim() });
+                    messages.Add(new
+                    {
+                        role = "user",
+                        content = $"APPLICATION CONTROL: That narration is provisional and must not be returned yet. Deterministic combat state still has {autonomousName}, a non-player combatant, as the active turn. Use the combat tools to resolve/advance that turn and continue through all non-player turns. Stop only when a player character must make a decision or a required player roll is pending. Do not claim that the player's turn has begun until the authoritative state says so."
+                    });
+                    continue;
+                }
+
                 return new DmTurnResult(content.Trim(), toolCount, audit);
             }
 
@@ -161,6 +174,22 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
         throw new InvalidOperationException("The local DM exceeded the maximum tool-call loop count.");
     }
 
+    private static bool TryGetAutonomousCombatant(CampaignState campaign, out string name)
+    {
+        name = "";
+        var encounter = campaign.Encounters.FirstOrDefault(e => e.Status.Equals("active", StringComparison.OrdinalIgnoreCase));
+        if (encounter is null || encounter.Combatants.Count == 0 || encounter.TurnIndex < 0 || encounter.TurnIndex >= encounter.Combatants.Count)
+            return false;
+
+        var combatant = encounter.Combatants[encounter.TurnIndex];
+        var character = campaign.Characters.FirstOrDefault(c => c.Id.Equals(combatant.CharacterId, StringComparison.OrdinalIgnoreCase));
+        if (character is null || character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        name = character.Name;
+        return true;
+    }
+
     private static string NormalizeBase(string url) => url.TrimEnd('/') + "/";
 
     private static string SystemPrompt(bool safeMode) => $$"""
@@ -175,6 +204,7 @@ Narrate only after any required tool calls have returned. If a tool rejects an a
 Run non-player creatures yourself. When the active combatant is an NPC or hostile creature, choose a reasonable action from verified state, resolve it with tools, advance the turn as needed, and continue through NPC turns until a player character must decide what to do. Never ask the player what an enemy or NPC should do.
 A player character does NOT make a Death Saving Throw immediately when they drop to 0 HP. Continue the current creature's turn and any intervening NPC turns normally. When a player character STARTS their turn at 0 HP and is not Stable or Dead, STOP before resolving that turn. Never call death_save for a player character. The Game Table will require the player to roll the Death Saving Throw themselves.
 When tactical combat begins, ensure every participating combatant has a sensible initial grid position using the positioning tools before the first player decision so the live battlefield can render immediately.
+If pending_player_roll is present and Required is true, do not resolve, invent, or bypass that roll. Stop and let the application collect it from the player.
 If the player says "next turn", "continue", or ends a player turn, advance combat and autonomously resolve intervening NPC turns until the next player-character decision point, including stopping at a required player-controlled Death Saving Throw.
 Keep live-play narration immersive and compact: normally 2 to 5 short paragraphs. Do not dump tool names, raw coordinates, action-economy flags, JSON, audit text, or full stat blocks into narration unless the player explicitly asks for mechanics.
 Do not use markdown headings or decorative bold markers in ordinary narration. State an important roll/damage outcome in one short natural-language sentence, then return to the fiction.
@@ -274,7 +304,22 @@ End with a brief clear choice or "What do you do?" only when a player character 
             revealed_secrets = revealedSecrets,
             generated_public_details = publicSupplements,
             recent_events = recent,
-            active_encounter = encounterContext
+            active_encounter = encounterContext,
+            pending_player_roll = campaign.PendingPlayerRoll is null ? null : new
+            {
+                campaign.PendingPlayerRoll.Id,
+                campaign.PendingPlayerRoll.ActorCharacterId,
+                campaign.PendingPlayerRoll.EncounterId,
+                campaign.PendingPlayerRoll.CombatantId,
+                campaign.PendingPlayerRoll.Formula,
+                campaign.PendingPlayerRoll.RollType,
+                campaign.PendingPlayerRoll.Purpose,
+                campaign.PendingPlayerRoll.ResolutionKey,
+                campaign.PendingPlayerRoll.Modifier,
+                campaign.PendingPlayerRoll.TargetNumber,
+                campaign.PendingPlayerRoll.TargetLabel,
+                campaign.PendingPlayerRoll.Required
+            }
         });
     }
 

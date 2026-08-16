@@ -1,5 +1,0 @@
-Windows test revision 18
-
-Fixes in this revision:
-- Corrected a malformed newline-splitting string literal in MainViewModel.RefreshLocalAiRuntimeLog that prevented r17 from compiling.
-- Retains the r17 local-AI request fixes: one leading system message, no replay of UI system notices, no duplicated current player message, and a real chat inference test.

@@ -201,7 +201,7 @@
                             <Border Background="#101720" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="11,7" Margin="0,0,8,0">
                                 <TextBlock FontSize="11"><Run Text="{Binding CurrentLocationName, Mode=OneWay}"/><Run Text="  •  "/><Run Foreground="{StaticResource GoldBrush}" Text="{Binding CampaignTime, Mode=OneWay}"/></TextBlock>
                             </Border>
-                            <Button Command="{Binding RollD20Command}" Content="Roll d20"/>
+                            <Button Command="{Binding RollD20Command}" Content="{Binding RollD20ButtonText}" ToolTip="{Binding PendingPlayerRollPrompt}"/>
                             <Button Command="{Binding AdvanceTenMinutesCommand}" Content="+10 min" Margin="8,0,0,0"/>
                         </StackPanel>
                     </DockPanel>

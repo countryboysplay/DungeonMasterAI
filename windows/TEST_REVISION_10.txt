@@ -1,6 +1,0 @@
-Windows test revision 10
-
-Changes in this revision:
-- The native smoke suite now uses an injected deterministic dice source so random attack/save outcomes do not make the test harness flaky.
-- The Opportunity Attack fixture now gives the Test Raider enough HP to guarantee it survives the earlier melee attack and remains eligible to react.
-- Production DiceService still uses Random.Shared by default; deterministic rolls are used only when a caller explicitly injects a test roller.

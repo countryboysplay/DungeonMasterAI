@@ -1,5 +1,0 @@
-Windows test harness revision 2
-
-This revision fixes Windows PowerShell 5.1 NativeCommandError handling so normal stderr output from dotnet is logged instead of terminating the test harness prematurely.
-
-If a dotnet command truly fails, the results ZIP will now include the corresponding numbered log with the actual compiler/NuGet diagnostic and its exit code.

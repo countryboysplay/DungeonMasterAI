@@ -1,6 +1,0 @@
-Windows test revision 11
-
-Changes in this revision:
-- Corrected the Ready-movement smoke assertion to match the combat state model: off-turn readied movement uses a separate Speed allowance and does not retain a normal-turn movement pool while it is not the creature's turn.
-- Added an explicit follow-up assertion that the creature's normal movement budget and Reaction refresh at the start of its next turn.
-- No production game-engine behavior was changed for this issue; the prior failure was an incorrect smoke-test expectation.

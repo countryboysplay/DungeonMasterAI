@@ -9,7 +9,8 @@ This folder contains the native Windows implementation intended to become the di
 - `DungeonMasterAI.Data`: crash-safe local persistence, campaign import, source extraction, and campaign-readiness validation.
 - `DungeonMasterAI.AI`: llama.cpp lifecycle, local DM client, chunked local-AI campaign canon extraction, and a separate AI playability-expansion stage.
 - `DungeonMasterAI.App`: WPF desktop interface.
-- `tests/DungeonMasterAI.Smoke`: framework-free native smoke-test executable.
+- `tests/DungeonMasterAI.Smoke`: broad framework-free native smoke-test executable.
+- `tests/DungeonMasterAI.RollTests`: focused independent roll-state regression tests that report all failures in one run.
 - `installer`: Inno Setup definition for the Windows test installer.
 
 The core rule remains: **the LLM tells the story; the application runs the game.** The local model never receives direct persistence access and can alter deterministic state only through allow-listed tools.
@@ -38,7 +39,7 @@ Campaign time automatically resolves imported time-triggered world events. Their
 
 ## Build status
 
-The source contains a Windows .NET 10 GitHub Actions workflow that restores, runs the native smoke executable, builds, publishes a self-contained win-x64 app, and then builds an Inno Setup installer artifact.
+The repository root contains a Windows .NET 10 GitHub Actions workflow that restores, builds, runs the focused roll-state tests and the broad smoke executable, publishes a self-contained win-x64 app, and then builds an Inno Setup installer artifact.
 
 This execution environment does not currently contain the .NET SDK. A direct attempt to fetch the official .NET 10.0.400 Linux x64 SDK on 2026-08-15 failed because the container could not resolve the Microsoft build host, so the native track has not yet received a real compiler pass here. `tools/validate_source.py` now makes those source-level checks reproducible (XML, C# delimiter/lexical structure, duplicate DM tools, and WPF Command bindings). These checks are still not a substitute for a real compiler pass.
 
@@ -46,5 +47,5 @@ The Python reference implementation remains under `reference-python/` as the tes
 
 ### Player-controlled Death Saving Throws
 
-During active combat, a player character that starts its turn at 0 HP now pauses the Game Table for a player-controlled d20 Death Saving Throw. The deterministic engine enforces one Death Save per turn and will not advance combat past an unresolved required save. The local DM cannot roll a PC's Death Save on the player's behalf.
+During active combat, a player character that starts its turn at 0 HP now creates a persisted `PendingPlayerRoll` request and pauses the Game Table for a player-controlled d20 Death Saving Throw. The large `Roll d20` button and the dedicated Death Save button both satisfy that same pending request, and the exact d20 result shown in the UI is passed into the deterministic engine. The engine enforces one Death Save per turn and will not advance combat past an unresolved required save. The local DM cannot roll a PC's Death Save on the player's behalf. If the local model tries to finish narration while a non-player combatant still owns the authoritative turn, the AI client rejects that narration and requires the model to keep using deterministic combat tools instead of pretending the player turn has begun.
 

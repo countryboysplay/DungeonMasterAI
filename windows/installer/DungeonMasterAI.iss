@@ -12,7 +12,7 @@ DefaultDirName={localappdata}\Programs\DungeonMasterAI
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-OutputDir=..\..\artifacts\installer
+OutputDir=..\artifacts\installer
 OutputBaseFilename=DungeonMasterAI-Setup-{#MyAppVersion}-win-x64
 Compression=lzma2/max
 SolidCompression=yes
@@ -31,7 +31,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "..\..\artifacts\DungeonMasterAI-win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\artifacts\DungeonMasterAI-win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"

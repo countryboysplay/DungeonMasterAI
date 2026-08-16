@@ -1,4 +1,0 @@
-Revision 4 fixes Windows compiler errors found in test run 20260815-211759:
-- Spellcasting.cs: pass CampaignState into IsDodgeActive for area-save spells.
-- Spellcasting.cs: pass CampaignState into IsDodgeActive for single-target save spells.
-- DmToolRouter.cs: make tool result nullable to match get_active_encounter semantics and remove CS8600.

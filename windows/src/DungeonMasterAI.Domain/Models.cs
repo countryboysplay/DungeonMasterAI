@@ -49,6 +49,7 @@ public sealed class CampaignState
     public List<ActiveEffectState> ActiveEffects { get; set; } = [];
     public List<CampaignEvent> Events { get; set; } = [];
     public List<ChatMessage> Chat { get; set; } = [];
+    public PendingRollRequest? PendingPlayerRoll { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
@@ -361,6 +362,23 @@ public sealed class BattlefieldEffectState
     public Dictionary<string, string> LastTriggeredTurnByCharacter { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool DmOnly { get; set; }
     public string SourceKind { get; set; } = "runtime_generated";
+}
+
+public sealed class PendingRollRequest
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string ActorCharacterId { get; set; } = "";
+    public string? EncounterId { get; set; }
+    public string? CombatantId { get; set; }
+    public string Formula { get; set; } = "1d20";
+    public string RollType { get; set; } = "d20";
+    public string Purpose { get; set; } = "";
+    public string ResolutionKey { get; set; } = "";
+    public int Modifier { get; set; }
+    public int? TargetNumber { get; set; }
+    public string TargetLabel { get; set; } = "";
+    public bool Required { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public sealed class PendingCombatMove
