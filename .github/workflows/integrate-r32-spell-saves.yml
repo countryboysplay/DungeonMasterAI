@@ -1,0 +1,128 @@
+name: Integrate r32 player spell saving throws
+
+on:
+  push:
+    branches:
+      - feature/r32-player-spell-save-rolls
+    paths:
+      - .github/workflows/integrate-r32-spell-saves.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Integrate spell saving throw pipeline
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Normal single-target spell casting: player targets own their save d20 unless
+          # the rules say the save automatically fails.
+          path = Path('windows/src/DungeonMasterAI.Engine/Spellcasting.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '''            case "save":
+              if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its saving throw.");
+              (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+              break;'''.replace('              ', '    ')
+          new = '''            case "save":
+              if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its saving throw.");
+              var saveAbility = string.IsNullOrWhiteSpace(spell.SaveAbility) ? "" : CharacterMechanics.NormalizeAbility(spell.SaveAbility);
+              if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+                  && !string.IsNullOrWhiteSpace(saveAbility)
+                  && !CharacterMechanics.AutomaticallyFailsSavingThrow(target, saveAbility))
+              {
+                  var pending = RequestPlayerSpellSavingThrowRoll(
+                      campaign,
+                      caster,
+                      target,
+                      spell,
+                      castAtLevel,
+                      usedSlot,
+                      asRitual,
+                      concentrationStarted,
+                      activeEncounter);
+                  effectSummary = pending.Purpose;
+              }
+              else
+              {
+                  (savingThrow, damage, effectSummary) = ResolveSaveSpell(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+              }
+              break;'''.replace('              ', '    ')
+          if old not in text:
+              raise SystemExit('CastSpell save-resolution block not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Route the pending save through the Game Table d20 button.
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
+          text = path.read_text(encoding='utf-8')
+          marker = '        if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))'
+          block = '''        if (pending.ResolutionKey.Equals("spell_saving_throw", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveSpellSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          '''.replace('          ', '')
+          if marker not in text:
+              raise SystemExit('PlayerRolls generic saving-throw marker not found')
+          text = text.replace(marker, block + marker, 1)
+
+          method_marker = '    private async Task ResolveActiveSavingThrowFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)'
+          method = '''    private async Task ResolveActiveSpellSavingThrowFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+          {
+              if (SelectedCampaign is null) return;
+              try
+              {
+                  var result = _engine.ResolvePendingSpellSavingThrowRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+                  LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+                  StatusMessage = result.Summary;
+                  SelectedCampaign.Chat.Add(new ChatMessage
+                  {
+                      Role = "assistant",
+                      Content = $"🎲 {CleanSessionNarration(result.Summary)}"
+                  });
+                  RaiseCharacterProperties();
+                  RaiseCampaignProperties();
+                  RefreshCombatSelections(keepSelection: true);
+                  await SaveAsync();
+              }
+              catch (Exception ex)
+              {
+                  StatusMessage = ex.Message;
+                  RaiseCampaignProperties();
+              }
+          }
+
+          '''.replace('          ', '    ')
+          if method_marker not in text:
+              raise SystemExit('PlayerRolls saving-throw resolver marker not found')
+          path.write_text(text.replace(method_marker, method + method_marker, 1), encoding='utf-8')
+
+          # Update the DM tool contract so the model knows it must stop on a player target save.
+          path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
+          text = path.read_text(encoding='utf-8')
+          old = 'Cast one prepared spell through the deterministic spell engine. Player-character single-target spell attacks create required player attack and damage rolls; NPC spell attacks still resolve automatically. The engine validates spell slots, components, turn limits, saves, healing, upcasting, Rituals, and Concentration.'
+          new = 'Cast one prepared spell through the deterministic spell engine. Player-character spell attacks create required player attack and damage rolls. A player character targeted by a single-target saving-throw spell receives a required player d20 save unless the rules make that save automatically fail. NPC spell attacks and NPC saving throws still resolve automatically. The engine validates spell slots, components, turn limits, healing, upcasting, Rituals, and Concentration.'
+          if old not in text:
+              raise SystemExit('cast_spell tool description not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r32: integrate player spell saving throws"
+          git push origin HEAD:${GITHUB_REF_NAME}
