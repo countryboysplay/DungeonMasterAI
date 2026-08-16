@@ -138,40 +138,133 @@ public sealed partial class GameEngine
             && parsedAutomaticCritical;
         var hit = naturalCritical || (chosen != 1 && total >= armorClass);
         var critical = hit && (naturalCritical || automaticCritical);
-        var damageAmount = hit ? dice.RollDamage(profile.DamageExpression, critical) : 0;
 
-        // Commit the attack only after the supplied player roll has been validated.
+        // The attack action is committed only after the player's supplied d20 has been validated.
         ConsumeAttackActionAttack(attackerCombatant, attacker);
         var helpUsed = ConsumeHelpAttackAdvantage(encounter, attackerCombatant, targetCombatant);
         ConsumeNextAttackAdvantageEffect(campaign, target.Id);
         BreakHidden(campaign, encounter, attackerCombatant, "making an attack roll");
 
-        DamageResult? damage = null;
-        ConcentrationCheckResult? concentration = null;
-        var concentrationBefore = target.ConcentrationEffect;
-        if (hit)
-        {
-            var resolution = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, profile.DamageType, critical);
-            damage = resolution.Damage;
-            concentration = resolution.Concentration;
-        }
-
         var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
         var effectText = effectAttackBonus == 0 ? "" : $" plus {effectAttackBonus} from active effects";
         var attackSummary = hit
-            ? $"Attack{modeText} {total} vs AC {armorClass}: hit for {damageAmount} damage{(critical ? " (critical)" : "")}{effectText}."
+            ? $"Attack{modeText} {total} vs AC {armorClass}: hit{(critical ? " (critical)" : "")}{effectText}; damage roll required."
             : $"Attack{modeText} {total} vs AC {armorClass}: miss{effectText}.";
-        var attack = new AttackResult(chosen, totalModifier, total, hit, critical, damageAmount, attackSummary);
+        var attack = new AttackResult(chosen, totalModifier, total, hit, critical, 0, attackSummary);
 
         var coverBonus = pending.Context.TryGetValue("cover_bonus", out var coverTextValue)
             && int.TryParse(coverTextValue, out var parsedCover) ? parsedCover : 0;
-        var coverText = coverBonus > 0 ? $" ({CoverLabel(coverBonus)} Cover: +{coverBonus} AC)" : "";
+        var coverLabel = coverBonus > 0 ? $" ({CoverLabel(coverBonus)} Cover: +{coverBonus} AC)" : "";
         var helpText = helpUsed ? " Help supplied Advantage for this attack roll." : "";
-        var summary = hit
-            ? $"{attacker.Name} used {profile.Name} against {target.Name}{coverText}: {attack.Summary}{helpText}"
-            : $"{attacker.Name} used {profile.Name} against {target.Name}{coverText}: miss ({total} vs AC {armorClass}).{helpText}";
+
+        if (!hit)
+        {
+            var missSummary = $"{attacker.Name} used {profile.Name} against {target.Name}{coverLabel}: miss ({total} vs AC {armorClass}).{helpText}";
+            campaign.PendingPlayerRoll = null;
+            Touch(campaign);
+            Log(campaign, "combat_attack", missSummary);
+            return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, null, missSummary, null, false, coverBonus);
+        }
+
+        var damageFormula = BuildPendingDamageFormula(profile.DamageExpression, critical);
+        var damagePending = new PendingRollRequest
+        {
+            ActorCharacterId = attacker.Id,
+            EncounterId = encounter.Id,
+            CombatantId = attackerCombatant.Id,
+            Formula = damageFormula,
+            RollType = "damage",
+            RollMode = "normal",
+            Purpose = $"{attacker.Name} hit {target.Name} with {profile.Name}{(critical ? " critically" : "")}. Roll {damageFormula} damage.",
+            ResolutionKey = "combat_attack_damage",
+            Required = true,
+            Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["target_combatant_id"] = targetCombatant.Id,
+                ["attack_name"] = profile.Name,
+                ["damage_type"] = profile.DamageType,
+                ["base_damage_expression"] = profile.DamageExpression,
+                ["critical"] = critical ? "true" : "false",
+                ["attack_d20"] = chosen.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["attack_modifier"] = totalModifier.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["attack_total"] = total.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["armor_class"] = armorClass.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["cover_bonus"] = coverBonus.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["attack_mode"] = mode.ToString().ToLowerInvariant(),
+                ["effect_attack_bonus"] = effectAttackBonus.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["help_used"] = helpUsed ? "true" : "false"
+            }
+        };
+
+        campaign.PendingPlayerRoll = damagePending;
+        Touch(campaign);
+        Log(campaign, "player_roll_requested", damagePending.Purpose, dmOnly: true);
+        var hitSummary = $"{attacker.Name} used {profile.Name} against {target.Name}{coverLabel}: hit ({total} vs AC {armorClass}){(critical ? " critical" : "")}.{helpText} Roll {damageFormula} damage.";
+        return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, null, hitSummary, null, false, coverBonus);
+    }
+
+    public EncounterAttackResult ResolvePendingEncounterAttackDamageRoll(
+        CampaignState campaign,
+        string pendingRollId,
+        int damageAmount,
+        DiceService dice)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        ArgumentNullException.ThrowIfNull(dice);
+        if (damageAmount is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(damageAmount));
+
+        var pending = campaign.PendingPlayerRoll
+            ?? throw new InvalidOperationException("There is no required player roll to resolve.");
+        if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The supplied damage roll does not match the active pending player roll.");
+        if (!pending.ResolutionKey.Equals("combat_attack_damage", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not combat attack damage.");
+        if (string.IsNullOrWhiteSpace(pending.EncounterId) || string.IsNullOrWhiteSpace(pending.CombatantId))
+            throw new InvalidOperationException("The pending damage roll is missing combat context.");
+        if (!pending.Context.TryGetValue("target_combatant_id", out var targetCombatantId) || string.IsNullOrWhiteSpace(targetCombatantId))
+            throw new InvalidOperationException("The pending damage roll is missing its target.");
+
+        var encounter = RequireEncounter(campaign, pending.EncounterId);
+        if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The encounter is no longer active.");
+        var attackerCombatant = RequireCombatant(encounter, pending.CombatantId);
+        var targetCombatant = RequireCombatant(encounter, targetCombatantId);
+        EnsureCurrentTurn(encounter, attackerCombatant.Id);
+        var attacker = RequireCharacter(campaign, attackerCombatant.CharacterId);
+        var target = RequireCharacter(campaign, targetCombatant.CharacterId);
+        if (!attacker.Id.Equals(pending.ActorCharacterId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The pending damage actor no longer matches the active combatant.");
+        if (target.Dead) throw new InvalidOperationException($"{target.Name} is already dead.");
+
+        pending.Context.TryGetValue("attack_name", out var attackName);
+        var profile = SelectPendingAttackProfile(attacker, attackName);
+        var damageType = pending.Context.TryGetValue("damage_type", out var storedDamageType) && !string.IsNullOrWhiteSpace(storedDamageType)
+            ? storedDamageType
+            : profile.DamageType;
+        var critical = ContextBool(pending, "critical");
+        var attackD20 = ContextInt(pending, "attack_d20");
+        var attackModifier = ContextInt(pending, "attack_modifier");
+        var attackTotal = ContextInt(pending, "attack_total");
+        var armorClass = ContextInt(pending, "armor_class");
+        var coverBonus = ContextInt(pending, "cover_bonus", 0);
+        var mode = ParsePendingRollMode(pending.Context.TryGetValue("attack_mode", out var attackMode) ? attackMode : null);
+        var effectAttackBonus = ContextInt(pending, "effect_attack_bonus", 0);
+        var helpUsed = ContextBool(pending, "help_used");
+
+        var concentrationBefore = target.ConcentrationEffect;
+        var resolution = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);
+        var damage = resolution.Damage;
+        var concentration = resolution.Concentration;
+
+        var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
+        var effectText = effectAttackBonus == 0 ? "" : $" plus {effectAttackBonus} from active effects";
+        var attackSummary = $"Attack{modeText} {attackTotal} vs AC {armorClass}: hit for {damageAmount} damage{(critical ? " (critical)" : "")}{effectText}.";
+        var attack = new AttackResult(attackD20, attackModifier, attackTotal, true, critical, damageAmount, attackSummary);
+        var coverLabel = coverBonus > 0 ? $" ({CoverLabel(coverBonus)} Cover: +{coverBonus} AC)" : "";
+        var helpText = helpUsed ? " Help supplied Advantage for this attack roll." : "";
+        var summary = $"{attacker.Name} used {profile.Name} against {target.Name}{coverLabel}: {attack.Summary}{helpText}";
         if (concentration is not null) summary += $" {concentration.Summary}";
-        else if (!string.IsNullOrWhiteSpace(concentrationBefore) && string.IsNullOrWhiteSpace(target.ConcentrationEffect) && damage?.EffectiveDamage > 0)
+        else if (!string.IsNullOrWhiteSpace(concentrationBefore) && string.IsNullOrWhiteSpace(target.ConcentrationEffect) && damage.EffectiveDamage > 0)
             summary += $" {target.Name} lost Concentration on {concentrationBefore}.";
 
         campaign.PendingPlayerRoll = null;
@@ -203,6 +296,47 @@ public sealed partial class GameEngine
             profile = CharacterMechanics.UnarmedStrikeProfile(attacker);
         return profile ?? throw new InvalidOperationException($"{attacker.Name} has no configured attack matching '{attackName ?? "default"}'.");
     }
+
+    private static string BuildPendingDamageFormula(string? damageExpression, bool critical)
+    {
+        var compact = new string((damageExpression ?? "").Where(c => !char.IsWhiteSpace(c)).ToArray());
+        if (string.IsNullOrWhiteSpace(compact)) return "0";
+        if (!critical || int.TryParse(compact, out _)) return compact;
+
+        var dIndex = compact.IndexOf('d');
+        if (dIndex < 0) dIndex = compact.IndexOf('D');
+        if (dIndex <= 0 && !compact.StartsWith("d", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Unsupported damage expression '{damageExpression}'.");
+
+        var modifierIndex = -1;
+        for (var i = dIndex + 1; i < compact.Length; i++)
+        {
+            if (compact[i] is '+' or '-')
+            {
+                modifierIndex = i;
+                break;
+            }
+        }
+
+        var countText = dIndex == 0 ? "1" : compact[..dIndex];
+        var sidesText = modifierIndex < 0 ? compact[(dIndex + 1)..] : compact[(dIndex + 1)..modifierIndex];
+        var modifierText = modifierIndex < 0 ? "" : compact[modifierIndex..];
+        if (!int.TryParse(countText, out var count) || count < 1 || count > 100)
+            throw new InvalidOperationException($"Unsupported damage dice count in '{damageExpression}'.");
+        if (!int.TryParse(sidesText, out var sides) || sides < 2 || sides > 1000)
+            throw new InvalidOperationException($"Unsupported damage die in '{damageExpression}'.");
+        return $"{count * 2}d{sides}{modifierText}";
+    }
+
+    private static int ContextInt(PendingRollRequest pending, string key, int? fallback = null)
+    {
+        if (pending.Context.TryGetValue(key, out var text) && int.TryParse(text, out var value)) return value;
+        if (fallback.HasValue) return fallback.Value;
+        throw new InvalidOperationException($"The pending player roll is missing integer context '{key}'.");
+    }
+
+    private static bool ContextBool(PendingRollRequest pending, string key)
+        => pending.Context.TryGetValue(key, out var text) && bool.TryParse(text, out var value) && value;
 
     private static D20RollMode ParsePendingRollMode(string? value) => (value ?? "normal").Trim().ToLowerInvariant() switch
     {

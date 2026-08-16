@@ -89,23 +89,57 @@ Run("generic required player roll blocks combat turn advancement", () =>
     True(threw, "NextTurn should reject an unresolved required attack roll");
 });
 
-Run("supplied player d20 is authoritative for combat attack", () =>
+Run("supplied player d20 is authoritative and a hit creates required damage roll", () =>
 {
     var (engine, campaign, encounter, attacker, target, _, targetCharacter) = CreatePlayerAttackTurn();
     engine.FinalizeInitiative(campaign, encounter.Id);
     var pending = engine.RequestEncounterAttackRoll(campaign, encounter.Id, attacker.Id, target.Id);
-    var deterministicDamage = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
 
-    var result = engine.ResolvePendingEncounterAttackRoll(campaign, pending.Id, 15, null, deterministicDamage);
+    var result = engine.ResolvePendingEncounterAttackRoll(campaign, pending.Id, 15, null, deterministicDice);
     Equal(15, result.Attack.D20, "authoritative attack d20");
     Equal(20, result.Attack.Total, "attack total");
     True(result.Attack.Hit, "attack should hit AC 13");
-    Equal(4, result.Attack.Damage, "1d8+3 deterministic damage");
-    Equal(16, targetCharacter.CurrentHp, "target hp after exact damage");
-    True(campaign.PendingPlayerRoll is null, "pending attack should clear after resolution");
+    Equal(0, result.Attack.Damage, "damage must not be rolled by the attack-roll resolver");
+    Equal(20, targetCharacter.CurrentHp, "target hp must wait for the player damage roll");
+    var damagePending = campaign.PendingPlayerRoll ?? throw new Exception("Damage PendingPlayerRoll was null.");
+    Equal("combat_attack_damage", damagePending.ResolutionKey, "damage resolution key");
+    Equal("1d8+3", damagePending.Formula, "damage formula");
+    True(damagePending.Required, "damage roll should be required");
 });
 
-Run("supplied player miss does not damage target", () =>
+Run("required player damage roll blocks combat turn advancement", () =>
+{
+    var (engine, campaign, encounter, attacker, target, _, _) = CreatePlayerAttackTurn();
+    engine.FinalizeInitiative(campaign, encounter.Id);
+    var attackPending = engine.RequestEncounterAttackRoll(campaign, encounter.Id, attacker.Id, target.Id);
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+    engine.ResolvePendingEncounterAttackRoll(campaign, attackPending.Id, 15, null, deterministicDice);
+
+    var threw = false;
+    try { engine.NextTurn(campaign, encounter.Id); }
+    catch (InvalidOperationException) { threw = true; }
+    True(threw, "NextTurn should reject an unresolved required damage roll");
+});
+
+Run("supplied player damage total is authoritative for combat damage", () =>
+{
+    var (engine, campaign, encounter, attacker, target, _, targetCharacter) = CreatePlayerAttackTurn();
+    engine.FinalizeInitiative(campaign, encounter.Id);
+    var attackPending = engine.RequestEncounterAttackRoll(campaign, encounter.Id, attacker.Id, target.Id);
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+    engine.ResolvePendingEncounterAttackRoll(campaign, attackPending.Id, 15, null, deterministicDice);
+    var damagePending = campaign.PendingPlayerRoll ?? throw new Exception("Damage PendingPlayerRoll was null.");
+
+    var result = engine.ResolvePendingEncounterAttackDamageRoll(campaign, damagePending.Id, 7, deterministicDice);
+    Equal(7, result.Attack.Damage, "authoritative damage total");
+    Equal(13, targetCharacter.CurrentHp, "target hp after supplied damage");
+    True(result.Damage is not null, "damage result should be recorded");
+    Equal(7, result.Damage!.EffectiveDamage, "effective damage");
+    True(campaign.PendingPlayerRoll is null, "pending damage roll should clear after resolution");
+});
+
+Run("supplied player miss does not create damage roll or damage target", () =>
 {
     var (engine, campaign, encounter, attacker, target, _, targetCharacter) = CreatePlayerAttackTurn();
     engine.FinalizeInitiative(campaign, encounter.Id);
@@ -116,7 +150,7 @@ Run("supplied player miss does not damage target", () =>
     Equal(2, result.Attack.D20, "authoritative miss d20");
     True(!result.Attack.Hit, "attack should miss");
     Equal(20, targetCharacter.CurrentHp, "miss should not change hp");
-    True(campaign.PendingPlayerRoll is null, "pending attack should clear after miss");
+    True(campaign.PendingPlayerRoll is null, "miss should not create a damage roll");
 });
 
 Run("advantage attack request requires and uses two player d20 results", () =>
@@ -126,11 +160,28 @@ Run("advantage attack request requires and uses two player d20 results", () =>
     engine.FinalizeInitiative(campaign, encounter.Id);
     var pending = engine.RequestEncounterAttackRoll(campaign, encounter.Id, attacker.Id, target.Id);
     Equal("advantage", pending.RollMode, "pending roll mode");
-    var deterministicDamage = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
 
-    var result = engine.ResolvePendingEncounterAttackRoll(campaign, pending.Id, 4, 16, deterministicDamage);
+    var result = engine.ResolvePendingEncounterAttackRoll(campaign, pending.Id, 4, 16, deterministicDice);
     Equal(16, result.Attack.D20, "advantage chosen d20");
     True(result.Attack.Hit, "advantage roll should hit");
+    Equal("combat_attack_damage", campaign.PendingPlayerRoll?.ResolutionKey, "hit should advance to damage roll");
+});
+
+Run("natural 20 attack creates a critical doubled-dice damage formula", () =>
+{
+    var (engine, campaign, encounter, attacker, target, _, _) = CreatePlayerAttackTurn();
+    engine.FinalizeInitiative(campaign, encounter.Id);
+    var pending = engine.RequestEncounterAttackRoll(campaign, encounter.Id, attacker.Id, target.Id);
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+
+    var result = engine.ResolvePendingEncounterAttackRoll(campaign, pending.Id, 20, null, deterministicDice);
+    True(result.Attack.Critical, "natural 20 should be critical");
+    var damagePending = campaign.PendingPlayerRoll ?? throw new Exception("Critical damage PendingPlayerRoll was null.");
+    Equal("combat_attack_damage", damagePending.ResolutionKey, "critical damage resolution key");
+    Equal("2d8+3", damagePending.Formula, "critical damage formula doubles dice only");
+    Equal("true", damagePending.Context["critical"], "critical context");
+    Equal("1d8+3", damagePending.Context["base_damage_expression"], "base damage expression context");
 });
 
 Console.WriteLine();
