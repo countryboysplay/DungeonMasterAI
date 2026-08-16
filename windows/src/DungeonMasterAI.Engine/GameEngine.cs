@@ -1177,6 +1177,10 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
         var attacker = RequireCharacter(campaign, attackerCombatant.CharacterId);
         var target = RequireCharacter(campaign, targetCombatant.CharacterId);
+        var previewSaveAbility = ChooseStrengthOrDexteritySave(target, targetSaveAbility);
+if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+    && !CharacterMechanics.AutomaticallyFailsSavingThrow(target, previewSaveAbility))
+    throw new InvalidOperationException("Player-character Grapple saving throws must use the authoritative player-roll request path.");
         EnsureCanTakeAttackOption(attacker);
         EnsureWithinUnarmedRange(attackerCombatant, targetCombatant, attacker, target);
         if (SizeRank(target.Size) > SizeRank(attacker.Size) + 1)
@@ -1232,6 +1236,10 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
         var attacker = RequireCharacter(campaign, attackerCombatant.CharacterId);
         var target = RequireCharacter(campaign, targetCombatant.CharacterId);
+        var previewSaveAbility = ChooseStrengthOrDexteritySave(target, targetSaveAbility);
+if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+    && !CharacterMechanics.AutomaticallyFailsSavingThrow(target, previewSaveAbility))
+    throw new InvalidOperationException("Player-character Shove saving throws must use the authoritative player-roll request path.");
         EnsureCanTakeAttackOption(attacker);
         EnsureWithinUnarmedRange(attackerCombatant, targetCombatant, attacker, target);
         if (SizeRank(target.Size) > SizeRank(attacker.Size) + 1)
@@ -1280,6 +1288,8 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         var targetCombatant = RequireCombatant(encounter, targetCombatantId);
         EnsureCurrentTurn(encounter, targetCombatant.Id);
         var target = RequireCharacter(campaign, targetCombatant.CharacterId);
+        if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Player-character grapple escape checks must use the authoritative player-roll request path.");
         var grapple = encounter.Grapples.FirstOrDefault(g => g.TargetCombatantId == targetCombatant.Id && g.GrapplerCombatantId == grapplerCombatantId)
             ?? throw new InvalidOperationException($"{target.Name} is not grappled by that combatant.");
         var normalizedSkill = (skill ?? "athletics").Trim().ToLowerInvariant();

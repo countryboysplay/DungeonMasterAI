@@ -118,6 +118,24 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("unarmed_grapple_save", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveUnarmedGrappleSaveFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
+if (pending.ResolutionKey.Equals("unarmed_shove_save", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveUnarmedShoveSaveFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
+if (pending.ResolutionKey.Equals("escape_grapple_check", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveEscapeGrappleFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
         if (pending.ResolutionKey.Equals("hide_check", StringComparison.OrdinalIgnoreCase))
 {
     await ResolveActiveHideFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
