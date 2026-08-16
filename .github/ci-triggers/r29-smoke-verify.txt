@@ -1,0 +1,1 @@
+Trigger Windows CI after migrating legacy spell attack smoke expectations.
