@@ -1686,6 +1686,8 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         var combatant = RequireCombatant(encounter, combatantId);
         EnsureCurrentTurn(encounter, combatant.Id);
         var character = RequireCharacter(campaign, combatant.CharacterId);
+        if (character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException($"Player-character {actionName} checks must use the authoritative player-roll request path.");
         var normalizedSkill = (skill ?? "").Trim().ToLowerInvariant();
         if (!allowedSkills.Contains(normalizedSkill, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException($"{skill} is not a valid skill for the {actionName} action.", nameof(skill));

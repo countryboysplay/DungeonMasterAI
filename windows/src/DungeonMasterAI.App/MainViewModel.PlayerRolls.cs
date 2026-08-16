@@ -118,6 +118,12 @@ public sealed partial class MainViewModel
     return;
 }
 
+        if (pending.ResolutionKey.Equals("combat_skill_action", StringComparison.OrdinalIgnoreCase))
+{
+    await ResolveActiveCombatSkillActionFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+    return;
+}
+
         if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))
         {
             await ResolveActiveAbilityCheckFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);

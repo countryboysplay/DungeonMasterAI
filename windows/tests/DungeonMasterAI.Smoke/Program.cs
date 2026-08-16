@@ -619,9 +619,9 @@ engine.NextTurn(campaign, deathSaveEncounter.Id, dice);
 Assert(deathSavePcCombatant.DeathSaveRequiredThisTurn && !deathSavePcCombatant.DeathSaveResolvedThisTurn, "the next turn at 0 HP requires a fresh Death Saving Throw");
 engine.EndEncounter(campaign, deathSaveEncounter.Id);
 
-var searcher = engine.AddCharacter(campaign, new CharacterSheet { Name = "Searcher", CharacterType = "pc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["wisdom"] = 16 }, SkillProficiencies = ["perception"] });
-var scholar = engine.AddCharacter(campaign, new CharacterSheet { Name = "Scholar", CharacterType = "pc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["intelligence"] = 18 }, SkillProficiencies = ["investigation"] });
-var diplomat = engine.AddCharacter(campaign, new CharacterSheet { Name = "Diplomat", CharacterType = "pc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["charisma"] = 20 }, SkillProficiencies = ["persuasion"] });
+var searcher = engine.AddCharacter(campaign, new CharacterSheet { Name = "Searcher", CharacterType = "npc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["wisdom"] = 16 }, SkillProficiencies = ["perception"] });
+var scholar = engine.AddCharacter(campaign, new CharacterSheet { Name = "Scholar", CharacterType = "npc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["intelligence"] = 18 }, SkillProficiencies = ["investigation"] });
+var diplomat = engine.AddCharacter(campaign, new CharacterSheet { Name = "Diplomat", CharacterType = "npc", MaxHp = 10, CurrentHp = 10, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["charisma"] = 20 }, SkillProficiencies = ["persuasion"] });
 var skillEncounter = engine.StartEncounter(campaign, "Skill Actions");
 var searcherCombatant = engine.AddCombatant(campaign, skillEncounter.Id, searcher.Id, side: "party");
 var scholarCombatant = engine.AddCombatant(campaign, skillEncounter.Id, scholar.Id, side: "party");
