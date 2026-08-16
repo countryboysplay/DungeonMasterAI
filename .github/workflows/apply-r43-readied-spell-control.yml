@@ -18,8 +18,34 @@ jobs:
         with:
           ref: feature/r43-readied-spell-player-control
           fetch-depth: 0
+      - name: Normalize current player-decision anchor for codemod
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerDecisions.cs')
+          text = path.read_text(encoding='utf-8')
+          old = '            var result = _engine.ResolvePendingPlayerDecision(SelectedCampaign, decision.Id, option.Id);\n'
+          normalized = '            var result = _engine.ResolvePendingPlayerDecision(SelectedCampaign, pending.Id, option.Id, _dice);\n'
+          if normalized not in text:
+              if old not in text:
+                  raise SystemExit('Current player-decision call anchor was not found.')
+              text = text.replace(old, normalized, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
       - name: Apply readied spell player-control codemod
         run: python3 .github/scripts/apply_r43_readied_spell_control.py
+      - name: Restore correct decision variable name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerDecisions.cs')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'ResolvePendingPlayerDecision(SelectedCampaign, pending.Id, option.Id, _dice)',
+              'ResolvePendingPlayerDecision(SelectedCampaign, decision.Id, option.Id, _dice)',
+              1)
+          path.write_text(text, encoding='utf-8')
+          PY
       - name: Commit readied spell player control
         run: |
           git config user.name countryboysplay
