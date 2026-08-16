@@ -1,0 +1,42 @@
+name: Apply r24 player-roll patch
+
+on:
+  push:
+    branches:
+      - feature/r24-player-roll-pipeline
+    paths:
+      - .github/patches/r24-player-roll-pipeline.patch.gz.b64
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    if: ${{ hashFiles('.github/patches/r24-player-roll-pipeline.patch.gz.b64') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decode patch
+        shell: bash
+        run: |
+          base64 -d .github/patches/r24-player-roll-pipeline.patch.gz.b64 | gzip -d > /tmp/r24.patch
+
+      - name: Verify and apply patch
+        shell: bash
+        run: |
+          git apply --check /tmp/r24.patch
+          git apply /tmp/r24.patch
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r24: add authoritative player combat attack rolls"
+          git push origin HEAD:${GITHUB_REF_NAME}
