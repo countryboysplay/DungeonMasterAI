@@ -968,6 +968,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
                 MovementCostFeet = movementCostFeet,
                 OpportunityAttacks = opportunityAttacks
             };
+            SyncOpportunityAttackPlayerDecision(campaign, encounter);
             Touch(campaign);
             var names = string.Join(", ", opportunityAttacks.Select(x => x.ReactorName));
             var pendingSummary = $"{character.Name}'s move would leave the reach of {names}. Resolve or decline those Opportunity Attacks before movement is committed.";
