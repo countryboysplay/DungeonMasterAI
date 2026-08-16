@@ -108,7 +108,7 @@ Run("NPC readied attack projectiles resolve automatically but pause for PC Conce
 {
     var f = CreateFixture(CreateAttackProjectileSpell(), targetType: "pc");
     f.Caster.CharacterType = "monster";
-    var dice = MaximumDice();
+    var dice = ReliableHitDice();
     var slotsBefore = f.Caster.SpellSlots[2].Remaining;
     var hpBefore = f.Target.CurrentHp;
     f.Engine.BeginConcentration(f.Campaign, f.Target.Id, "Bless");
@@ -278,6 +278,7 @@ static SpellDefinition CreateAutoProjectileSpell() => new()
 
 static DiceService MinimumDice() => new((min, max) => min);
 static DiceService MaximumDice() => new((min, max) => max - 1);
+static DiceService ReliableHitDice() => new((min, max) => max == 21 ? 19 : max - 1);
 
 static void True(bool value, string label)
 {
