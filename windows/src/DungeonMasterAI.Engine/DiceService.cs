@@ -22,14 +22,22 @@ public sealed partial class DiceService
     [GeneratedRegex(@"^\s*(?<fixed>\d+)\s*$")]
     private static partial Regex FixedExpressionRegex();
 
-    public DiceRoll Roll(string expression)
+    private const int MaxDiceCount = 100;
+
+    public DiceRoll Roll(string expression) => RollCore(expression, MaxDiceCount);
+
+    private DiceRoll RollCore(string expression, int maxDiceCount)
     {
         var raw = expression ?? "";
         var fixedMatch = FixedExpressionRegex().Match(raw);
         if (fixedMatch.Success)
         {
-            var value = int.Parse(fixedMatch.Groups["fixed"].Value);
-            if (value > 1_000_000) throw new ArgumentOutOfRangeException(nameof(expression), "Fixed roll values must not exceed 1,000,000.");
+            // TryParse instead of Parse: digit strings longer than int.MaxValue would
+            // otherwise escape as an uncontrolled OverflowException. Dice expressions
+            // can originate from imported campaign files and local-model tool calls,
+            // so parsing failures must surface as ordinary argument errors.
+            if (!int.TryParse(fixedMatch.Groups["fixed"].Value, out var value) || value > 1_000_000)
+                throw new ArgumentOutOfRangeException(nameof(expression), "Fixed roll values must not exceed 1,000,000.");
             return new DiceRoll(raw.Trim(), Array.Empty<int>(), value, value);
         }
 
@@ -37,15 +45,17 @@ public sealed partial class DiceService
         if (!match.Success)
             throw new ArgumentException($"Invalid dice expression: {expression}", nameof(expression));
 
-        var count = string.IsNullOrWhiteSpace(match.Groups["count"].Value)
-            ? 1
-            : int.Parse(match.Groups["count"].Value);
-        var sides = int.Parse(match.Groups["sides"].Value);
-        var modifier = match.Groups["modifier"].Success
-            ? int.Parse(match.Groups["modifier"].Value)
-            : 0;
+        var countText = match.Groups["count"].Value;
+        var count = 1;
+        if (!string.IsNullOrWhiteSpace(countText) && !int.TryParse(countText, out count))
+            throw new ArgumentOutOfRangeException(nameof(expression), $"Dice count must be between 1 and {maxDiceCount}.");
+        if (!int.TryParse(match.Groups["sides"].Value, out var sides))
+            throw new ArgumentOutOfRangeException(nameof(expression), "Die sides must be between 2 and 1000.");
+        var modifier = 0;
+        if (match.Groups["modifier"].Success && !int.TryParse(match.Groups["modifier"].Value, out modifier))
+            throw new ArgumentOutOfRangeException(nameof(expression), "Dice modifiers must fit in a 32-bit integer.");
 
-        if (count is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(expression), "Dice count must be between 1 and 100.");
+        if (count < 1 || count > maxDiceCount) throw new ArgumentOutOfRangeException(nameof(expression), $"Dice count must be between 1 and {maxDiceCount}.");
         if (sides is < 2 or > 1000) throw new ArgumentOutOfRangeException(nameof(expression), "Die sides must be between 2 and 1000.");
 
         var rolls = new int[count];
@@ -66,7 +76,7 @@ public sealed partial class DiceService
     {
         if (string.IsNullOrWhiteSpace(damageExpression)) return 0;
         var expression = critical ? DoubleDamageDice(damageExpression) : damageExpression;
-        return Math.Max(0, Roll(expression).Total);
+        return Math.Max(0, RollCore(expression, critical ? MaxDiceCount * 2 : MaxDiceCount).Total);
     }
 
     public AttackResult Attack(
@@ -88,7 +98,7 @@ public sealed partial class DiceService
         if (hit)
         {
             var expression = critical ? DoubleDamageDice(damageExpression) : damageExpression;
-            damage = Math.Max(0, Roll(expression).Total);
+            damage = Math.Max(0, RollCore(expression, critical ? MaxDiceCount * 2 : MaxDiceCount).Total);
         }
 
         var modeText = mode == D20RollMode.Normal ? "" : $" with {mode}";
@@ -113,8 +123,14 @@ public sealed partial class DiceService
         if (FixedExpressionRegex().IsMatch(raw)) return raw.Trim();
         var match = DiceExpressionRegex().Match(raw);
         if (!match.Success) throw new ArgumentException($"Invalid damage expression: {expression}", nameof(expression));
-        var count = string.IsNullOrWhiteSpace(match.Groups["count"].Value) ? 1 : int.Parse(match.Groups["count"].Value);
-        var sides = int.Parse(match.Groups["sides"].Value);
+        var countText = match.Groups["count"].Value;
+        var count = 1;
+        if (!string.IsNullOrWhiteSpace(countText) && !int.TryParse(countText, out count))
+            throw new ArgumentOutOfRangeException(nameof(expression), $"Dice count must be between 1 and {MaxDiceCount}.");
+        if (count < 1 || count > MaxDiceCount)
+            throw new ArgumentOutOfRangeException(nameof(expression), $"Dice count must be between 1 and {MaxDiceCount}.");
+        if (!int.TryParse(match.Groups["sides"].Value, out var sides))
+            throw new ArgumentOutOfRangeException(nameof(expression), "Die sides must be between 2 and 1000.");
         var modifier = match.Groups["modifier"].Success ? match.Groups["modifier"].Value : "";
         return $"{count * 2}d{sides}{modifier}";
     }

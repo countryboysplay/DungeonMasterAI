@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace DungeonMasterAI.AI;
@@ -41,7 +42,8 @@ public sealed class RuntimeBootstrapService(HttpClient? httpClient = null)
             {
                 Name = a.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
                 Url = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "",
-                Size = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var size) ? size : 0L
+                Size = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var size) ? size : 0L,
+                Digest = a.TryGetProperty("digest", out var d) ? d.GetString() : null
             })
             .Where(a => !string.IsNullOrWhiteSpace(a.Url))
             .ToArray();
@@ -59,6 +61,15 @@ public sealed class RuntimeBootstrapService(HttpClient? httpClient = null)
         {
             progress?.Report(new RuntimeProvisionProgress("download", 0, $"Downloading {asset.Name}..."));
             await DownloadAsync(asset.Url, archive, asset.Size, progress, cancellationToken);
+
+            progress?.Report(new RuntimeProvisionProgress("verify", null, "Verifying the downloaded runtime..."));
+            var integrityFailure = await VerifyDownloadAsync(archive, asset.Digest, asset.Size, cancellationToken);
+            if (integrityFailure is not null)
+            {
+                try { File.Delete(archive); } catch { }
+                return new RuntimeProvisionResult(false, integrityFailure);
+            }
+
             progress?.Report(new RuntimeProvisionProgress("extract", null, "Installing local AI runtime..."));
             ZipFile.ExtractToDirectory(archive, extract, overwriteFiles: true);
 
@@ -114,6 +125,32 @@ public sealed class RuntimeBootstrapService(HttpClient? httpClient = null)
                 ? $"Downloading local AI runtime... {received / 1024d / 1024d:0.0} / {total.Value / 1024d / 1024d:0.0} MB"
                 : $"Downloading local AI runtime... {received / 1024d / 1024d:0.0} MB"));
         }
+    }
+
+    private static async Task<string?> VerifyDownloadAsync(
+        string archivePath,
+        string? publishedDigest,
+        long expectedSize,
+        CancellationToken cancellationToken)
+    {
+        var info = new FileInfo(archivePath);
+        if (expectedSize > 0 && info.Length != expectedSize)
+            return $"Runtime download was incomplete or corrupted ({info.Length} of {expectedSize} bytes). The file was discarded; please try again.";
+
+        // GitHub publishes a per-asset digest of the form "sha256:<hex>". When it is
+        // present, refuse to install a runtime executable whose bytes do not match it.
+        if (string.IsNullOrWhiteSpace(publishedDigest)) return null;
+        const string prefix = "sha256:";
+        if (!publishedDigest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+        var expectedHex = publishedDigest[prefix.Length..].Trim();
+
+        await using var stream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 128, useAsync: true);
+        using var sha = SHA256.Create();
+        var hash = await sha.ComputeHashAsync(stream, cancellationToken);
+        var actualHex = Convert.ToHexString(hash);
+        return string.Equals(actualHex, expectedHex, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : "The downloaded runtime failed SHA-256 verification against the published release checksum. The file was discarded and was not installed.";
     }
 
     private static void CopyDirectory(string source, string destination)

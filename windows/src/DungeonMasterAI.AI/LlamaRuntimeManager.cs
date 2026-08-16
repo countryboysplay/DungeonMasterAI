@@ -8,7 +8,16 @@ public sealed class LlamaRuntimeManager : IDisposable
 {
     private Process? _process;
     private readonly StringBuilder _log = new();
-    public bool IsRunning => _process is { HasExited: false };
+    public bool IsRunning
+    {
+        get
+        {
+            var process = _process;
+            try { return process is { HasExited: false }; }
+            catch (InvalidOperationException) { return false; }
+            catch (ObjectDisposedException) { return false; }
+        }
+    }
     public string? LastError { get; private set; }
     public string RecentLog
     {
@@ -83,22 +92,32 @@ public sealed class LlamaRuntimeManager : IDisposable
                 start.ArgumentList.Add(settings.GpuLayers.ToString());
             }
 
-            _process = new Process { StartInfo = start, EnableRaisingEvents = true };
-            _process.OutputDataReceived += (_, e) => AppendLog(e.Data);
-            _process.ErrorDataReceived += (_, e) => AppendLog(e.Data);
-            _process.Exited += (_, _) =>
+            var process = new Process { StartInfo = start, EnableRaisingEvents = true };
+            process.OutputDataReceived += (_, e) => AppendLog(e.Data);
+            process.ErrorDataReceived += (_, e) => AppendLog(e.Data);
+            process.Exited += (sender, _) =>
             {
-                if (_process is { ExitCode: not 0 }) LastError = $"Local AI runtime exited with code {_process.ExitCode}.";
+                // Read the exit code from the sender, not the _process field: Stop() can
+                // dispose and null the field concurrently, and an exception thrown here
+                // would surface on a thread-pool callback with no catch frame above it.
+                try
+                {
+                    if (sender is Process exited && exited.ExitCode != 0)
+                        LastError = $"Local AI runtime exited with code {exited.ExitCode}.";
+                }
+                catch (InvalidOperationException) { }
+                catch (ObjectDisposedException) { }
             };
-            if (!_process.Start())
+            _process = process;
+            if (!process.Start())
             {
-                _process.Dispose();
+                process.Dispose();
                 _process = null;
                 LastError = "Windows could not start the local AI runtime.";
                 return false;
             }
-            _process.BeginOutputReadLine();
-            _process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             return true;
         }
         catch (Exception ex)

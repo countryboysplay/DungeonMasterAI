@@ -23,6 +23,18 @@ for (var i = 0; i < 100; i++)
     Assert(roll.Total is >= 3 and <= 22, "d20 roll remains in valid range");
 }
 
+try { dice.Roll("9999999999d6"); Assert(false, "oversized dice count is rejected"); }
+catch (ArgumentOutOfRangeException) { Assert(true, "oversized dice count is rejected as an argument error, not an overflow"); }
+try { dice.Roll("1d99999999999"); Assert(false, "oversized die sides are rejected"); }
+catch (ArgumentOutOfRangeException) { Assert(true, "oversized die sides are rejected as an argument error, not an overflow"); }
+try { dice.Roll("99999999999999"); Assert(false, "oversized fixed roll is rejected"); }
+catch (ArgumentOutOfRangeException) { Assert(true, "oversized fixed roll is rejected as an argument error, not an overflow"); }
+try { dice.Roll("2d8+99999999999"); Assert(false, "oversized modifier is rejected"); }
+catch (ArgumentOutOfRangeException) { Assert(true, "oversized modifier is rejected as an argument error, not an overflow"); }
+Assert(dice.RollDamage("60d6", critical: true) > 0, "a critical hit can double a legal damage expression above 50 dice without throwing");
+try { dice.Roll("120d6"); Assert(false, "direct rolls above 100 dice are still rejected"); }
+catch (ArgumentOutOfRangeException) { Assert(true, "direct rolls above 100 dice are still rejected"); }
+
 var hero = engine.AddCharacter(campaign, new CharacterSheet { Name = "Test Hero", CharacterType = "pc", MaxHp = 12, CurrentHp = 12, ArmorClass = 15, Gold = 30, Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["strength"] = 16 }, Attacks = [new AttackProfile { Name = "Longsword", AttackBonus = 5, DamageExpression = "1d8+3", DamageType = "Slashing" }] });
 engine.ApplyDamage(campaign, hero.Id, 5);
 Assert(hero.CurrentHp == 7, "damage changes deterministic HP");
