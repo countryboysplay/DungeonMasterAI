@@ -11,7 +11,7 @@ Run("player target supplies the authoritative spell saving throw d20", () =>
     var beforeHp = target.CurrentHp;
 
     var cast = engine.CastSpell(campaign, caster.Id, spell.Id, dice, target.Id, 1);
-    True(cast.SavingThrow is null, "spell should wait for the player save");
+    True(cast.TargetSavingThrow is null, "spell should wait for the player save");
     Equal(beforeHp, target.CurrentHp, "HP must not change before the player save");
     var pending = campaign.PendingPlayerRoll ?? throw new Exception("spell saving throw pending missing");
     Equal("spell_saving_throw", pending.ResolutionKey, "spell save key");
@@ -19,7 +19,7 @@ Run("player target supplies the authoritative spell saving throw d20", () =>
     Equal(13, pending.TargetNumber, "spell save DC");
 
     var result = engine.ResolvePendingSpellSavingThrowRoll(campaign, pending.Id, 5, null, dice);
-    True(result.SavingThrow is { ChosenRoll: 5, Success: false }, "supplied d20 should be authoritative");
+    True(result.TargetSavingThrow is { ChosenRoll: 5, Success: false }, "supplied d20 should be authoritative");
     Equal(beforeHp - 2, target.CurrentHp, "failed save should apply deterministic spell damage after the player roll");
     True(campaign.PendingPlayerRoll is null, "spell save should finish without a pending roll when no follow-up is required");
 });
@@ -33,7 +33,7 @@ Run("successful supplied save applies half damage", () =>
     var pending = campaign.PendingPlayerRoll ?? throw new Exception("spell saving throw pending missing");
 
     var result = engine.ResolvePendingSpellSavingThrowRoll(campaign, pending.Id, 20, null, dice);
-    True(result.SavingThrow is { ChosenRoll: 20, Success: true }, "supplied high d20 should succeed");
+    True(result.TargetSavingThrow is { ChosenRoll: 20, Success: true }, "supplied high d20 should succeed");
     Equal(beforeHp - 1, target.CurrentHp, "successful save should take half of deterministic 2 damage");
 });
 
@@ -53,7 +53,7 @@ Run("Restrained player Dexterity save requires two supplied d20 results", () =>
     Equal(pending.Id, campaign.PendingPlayerRoll?.Id, "failed resolution should preserve pending save");
 
     var result = engine.ResolvePendingSpellSavingThrowRoll(campaign, pending.Id, 18, 4, dice);
-    Equal(4, result.SavingThrow?.ChosenRoll, "lower supplied d20 should be used for Disadvantage");
+    Equal(4, result.TargetSavingThrow?.ChosenRoll, "lower supplied d20 should be used for Disadvantage");
 });
 
 Run("spell damage hands off to a concentrating player target", () =>
@@ -76,7 +76,7 @@ Run("NPC spell targets keep automatic saving throw resolution", () =>
     var (engine, campaign, caster, target, spell) = CreateFixture(targetIsPlayer: false);
     var dice = new DiceService((min, max) => min);
     var result = engine.CastSpell(campaign, caster.Id, spell.Id, dice, target.Id, 1);
-    True(result.SavingThrow is not null, "NPC target save should resolve immediately");
+    True(result.TargetSavingThrow is not null, "NPC target save should resolve immediately");
     True(campaign.PendingPlayerRoll is null, "NPC target save must not create a player roll");
 });
 
@@ -86,7 +86,7 @@ Run("automatic-failure condition does not request a meaningless player d20", () 
     target.Conditions.Add("Paralyzed");
     var dice = new DiceService((min, max) => min);
     var result = engine.CastSpell(campaign, caster.Id, spell.Id, dice, target.Id, 1);
-    True(result.SavingThrow is { Success: false }, "Paralyzed Dexterity save should fail automatically");
+    True(result.TargetSavingThrow is { Success: false }, "Paralyzed Dexterity save should fail automatically");
     True(campaign.PendingPlayerRoll is null, "automatic failure should not request a player d20");
 });
 
