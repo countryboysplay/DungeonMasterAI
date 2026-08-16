@@ -1,0 +1,42 @@
+name: Apply r26 player checks and saves patch
+
+on:
+  push:
+    branches:
+      - feature/r26-player-checks-saves
+    paths:
+      - .github/patches/r26-player-checks-saves.part*
+      - .github/workflows/apply-r26-player-checks-saves-patch.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decode patch
+        shell: bash
+        run: |
+          cat .github/patches/r26-player-checks-saves.part* | base64 -d | gzip -d > /tmp/r26.patch
+
+      - name: Verify and apply patch
+        shell: bash
+        run: |
+          git apply --check /tmp/r26.patch
+          git apply /tmp/r26.patch
+
+      - name: Commit source changes
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r26: make player ability checks and saving throws authoritative"
+          git push origin HEAD:${GITHUB_REF_NAME}
