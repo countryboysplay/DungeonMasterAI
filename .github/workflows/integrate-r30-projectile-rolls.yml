@@ -1,0 +1,181 @@
+name: Integrate r30 projectile roll pipeline
+
+on:
+  push:
+    branches:
+      - feature/r30-player-projectile-spell-rolls
+    paths:
+      - .github/workflows/integrate-r30-projectile-rolls.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Integrate projectile pipeline
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Spellcasting integration.
+          path = Path('windows/src/DungeonMasterAI.Engine/Spellcasting.cs')
+          text = path.read_text(encoding='utf-8')
+          method_start = text.index('    public SpellCastResult CastProjectileSpell(')
+          next_method = text.index('    public SpellCastResult CastMultiTargetSpell(', method_start)
+          before = text[:method_start]
+          method = text[method_start:next_method]
+          after = text[next_method:]
+
+          guard_marker = '        ArgumentNullException.ThrowIfNull(targetIds);\n\n        var caster = RequireCharacter(campaign, casterId);'
+          guard_replacement = '        ArgumentNullException.ThrowIfNull(targetIds);\n        if (campaign.PendingPlayerRoll?.Required == true)\n            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");\n\n        var caster = RequireCharacter(campaign, casterId);'
+          if guard_marker not in method:
+              raise SystemExit('CastProjectileSpell guard marker not found')
+          method = method.replace(guard_marker, guard_replacement, 1)
+
+          loop_marker = '        var results = new List<SpellTargetResolution>(projectileCount);\n'
+          player_branch = '''        if (resolution == "projectile_attack" && caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+          {
+              if (activeEncounter is not null && spell.RequiresVerbal)
+              {
+                  var casterCombatant = activeEncounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+                  if (casterCombatant is not null) BreakHidden(campaign, activeEncounter, casterCombatant, "casting a spell with a Verbal component");
+              }
+              return BeginPlayerProjectileSpellSequence(
+                  campaign,
+                  caster,
+                  spell,
+                  castAtLevel,
+                  usedSlot,
+                  concentrationStarted,
+                  activeEncounter,
+                  allocations,
+                  dice);
+          }
+
+          '''.replace('          ', '')
+          if loop_marker not in method:
+              raise SystemExit('CastProjectileSpell loop marker not found')
+          method = method.replace(loop_marker, player_branch + loop_marker, 1)
+          path.write_text(before + method + after, encoding='utf-8')
+
+          # Concentration continuation handoff.
+          path = Path('windows/src/DungeonMasterAI.Engine/GameEngine.ConcentrationRolls.cs')
+          text = path.read_text(encoding='utf-8')
+          return_marker = '        return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);'
+          return_replacement = '''        var continuationSummary = ResumePendingRollContinuation(campaign, pending.Context, dice);
+          if (!string.IsNullOrWhiteSpace(continuationSummary)) summary += $" {continuationSummary}";
+          return new ConcentrationCheckResult(effect, effectiveDamage, dc, savingThrow, maintained, summary);'''.replace('          ', '')
+          if return_marker not in text:
+              raise SystemExit('Concentration return marker not found')
+          path.write_text(text.replace(return_marker, return_replacement, 1), encoding='utf-8')
+
+          # Game Table roll routing.
+          path = Path('windows/src/DungeonMasterAI.App/MainViewModel.PlayerRolls.cs')
+          text = path.read_text(encoding='utf-8')
+          damage_marker = '        if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase))'
+          damage_block = '''        if (pending.ResolutionKey.Equals("projectile_spell_damage", StringComparison.OrdinalIgnoreCase))
+          {
+              var baseDamageExpression = pending.Context.TryGetValue("base_damage_expression", out var storedExpression)
+                  && !string.IsNullOrWhiteSpace(storedExpression)
+                  ? storedExpression
+                  : pending.Formula;
+              var critical = pending.Context.TryGetValue("critical", out var criticalText)
+                  && bool.TryParse(criticalText, out var parsedCritical)
+                  && parsedCritical;
+              var damageAmount = _dice.RollDamage(baseDamageExpression, critical);
+              LastDiceResult = $"{pending.Formula}: {damageAmount}";
+              await ResolveActiveProjectileSpellDamageFromRollAsync(pending.Id, damageAmount);
+              return;
+          }
+
+          '''.replace('          ', '')
+          if damage_marker not in text:
+              raise SystemExit('PlayerRolls damage marker not found')
+          text = text.replace(damage_marker, damage_block + damage_marker, 1)
+
+          ability_marker = '        if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))'
+          attack_block = '''        if (pending.ResolutionKey.Equals("projectile_spell_attack", StringComparison.OrdinalIgnoreCase))
+          {
+              await ResolveActiveProjectileSpellAttackFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+              return;
+          }
+
+          '''.replace('          ', '')
+          if ability_marker not in text:
+              raise SystemExit('PlayerRolls ability marker not found')
+          text = text.replace(ability_marker, attack_block + ability_marker, 1)
+
+          method_marker = '    private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)'
+          methods = '''    private async Task ResolveActiveProjectileSpellAttackFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+          {
+              if (SelectedCampaign is null) return;
+              try
+              {
+                  var result = _engine.ResolvePendingProjectileSpellAttackRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+                  StatusMessage = result.Summary;
+                  SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+                  RaiseCharacterProperties();
+                  RaiseCampaignProperties();
+                  RefreshCombatSelections(keepSelection: true);
+                  await SaveAsync();
+              }
+              catch (Exception ex)
+              {
+                  StatusMessage = ex.Message;
+                  RaiseCampaignProperties();
+              }
+          }
+
+          private async Task ResolveActiveProjectileSpellDamageFromRollAsync(string pendingRollId, int damageAmount)
+          {
+              if (SelectedCampaign is null) return;
+              try
+              {
+                  var result = _engine.ResolvePendingProjectileSpellDamageRoll(SelectedCampaign, pendingRollId, damageAmount, _dice);
+                  StatusMessage = result.Summary;
+                  SelectedCampaign.Chat.Add(new ChatMessage { Role = "assistant", Content = CleanSessionNarration(result.Summary) });
+                  RaiseCharacterProperties();
+                  RaiseCampaignProperties();
+                  RefreshCombatSelections(keepSelection: true);
+                  await SaveAsync();
+              }
+              catch (Exception ex)
+              {
+                  StatusMessage = ex.Message;
+                  RaiseCampaignProperties();
+              }
+          }
+
+          '''.replace('          ', '    ')
+          if method_marker not in text:
+              raise SystemExit('PlayerRolls method marker not found')
+          text = text.replace(method_marker, methods + method_marker, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # Keep the AI tool contract aligned with the deterministic behavior.
+          path = Path('windows/src/DungeonMasterAI.Engine/DmToolRouter.cs')
+          text = path.read_text(encoding='utf-8')
+          old = 'Cast a deterministic multi-projectile spell such as Magic Missile or Scorching Ray. target_ids is either one target for every projectile or one target id per projectile in firing order.'
+          new = 'Cast a deterministic multi-projectile spell such as Magic Missile or Scorching Ray. Auto-hit projectiles resolve automatically. Player-character projectile attack spells pause for each player attack and damage roll in firing order, including intervening Concentration saves. target_ids is either one target for every projectile or one target id per projectile in firing order.'
+          if old not in text:
+              raise SystemExit('cast_projectile_spell description marker not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "ChatGPT"
+          git config user.email "chatgpt@local.invalid"
+          git add windows
+          git commit -m "r30: integrate player projectile spell roll pipeline"
+          git push origin HEAD:${GITHUB_REF_NAME}
