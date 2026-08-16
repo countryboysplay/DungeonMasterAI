@@ -35,6 +35,9 @@ jobs:
       - name: Run focused roll-state tests
         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
 
+      - name: Run Initiative roll tests
+        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
