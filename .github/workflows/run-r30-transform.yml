@@ -25,7 +25,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          source = Path('.github/workflows/apply-r30-projectile-rolls.yml').read_text(encoding='utf-8')
+          source = Path('.github/scripts/r30-transform-source.txt').read_text(encoding='utf-8')
           marker = "          from pathlib import Path\n"
           start = source.index(marker)
           end = source.index("\n          PY\n", start)
