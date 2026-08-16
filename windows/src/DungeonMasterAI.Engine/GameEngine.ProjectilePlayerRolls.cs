@@ -163,7 +163,7 @@ public sealed partial class GameEngine
         var spell = RequireProjectileSpell(campaign, state.SpellId);
         var projectileIndex = RequireCurrentProjectileIndex(state, pending);
         var target = RequireCharacter(campaign, state.TargetIds[projectileIndex]);
-        _ = RequireProjectileEncounterIfAny(campaign, state, caster);
+        var encounter = RequireProjectileEncounterIfAny(campaign, state, caster);
 
         var critical = ProjectileContextBool(pending, "critical");
         var attackD20 = ProjectileContextInt(pending, "attack_d20");
@@ -179,7 +179,10 @@ public sealed partial class GameEngine
         campaign.PendingPlayerRoll = null;
         DamageResolutionResult? damage = null;
         if (!target.Dead)
+        {
             damage = ApplyDamageWithConcentration(campaign, target.Id, damageAmount, dice, damageType, critical);
+            ApplySpellAttackHitEffects(campaign, encounter, caster, target, spell);
+        }
 
         var attackSummary = BuildProjectileAttackSummary(
             projectileIndex + 1,
@@ -198,6 +201,8 @@ public sealed partial class GameEngine
         var projectileSummary = target.Dead && damage is null
             ? $"Projectile {projectileIndex + 1} was already allocated to {target.Name}; the target had been reduced to death by an earlier declared projectile before this damage instance was applied."
             : attackSummary + (damage?.Concentration is null ? "" : $" {damage.Concentration.Summary}");
+        if (spell.NextAttackAgainstTargetHasAdvantage && !target.Dead)
+            projectileSummary += $" The next attack roll against {target.Name} has Advantage before the effect expires.";
         state.Results.Add(new SpellTargetResolution(target.Id, target.Name, projectileIndex + 1, attack, null, damage, 0, projectileSummary));
         state.NextProjectileIndex++;
 
