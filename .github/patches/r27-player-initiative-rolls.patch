@@ -433,12 +433,3 @@ new file mode 100644
 +    if (!EqualityComparer<T>.Default.Equals(expected, actual))
 +        throw new Exception($"{label}: expected {expected}, got {actual}");
 +}
-diff --git a/.github/workflows/windows-ci.yml b/.github/workflows/windows-ci.yml
---- a/.github/workflows/windows-ci.yml
-+++ b/.github/workflows/windows-ci.yml
-@@ -38 +38,4 @@
--      - name: Run full smoke suite
-+      - name: Run Initiative roll tests
-+        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
-+
-+      - name: Run full smoke suite
