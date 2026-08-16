@@ -1,1 +1,1 @@
-Trigger Windows CI after migrating the legacy multi-ray smoke expectation and fixing its local-name collision.
+Trigger Windows CI after smoke migration, local-name fix, and projectile hit-effect parity.
