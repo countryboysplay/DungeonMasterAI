@@ -16,6 +16,8 @@ public sealed partial class GameEngine
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(dice);
+        if (campaign.PendingPlayerRoll?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0)
@@ -115,7 +117,24 @@ public sealed partial class GameEngine
         {
             case "attack":
                 if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target for its spell attack.");
-                (spellAttack, damage, effectSummary) = ResolveSpellAttack(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+                if (caster.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pending = RequestPlayerSpellAttackRoll(
+                        campaign,
+                        caster,
+                        target,
+                        spell,
+                        castAtLevel,
+                        usedSlot,
+                        asRitual,
+                        concentrationStarted,
+                        activeEncounter);
+                    effectSummary = pending.Purpose;
+                }
+                else
+                {
+                    (spellAttack, damage, effectSummary) = ResolveSpellAttack(campaign, caster, target, spell, upcastLevels, dice, activeEncounter);
+                }
                 break;
 
             case "save":
