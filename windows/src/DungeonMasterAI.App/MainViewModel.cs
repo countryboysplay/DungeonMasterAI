@@ -400,9 +400,20 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public PendingRollRequest? PendingPlayerRoll => SelectedCampaign?.PendingPlayerRoll;
     public bool PlayerRollRequired => PendingPlayerRoll?.Required == true;
-    public string RollD20ButtonText => PlayerRollRequired && PendingPlayerRoll?.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase) == true
-        ? "Roll d20 • Required"
-        : "Roll d20";
+    public string RollD20ButtonText
+    {
+        get
+        {
+            var pending = PendingPlayerRoll;
+            if (pending?.Required != true) return "Roll d20";
+            if (!pending.Formula.Equals("1d20", StringComparison.OrdinalIgnoreCase)) return $"Roll {pending.Formula} • Required";
+            return pending.RollMode.Equals("advantage", StringComparison.OrdinalIgnoreCase)
+                ? "Roll 2d20 • Advantage • Required"
+                : pending.RollMode.Equals("disadvantage", StringComparison.OrdinalIgnoreCase)
+                    ? "Roll 2d20 • Disadvantage • Required"
+                    : "Roll d20 • Required";
+        }
+    }
     public string PendingPlayerRollPrompt => PendingPlayerRoll?.Purpose ?? "No required player roll.";
 
     public bool PlayerDeathSaveRequired
@@ -1259,11 +1270,28 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task QuickAttackAsync()
     {
-        var target = SelectedTarget?.Name;
-        var instruction = string.IsNullOrWhiteSpace(target)
-            ? "I attack the most immediate hostile creature with my appropriate currently available attack."
-            : $"I attack {target} with my appropriate currently available attack.";
-        await SendQuickPlayerInputAsync(instruction);
+        if (SelectedCampaign is null || SelectedEncounter is null || SelectedTarget is null || ActiveTurnCombatant is null || ActiveTurnCharacter is null)
+        {
+            StatusMessage = "Select an active combat target before attacking.";
+            return;
+        }
+        if (!ActiveTurnCharacter.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusMessage = "NPC turns are resolved by the Dungeon Master automatically.";
+            return;
+        }
+        try
+        {
+            var pending = _engine.RequestEncounterAttackRoll(
+                SelectedCampaign,
+                SelectedEncounter.Id,
+                ActiveTurnCombatant.Id,
+                SelectedTarget.CombatantId);
+            StatusMessage = pending.Purpose;
+            RaiseCampaignProperties();
+            await SaveAsync();
+        }
+        catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
     private async Task SendPlayerInputCoreAsync(string input)
@@ -2008,14 +2036,28 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         if (SelectedCampaign is null || SelectedEncounter is null || SelectedAttacker is null || SelectedTarget is null) return;
         try
         {
-            var result = _engine.ResolveEncounterAttack(
-                SelectedCampaign,
-                SelectedEncounter.Id,
-                SelectedAttacker.CombatantId,
-                SelectedTarget.CombatantId,
-                attackName: null,
-                _dice);
-            StatusMessage = result.Summary;
+            var attacker = SelectedCampaign.Characters.FirstOrDefault(c => c.Id == SelectedAttacker.CharacterId)
+                ?? throw new InvalidOperationException("Selected attacker is no longer present in the campaign.");
+            if (attacker.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            {
+                var pending = _engine.RequestEncounterAttackRoll(
+                    SelectedCampaign,
+                    SelectedEncounter.Id,
+                    SelectedAttacker.CombatantId,
+                    SelectedTarget.CombatantId);
+                StatusMessage = pending.Purpose;
+            }
+            else
+            {
+                var result = _engine.ResolveEncounterAttack(
+                    SelectedCampaign,
+                    SelectedEncounter.Id,
+                    SelectedAttacker.CombatantId,
+                    SelectedTarget.CombatantId,
+                    attackName: null,
+                    _dice);
+                StatusMessage = result.Summary;
+            }
             RaiseCampaignProperties();
             RefreshCombatSelections(keepSelection: true);
             await SaveAsync();

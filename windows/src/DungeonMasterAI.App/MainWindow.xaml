@@ -390,6 +390,32 @@
                                                     </DockPanel>
                                                 </Border>
 
+                                                <!-- Any other authoritative player roll blocks normal combat controls until the player supplies it. -->
+                                                <Border Background="#172032" BorderBrush="#49658C" BorderThickness="1" CornerRadius="9" Padding="12,9">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding PlayerRollRequired}" Value="True"/>
+                                                                        <Condition Binding="{Binding PlayerDeathSaveRequired}" Value="False"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <DockPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Foreground="#9BC7FF" FontSize="10" FontWeight="Bold" Text="PLAYER ROLL REQUIRED"/>
+                                                            <TextBlock Foreground="#FFFFFF" FontSize="13" FontWeight="SemiBold" Margin="0,3,0,0" Text="{Binding PendingPlayerRollPrompt}" TextWrapping="Wrap"/>
+                                                            <TextBlock Foreground="#AEB7C7" FontSize="10" Margin="0,3,0,0" Text="The deterministic game state is paused until this roll is resolved."/>
+                                                        </StackPanel>
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Command="{Binding RollD20Command}" Content="{Binding RollD20ButtonText}" MinWidth="170" Margin="16,0,0,0"/>
+                                                    </DockPanel>
+                                                </Border>
+
                                                 <!-- After an ordinary Death Save the PC remains at 0 HP and cannot act this turn. -->
                                                 <Border Background="#151D29" BorderBrush="#38455B" BorderThickness="1" CornerRadius="9" Padding="12,9">
                                                     <Border.Style>
@@ -418,7 +444,7 @@
                                                         <Style TargetType="StackPanel">
                                                             <Setter Property="Visibility" Value="Visible"/>
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding PlayerDeathSaveRequired}" Value="True">
+                                                                <DataTrigger Binding="{Binding PlayerRollRequired}" Value="True">
                                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding ActivePlayerUnableToActAtZero}" Value="True">

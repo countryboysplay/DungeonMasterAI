@@ -81,7 +81,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
         Tool("get_pending_opportunity_attacks", "List unresolved Opportunity Attack reactions for a pending combat move.", Props(("encounter_id","string",true))),
         Tool("resolve_opportunity_attack", "Use an eligible combatant's Reaction to make a melee weapon attack or Unarmed Strike against a creature leaving its reach.", Props(("encounter_id","string",true),("reactor_combatant_id","string",true),("attack_name","string",false))),
         Tool("decline_opportunity_attack", "Decline one pending Opportunity Attack without spending the reactor's Reaction.", Props(("encounter_id","string",true),("reactor_combatant_id","string",true))),
-        Tool("combat_attack", "Resolve one configured attack profile against a combatant. Attack rolls, critical hits, cover, damage dice, HP, resistance, vulnerability, and immunity are application-owned.", Props(("encounter_id","string",true),("attacker_combatant_id","string",true),("target_combatant_id","string",true),("attack_name","string",false))),
+        Tool("combat_attack", "Attack one combatant with a configured attack profile. NPC attacks resolve immediately through the deterministic engine. Player-character attacks create a required player d20 roll and stop until the Game Table supplies that roll; never invent or bypass it.", Props(("encounter_id","string",true),("attacker_combatant_id","string",true),("target_combatant_id","string",true),("attack_name","string",false))),
         Tool("next_combat_turn", "Advance to the next combatant and increment the round when initiative wraps.", Props(("encounter_id","string",true))),
         Tool("end_encounter", "Mark a combat encounter completed.", Props(("encounter_id","string",true))),
         Tool("list_quests", "List player-visible quest information.", Props()),
@@ -206,7 +206,7 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
                 "get_pending_opportunity_attacks" => engine.GetPendingOpportunityAttacks(campaign, RequiredString(a, "encounter_id")),
                 "resolve_opportunity_attack" => engine.ResolveOpportunityAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "reactor_combatant_id"), OptionalString(a, "attack_name"), dice),
                 "decline_opportunity_attack" => engine.DeclineOpportunityAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "reactor_combatant_id")),
-                "combat_attack" => engine.ResolveEncounterAttack(campaign, RequiredString(a, "encounter_id"), RequiredString(a, "attacker_combatant_id"), RequiredString(a, "target_combatant_id"), OptionalString(a, "attack_name"), dice),
+                "combat_attack" => CombatAttack(campaign, a),
                 "next_combat_turn" => NextCombatTurn(campaign, RequiredString(a, "encounter_id")),
                 "end_encounter" => engine.EndEncounter(campaign, RequiredString(a, "encounter_id")),
                 "list_quests" => campaign.Quests.Where(q => !q.DmOnly).Select(q => new { q.Id, q.Key, q.Name, q.Status, q.Summary, q.RewardGp, q.Objectives, q.SourceKind, generated_details = campaign.Supplements.Where(s => !s.DmOnly && s.TargetKey.Equals(q.Key, StringComparison.OrdinalIgnoreCase)).Select(s => new { s.Category, s.Content, s.SourceKind }).ToArray() }).ToArray(),
@@ -564,6 +564,23 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
                 price_gp = s.PriceGp ?? campaign.Items.FirstOrDefault(i => i.Id == s.ItemId)?.PriceGp ?? 0
             }).ToArray()
         }).ToArray();
+    }
+
+
+    private object CombatAttack(CampaignState campaign, JsonElement a)
+    {
+        var encounterId = RequiredString(a, "encounter_id");
+        var attackerCombatantId = RequiredString(a, "attacker_combatant_id");
+        var targetCombatantId = RequiredString(a, "target_combatant_id");
+        var attackName = OptionalString(a, "attack_name");
+        var encounter = campaign.Encounters.FirstOrDefault(e => e.Id.Equals(encounterId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new KeyNotFoundException("Encounter not found.");
+        var attackerCombatant = encounter.Combatants.FirstOrDefault(c => c.Id.Equals(attackerCombatantId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new KeyNotFoundException("Attacker combatant not found.");
+        var attacker = RequireCharacter(campaign, attackerCombatant.CharacterId);
+        return attacker.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+            ? engine.RequestEncounterAttackRoll(campaign, encounterId, attackerCombatantId, targetCombatantId, attackName)
+            : engine.ResolveEncounterAttack(campaign, encounterId, attackerCombatantId, targetCombatantId, attackName, dice);
     }
 
     private static object[] AvailableAttacks(CharacterSheet character)
