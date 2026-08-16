@@ -17,6 +17,7 @@ public sealed partial class GameEngine
         {
             "projectile_spell_sequence" => ResumePlayerProjectileSpellSequenceAfterConcentration(campaign, context, dice),
             "auto_projectile_spell_sequence" => ResumePlayerAutoProjectileSpellSequenceAfterConcentration(campaign, context, dice),
+            "area_spell_sequence" => ResumePlayerAreaSpellSequenceAfterConcentration(campaign, context, dice),
             _ => null
         };
     }
