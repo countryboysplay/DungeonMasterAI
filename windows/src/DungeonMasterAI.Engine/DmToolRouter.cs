@@ -21,8 +21,8 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
         Tool("reveal_location", "Reveal a campaign location to the party when fiction or exploration justifies it.", Props(("location_id","string",true))),
         Tool("move_party", "Move the party to a discovered location.", Props(("location_id","string",true))),
         Tool("roll_dice", "Roll an application-owned dice expression such as 2d6+3.", Props(("expression","string",true))),
-        Tool("ability_check", "Resolve an ability check using character stats, proficiency, Exhaustion, a DM-selected DC, and application dice.", Props(("character_id","string",true),("ability","string",true),("dc","integer",true),("skill","string",false),("roll_mode","string",false),("circumstance_modifier","integer",false))),
-        Tool("saving_throw", "Resolve a saving throw using character stats, save proficiency, Exhaustion, a DC, and application dice.", Props(("character_id","string",true),("ability","string",true),("dc","integer",true),("roll_mode","string",false),("circumstance_modifier","integer",false))),
+        Tool("ability_check", "Resolve an ability check using character stats, proficiency, Exhaustion, and a DM-selected DC. NPC checks resolve immediately. Player-character checks create a required player d20 roll and stop until the Game Table supplies it.", Props(("character_id","string",true),("ability","string",true),("dc","integer",true),("skill","string",false),("roll_mode","string",false),("circumstance_modifier","integer",false))),
+        Tool("saving_throw", "Resolve a saving throw using character stats, save proficiency, Exhaustion, and a DC. NPC saves resolve immediately. Player-character saves create a required player d20 roll and stop until the Game Table supplies it, unless the save automatically fails.", Props(("character_id","string",true),("ability","string",true),("dc","integer",true),("roll_mode","string",false),("circumstance_modifier","integer",false))),
         Tool("damage_character", "Apply typed damage, including Temporary HP, Resistance, Vulnerability, Immunity, 0 HP, Death Saving Throw rules, and an automatic Concentration save when required.", Props(("character_id","string",true),("amount","integer",true),("damage_type","string",false),("critical_hit","boolean",false))),
         Tool("heal_character", "Heal a living character up to maximum HP.", Props(("character_id","string",true),("amount","integer",true))),
         Tool("grant_temporary_hp", "Grant Temporary Hit Points; a lower new value never stacks onto an existing higher value.", Props(("character_id","string",true),("amount","integer",true))),
@@ -410,31 +410,34 @@ public sealed class DmToolRouter(GameEngine engine, DiceService dice, RulesSearc
 
     private object AbilityCheck(CampaignState campaign, JsonElement a)
     {
+        var characterId = RequiredString(a, "character_id");
+        var ability = RequiredString(a, "ability");
+        var dc = RequiredInt(a, "dc");
         var mode = ParseRollMode(OptionalString(a, "roll_mode"));
-        return engine.ResolveAbilityCheckWithDice(
-            campaign,
-            RequiredString(a, "character_id"),
-            RequiredString(a, "ability"),
-            RequiredInt(a, "dc"),
-            dice,
-            mode,
-            OptionalString(a, "skill"),
-            OptionalInt(a, "circumstance_modifier", 0));
+        var skill = OptionalString(a, "skill");
+        var circumstanceModifier = OptionalInt(a, "circumstance_modifier", 0);
+        var character = RequireCharacter(campaign, characterId);
+        return character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+            ? engine.RequestAbilityCheckRoll(campaign, character.Id, ability, dc, mode, skill, circumstanceModifier)
+            : engine.ResolveAbilityCheckWithDice(campaign, character.Id, ability, dc, dice, mode, skill, circumstanceModifier);
     }
 
     private object SavingThrow(CampaignState campaign, JsonElement a)
     {
         var characterId = RequiredString(a, "character_id");
         var ability = RequiredString(a, "ability");
+        var dc = RequiredInt(a, "dc");
         var requestedMode = ParseRollMode(OptionalString(a, "roll_mode"));
-        return engine.ResolveSavingThrowWithDice(
-            campaign,
-            characterId,
-            ability,
-            RequiredInt(a, "dc"),
-            dice,
-            requestedMode,
-            OptionalInt(a, "circumstance_modifier", 0));
+        var circumstanceModifier = OptionalInt(a, "circumstance_modifier", 0);
+        var character = RequireCharacter(campaign, characterId);
+        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            return engine.ResolveSavingThrowWithDice(campaign, character.Id, ability, dc, dice, requestedMode, circumstanceModifier);
+
+        var normalized = CharacterMechanics.NormalizeAbility(ability);
+        if (CharacterMechanics.AutomaticallyFailsSavingThrow(character, normalized))
+            return engine.ResolveSavingThrow(campaign, character.Id, normalized, dc, 1, null, requestedMode, circumstanceModifier);
+
+        return engine.RequestSavingThrowRoll(campaign, character.Id, normalized, dc, requestedMode, circumstanceModifier);
     }
 
     private object DeathSave(CampaignState campaign, string characterId, string? encounterId)

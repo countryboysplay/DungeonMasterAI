@@ -184,6 +184,82 @@ Run("natural 20 attack creates a critical doubled-dice damage formula", () =>
     Equal("1d8+3", damagePending.Context["base_damage_expression"], "base damage expression context");
 });
 
+
+Run("player ability check creates a required pending d20 and uses the supplied roll", () =>
+{
+    var engine = new GameEngine();
+    var pc = new CharacterSheet
+    {
+        Id = "pc-check",
+        Name = "Aric",
+        CharacterType = "pc",
+        ProficiencyBonus = 2,
+        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["strength"] = 16 },
+        SkillProficiencies = ["athletics"]
+    };
+    var campaign = new CampaignState { Id = "campaign-check", Name = "Check Campaign", Characters = [pc] };
+
+    var pending = engine.RequestAbilityCheckRoll(campaign, pc.Id, "strength", 15, D20RollMode.Normal, "athletics");
+    Equal("ability_check", pending.ResolutionKey, "ability check resolution key");
+    Equal(5, pending.Modifier, "ability check static modifier");
+    Equal(15, pending.TargetNumber, "ability check DC");
+    True(pending.Required, "ability check should require the player roll");
+
+    var result = engine.ResolvePendingAbilityCheckRoll(campaign, pending.Id, 9);
+    Equal(9, result.ChosenRoll, "authoritative ability-check d20");
+    Equal(14, result.Total, "ability check total from supplied d20");
+    True(!result.Success, "9 + 5 should fail DC 15");
+    True(campaign.PendingPlayerRoll is null, "ability check pending roll should clear");
+});
+
+Run("player saving throw creates a required pending d20 and honors disadvantage", () =>
+{
+    var engine = new GameEngine();
+    var pc = new CharacterSheet
+    {
+        Id = "pc-save",
+        Name = "Aric",
+        CharacterType = "pc",
+        ProficiencyBonus = 2,
+        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["dexterity"] = 14 },
+        SavingThrowProficiencies = ["dexterity"],
+        Conditions = ["Restrained"]
+    };
+    var campaign = new CampaignState { Id = "campaign-save", Name = "Save Campaign", Characters = [pc] };
+
+    var pending = engine.RequestSavingThrowRoll(campaign, pc.Id, "dexterity", 15);
+    Equal("saving_throw", pending.ResolutionKey, "saving throw resolution key");
+    Equal("disadvantage", pending.RollMode, "saving throw roll mode");
+    Equal(4, pending.Modifier, "saving throw static modifier");
+    True(pending.Required, "saving throw should require the player roll");
+
+    var deterministicDice = new DiceService((minimumInclusive, maximumExclusive) => minimumInclusive);
+    var result = engine.ResolvePendingSavingThrowRoll(campaign, pending.Id, 18, 7, deterministicDice);
+    Equal(7, result.ChosenRoll, "authoritative disadvantage d20");
+    Equal(11, result.Total, "saving throw total from supplied d20");
+    True(!result.Success, "7 + 4 should fail DC 15");
+    True(campaign.PendingPlayerRoll is null, "saving throw pending roll should clear");
+});
+
+Run("an existing required player roll blocks a second d20 request", () =>
+{
+    var engine = new GameEngine();
+    var pc = new CharacterSheet
+    {
+        Id = "pc-block",
+        Name = "Aric",
+        CharacterType = "pc",
+        Abilities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["wisdom"] = 12 }
+    };
+    var campaign = new CampaignState { Id = "campaign-block", Name = "Block Campaign", Characters = [pc] };
+    engine.RequestAbilityCheckRoll(campaign, pc.Id, "wisdom", 10);
+
+    var threw = false;
+    try { engine.RequestSavingThrowRoll(campaign, pc.Id, "wisdom", 10); }
+    catch (InvalidOperationException) { threw = true; }
+    True(threw, "a second player roll request should be rejected until the first is resolved");
+});
+
 Console.WriteLine();
 Console.WriteLine($"Roll-state tests: {passed} passed, {failures.Count} failed.");
 foreach (var failure in failures) Console.WriteLine($"FAIL: {failure}");
