@@ -1,2 +1,3 @@
 Verify r47 NPC readied projectile attack and auto-hit sequences on Windows CI.
-Deterministic maximum dice now respect the exclusive upper bound.
+Deterministic maximum dice respect the exclusive upper bound.
+NPC attack projectiles use reliable noncritical hits so Concentration can be tested after every projectile.
