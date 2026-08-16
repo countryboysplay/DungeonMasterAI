@@ -168,6 +168,18 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
                 audit.Add($"{name}: {(result.Ok ? "ok" : "error")} {(result.Error ?? "")}".Trim());
                 var resultJson = JsonSerializer.Serialize(result, _json);
                 messages.Add(new { role = "tool", tool_call_id = id, name, content = resultJson });
+
+                if (campaign.PendingPlayerRoll?.Required == true)
+                {
+                    var pending = campaign.PendingPlayerRoll;
+                    audit.Add($"guard: stopped for required player roll '{pending.ResolutionKey}'");
+                    var actor = campaign.Characters.FirstOrDefault(c => c.Id.Equals(pending.ActorCharacterId, StringComparison.OrdinalIgnoreCase));
+                    var actorName = actor?.Name ?? "The player character";
+                    var prompt = string.IsNullOrWhiteSpace(pending.Purpose)
+                        ? $"{actorName} has a required {pending.Formula} roll. Use the highlighted roll control to continue."
+                        : pending.Purpose;
+                    return new DmTurnResult(prompt, toolCount, audit);
+                }
             }
         }
 
@@ -203,6 +215,7 @@ When portraying an NPC, use only that NPC's public knowledge plus that NPC's own
 Narrate only after any required tool calls have returned. If a tool rejects an action, narrate the constraint rather than pretending it succeeded.
 Run non-player creatures yourself. When the active combatant is an NPC or hostile creature, choose a reasonable action from verified state, resolve it with tools, advance the turn as needed, and continue through NPC turns until a player character must decide what to do. Never ask the player what an enemy or NPC should do.
 A player character does NOT make a Death Saving Throw immediately when they drop to 0 HP. Continue the current creature's turn and any intervening NPC turns normally. When a player character STARTS their turn at 0 HP and is not Stable or Dead, STOP before resolving that turn. Never call death_save for a player character. The Game Table will require the player to roll the Death Saving Throw themselves.
+For ability_check and saving_throw, call the deterministic tool with the correct player character, ability, skill when applicable, and DC. For a player character, those tools create a required player d20 request instead of rolling the d20 for them. Do not make a second roll or narrate success or failure until the application receives the player's roll.
 When tactical combat begins, ensure every participating combatant has a sensible initial grid position using the positioning tools before the first player decision so the live battlefield can render immediately.
 If pending_player_roll is present and Required is true, do not resolve, invent, or bypass that roll. Stop and let the application collect it from the player.
 If the player says "next turn", "continue", or ends a player turn, advance combat and autonomously resolve intervening NPC turns until the next player-character decision point, including stopping at a required player-controlled Death Saving Throw.

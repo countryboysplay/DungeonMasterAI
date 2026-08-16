@@ -273,6 +273,269 @@ public sealed partial class GameEngine
         return new EncounterAttackResult(encounter.Id, attacker.Name, target.Name, profile.Name, attack, damage, summary, concentration, false, coverBonus);
     }
 
+
+    public PendingRollRequest RequestAbilityCheckRoll(
+        CampaignState campaign,
+        string characterId,
+        string ability,
+        int difficultyClass,
+        D20RollMode mode = D20RollMode.Normal,
+        string? skill = null,
+        int circumstanceModifier = 0)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        if (difficultyClass < 0) throw new ArgumentOutOfRangeException(nameof(difficultyClass));
+        if (campaign.PendingPlayerRoll?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+
+        var character = RequireCharacter(campaign, characterId);
+        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only a player character can create a player-controlled ability check request.");
+
+        var normalizedAbility = CharacterMechanics.NormalizeAbility(ability);
+        var normalizedSkill = string.IsNullOrWhiteSpace(skill) ? "" : skill.Trim().ToLowerInvariant();
+        var helper = FindHelpAbilityCheckHelper(campaign, character.Id, normalizedSkill);
+        var requestedMode = helper is null ? mode : CombineAdvantage(mode, D20RollMode.Advantage);
+        var effectiveMode = CombineAdvantage(requestedMode, AbilityCheckModeFromConditions(character));
+        var proficient = !string.IsNullOrWhiteSpace(normalizedSkill) && ContainsIgnoreCase(character.SkillProficiencies, normalizedSkill);
+        var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, normalizedAbility));
+        var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
+        var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+        var staticModifier = abilityModifier + proficiencyModifier + circumstanceModifier - exhaustionPenalty;
+        var checkLabel = string.IsNullOrWhiteSpace(normalizedSkill)
+            ? $"{normalizedAbility} ability check"
+            : $"{normalizedAbility} ({normalizedSkill}) ability check";
+        var modeText = effectiveMode == D20RollMode.Normal ? "" : $" with {effectiveMode}";
+
+        var pending = new PendingRollRequest
+        {
+            ActorCharacterId = character.Id,
+            Formula = "1d20",
+            RollType = "d20",
+            RollMode = effectiveMode.ToString().ToLowerInvariant(),
+            Purpose = $"{character.Name} must make a {checkLabel}. Roll the d20{modeText} against DC {difficultyClass}.",
+            ResolutionKey = "ability_check",
+            Modifier = staticModifier,
+            TargetNumber = difficultyClass,
+            TargetLabel = $"DC {difficultyClass}",
+            Required = true,
+            Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ability"] = normalizedAbility,
+                ["skill"] = normalizedSkill,
+                ["circumstance_modifier"] = circumstanceModifier.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["proficient"] = proficient ? "true" : "false",
+                ["helper_combatant_id"] = helper?.Id ?? ""
+            }
+        };
+
+        campaign.PendingPlayerRoll = pending;
+        Touch(campaign);
+        Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
+        return pending;
+    }
+
+    public D20TestResult ResolvePendingAbilityCheckRoll(
+        CampaignState campaign,
+        string pendingRollId,
+        int rollOne,
+        int? rollTwo = null)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
+        if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
+
+        var pending = campaign.PendingPlayerRoll
+            ?? throw new InvalidOperationException("There is no required player roll to resolve.");
+        if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The supplied roll does not match the active pending player roll.");
+        if (!pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not an ability check.");
+
+        var character = RequireCharacter(campaign, pending.ActorCharacterId);
+        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The pending ability check no longer belongs to a player character.");
+        if (!pending.Context.TryGetValue("ability", out var ability) || string.IsNullOrWhiteSpace(ability))
+            throw new InvalidOperationException("The pending ability check is missing its ability.");
+        pending.Context.TryGetValue("skill", out var skill);
+        var circumstanceModifier = ContextInt(pending, "circumstance_modifier", 0);
+        var proficient = ContextBool(pending, "proficient");
+        var mode = ParsePendingRollMode(pending.RollMode);
+        if (mode != D20RollMode.Normal && !rollTwo.HasValue)
+            throw new InvalidOperationException($"This ability check requires two d20 results because it has {mode}.");
+        var difficultyClass = pending.TargetNumber
+            ?? throw new InvalidOperationException("The pending ability check is missing its DC.");
+
+        var result = CharacterMechanics.ResolveD20Test(
+            character,
+            ability,
+            difficultyClass,
+            rollOne,
+            rollTwo,
+            mode,
+            proficient,
+            circumstanceModifier);
+
+        if (pending.Context.TryGetValue("helper_combatant_id", out var helperCombatantId)
+            && !string.IsNullOrWhiteSpace(helperCombatantId))
+        {
+            foreach (var encounter in campaign.Encounters.Where(e => e.Status.Equals("active", StringComparison.OrdinalIgnoreCase)))
+            {
+                var helper = encounter.Combatants.FirstOrDefault(c => c.Id.Equals(helperCombatantId, StringComparison.OrdinalIgnoreCase));
+                if (helper is null) continue;
+                if (string.Equals(helper.HelpAbilityTargetCharacterId, character.Id, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(helper.HelpAbilityProficiency, skill, StringComparison.OrdinalIgnoreCase))
+                {
+                    var helperCharacter = RequireCharacter(campaign, helper.CharacterId);
+                    helper.HelpAbilityTargetCharacterId = null;
+                    helper.HelpAbilityProficiency = null;
+                    Log(campaign, "help_ability_consumed", $"{helperCharacter.Name}'s Help supplied Advantage to the ability check.");
+                }
+                break;
+            }
+        }
+
+        campaign.PendingPlayerRoll = null;
+        Touch(campaign);
+        Log(campaign, "ability_check", $"{character.Name}: {result.Summary}");
+        return result;
+    }
+
+    public PendingRollRequest RequestSavingThrowRoll(
+        CampaignState campaign,
+        string characterId,
+        string ability,
+        int difficultyClass,
+        D20RollMode mode = D20RollMode.Normal,
+        int circumstanceModifier = 0)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        if (difficultyClass < 0) throw new ArgumentOutOfRangeException(nameof(difficultyClass));
+        if (campaign.PendingPlayerRoll?.Required == true)
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+
+        var character = RequireCharacter(campaign, characterId);
+        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only a player character can create a player-controlled saving throw request.");
+
+        var normalizedAbility = CharacterMechanics.NormalizeAbility(ability);
+        if (CharacterMechanics.AutomaticallyFailsSavingThrow(character, normalizedAbility))
+            throw new InvalidOperationException($"{character.Name} automatically fails this {normalizedAbility} saving throw because of their current condition.");
+
+        var conditionMode = CharacterMechanics.SavingThrowModeFromConditions(character, normalizedAbility);
+        var effectiveMode = CombineAdvantage(mode, conditionMode);
+        var proficient = ContainsIgnoreCase(character.SavingThrowProficiencies, normalizedAbility)
+            || ContainsIgnoreCase(character.SavingThrowProficiencies, normalizedAbility[..3]);
+        var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, normalizedAbility));
+        var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
+        var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+        var staticModifier = abilityModifier + proficiencyModifier + circumstanceModifier - exhaustionPenalty;
+        var modeText = effectiveMode == D20RollMode.Normal ? "" : $" with {effectiveMode}";
+
+        var pending = new PendingRollRequest
+        {
+            ActorCharacterId = character.Id,
+            Formula = "1d20",
+            RollType = "d20",
+            RollMode = effectiveMode.ToString().ToLowerInvariant(),
+            Purpose = $"{character.Name} must make a {normalizedAbility} saving throw. Roll the d20{modeText} against DC {difficultyClass}.",
+            ResolutionKey = "saving_throw",
+            Modifier = staticModifier,
+            TargetNumber = difficultyClass,
+            TargetLabel = $"DC {difficultyClass}",
+            Required = true,
+            Context = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ability"] = normalizedAbility,
+                ["circumstance_modifier"] = circumstanceModifier.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            }
+        };
+
+        campaign.PendingPlayerRoll = pending;
+        Touch(campaign);
+        Log(campaign, "player_roll_requested", pending.Purpose, dmOnly: true);
+        return pending;
+    }
+
+    public D20TestResult ResolvePendingSavingThrowRoll(
+        CampaignState campaign,
+        string pendingRollId,
+        int rollOne,
+        int? rollTwo,
+        DiceService dice)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        ArgumentNullException.ThrowIfNull(dice);
+        if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
+        if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
+
+        var pending = campaign.PendingPlayerRoll
+            ?? throw new InvalidOperationException("There is no required player roll to resolve.");
+        if (!pending.Id.Equals(pendingRollId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The supplied roll does not match the active pending player roll.");
+        if (!pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The pending roll is '{pending.ResolutionKey}', not a saving throw.");
+
+        var character = RequireCharacter(campaign, pending.ActorCharacterId);
+        if (!character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The pending saving throw no longer belongs to a player character.");
+        if (!pending.Context.TryGetValue("ability", out var ability) || string.IsNullOrWhiteSpace(ability))
+            throw new InvalidOperationException("The pending saving throw is missing its ability.");
+        var normalizedAbility = CharacterMechanics.NormalizeAbility(ability);
+        var circumstanceModifier = ContextInt(pending, "circumstance_modifier", 0);
+        var mode = ParsePendingRollMode(pending.RollMode);
+        if (mode != D20RollMode.Normal && !rollTwo.HasValue)
+            throw new InvalidOperationException($"This saving throw requires two d20 results because it has {mode}.");
+        var difficultyClass = pending.TargetNumber
+            ?? throw new InvalidOperationException("The pending saving throw is missing its DC.");
+
+        var proficient = ContainsIgnoreCase(character.SavingThrowProficiencies, normalizedAbility)
+            || ContainsIgnoreCase(character.SavingThrowProficiencies, normalizedAbility[..3]);
+        var activeEffectBonus = RollActiveSavingThrowBonus(campaign, character.Id, dice);
+        D20TestResult result;
+        if (CharacterMechanics.AutomaticallyFailsSavingThrow(character, normalizedAbility))
+        {
+            var chosen = mode switch
+            {
+                D20RollMode.Advantage => Math.Max(rollOne, rollTwo!.Value),
+                D20RollMode.Disadvantage => Math.Min(rollOne, rollTwo!.Value),
+                _ => rollOne
+            };
+            var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, normalizedAbility));
+            var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
+            var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+            var total = chosen + abilityModifier + proficiencyModifier + circumstanceModifier + activeEffectBonus - exhaustionPenalty;
+            result = new D20TestResult(
+                rollOne,
+                rollTwo,
+                chosen,
+                abilityModifier,
+                proficiencyModifier,
+                exhaustionPenalty,
+                total,
+                difficultyClass,
+                false,
+                $"{normalizedAbility} saving throw automatically failed because {character.Name}'s condition causes automatic failure on Strength and Dexterity saving throws.");
+        }
+        else
+        {
+            result = CharacterMechanics.ResolveD20Test(
+                character,
+                normalizedAbility,
+                difficultyClass,
+                rollOne,
+                rollTwo,
+                mode,
+                proficient,
+                circumstanceModifier + activeEffectBonus);
+        }
+
+        campaign.PendingPlayerRoll = null;
+        Touch(campaign);
+        Log(campaign, "saving_throw", $"{character.Name}: {result.Summary}");
+        return result;
+    }
+
     private static void EnsureAttackAvailableWithoutConsuming(CombatantState combatant, CharacterSheet character)
     {
         if (CharacterMechanics.IsIncapacitated(character))

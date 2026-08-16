@@ -55,6 +55,18 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (pending.ResolutionKey.Equals("ability_check", StringComparison.OrdinalIgnoreCase))
+        {
+            await ResolveActiveAbilityCheckFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+            return;
+        }
+
+        if (pending.ResolutionKey.Equals("saving_throw", StringComparison.OrdinalIgnoreCase))
+        {
+            await ResolveActiveSavingThrowFromRollAsync(pending.Id, rolls.RollOne, rolls.RollTwo);
+            return;
+        }
+
         StatusMessage = $"{LastDiceResult}. The pending roll type '{pending.ResolutionKey}' is not implemented yet; game state was not changed.";
     }
 
@@ -166,6 +178,56 @@ public sealed partial class MainViewModel
             {
                 Role = "assistant",
                 Content = CleanSessionNarration(result.Summary)
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private async Task ResolveActiveAbilityCheckFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingAbilityCheckRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo);
+            LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = $"🎲 {CleanSessionNarration(result.Summary)}"
+            });
+            RaiseCharacterProperties();
+            RaiseCampaignProperties();
+            RefreshCombatSelections(keepSelection: true);
+            await SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            RaiseCampaignProperties();
+        }
+    }
+
+    private async Task ResolveActiveSavingThrowFromRollAsync(string pendingRollId, int rollOne, int? rollTwo)
+    {
+        if (SelectedCampaign is null) return;
+        try
+        {
+            var result = _engine.ResolvePendingSavingThrowRoll(SelectedCampaign, pendingRollId, rollOne, rollTwo, _dice);
+            LastDiceResult = $"{LastDiceResult} • {result.Summary}";
+            StatusMessage = result.Summary;
+            SelectedCampaign.Chat.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = $"🎲 {CleanSessionNarration(result.Summary)}"
             });
             RaiseCharacterProperties();
             RaiseCampaignProperties();
