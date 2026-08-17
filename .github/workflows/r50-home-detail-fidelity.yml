@@ -1,0 +1,70 @@
+name: Apply r50 Home detail fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-home-detail-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Tighten Home campaign identity
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('windows/src/DungeonMasterAI.App/Views/HomeView.xaml')
+          text = path.read_text(encoding='utf-8')
+
+          # Hero crest: replace the oversized club placeholder with a shield/tree mark
+          # modeled on the approved Greenhaven visual language.
+          old = '<TextBlock Text="♧" FontFamily="Georgia" FontSize="64" Foreground="#B8C5AA" HorizontalAlignment="Center" VerticalAlignment="Center"/>'
+          if 'AaaGreenhavenHeroCrest' not in text:
+              new = '''<Viewbox x:Name="AaaGreenhavenHeroCrest" Margin="11">
+                                    <Grid Width="74" Height="90">
+                                        <Path Data="M37,2 L70,14 L66,61 C61,74 51,83 37,88 C23,83 13,74 8,61 L4,14 Z" Fill="#0B1210" Stroke="#A68C5B" StrokeThickness="2"/>
+                                        <Path Data="M37,17 C32,24 28,29 20,34 M37,17 C42,24 46,29 54,34 M37,17 L37,68 M20,34 C25,38 31,38 37,33 C43,38 49,38 54,34 M26,57 C31,51 34,45 37,38 C40,45 43,51 48,57 M30,68 C32,62 34,58 37,54 C40,58 42,62 44,68" Stroke="#B8C6A5" StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                                    </Grid>
+                                </Viewbox>'''
+              if old not in text:
+                  raise SystemExit('Home hero crest anchor not found.')
+              text = text.replace(old, new, 1)
+
+          # Runtime/header and card icon cleanup. Values/bindings remain untouched.
+          replacements = {
+              'Text="♧  AI RUNTIME STATUS"': 'Text="&#xE950;  AI RUNTIME STATUS" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="▣  NEXT SESSION"': 'Text="&#xE787;  NEXT SESSION" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="▤  ACTIVE QUEST"': 'Text="&#xE8FD;  ACTIVE QUEST" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="●  CURRENT LOCATION"': 'Text="&#xE81D;  CURRENT LOCATION" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="♟  PARTY STATUS"': 'Text="&#xE716;  PARTY STATUS" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="◇  SAVE &amp; RECOVERY"': 'Text="&#xE83D;  SAVE &amp; RECOVERY" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="▥  RECENT WORLD EVENTS"': 'Text="&#xE128;  RECENT WORLD EVENTS" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="✎  RECENT ACTIVITY"': 'Text="&#xE823;  RECENT ACTIVITY" FontFamily="Segoe Fluent Icons, Georgia"',
+          }
+          for old_text, new_text in replacements.items():
+              text = text.replace(old_text, new_text)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit Home detail fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App/Views/HomeView.xaml; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App/Views/HomeView.xaml
+          git commit -m "r50 ui: tighten Home campaign identity"
+          git push origin HEAD:feature/r50-aaa-gui
