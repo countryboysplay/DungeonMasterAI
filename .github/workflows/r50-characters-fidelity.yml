@@ -1,0 +1,84 @@
+name: Apply r50 Characters fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-characters-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Tighten Characters presentation
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('windows/src/DungeonMasterAI.App/Views/CharactersView.xaml')
+          text = path.read_text(encoding='utf-8')
+
+          # Add the cinematic edge treatment from the approved character render to
+          # the existing Aeliana reference portrait without changing the binding/state.
+          if 'AaaCharacterPortraitVignette' not in text and 'aeliana-portrait.jpg' in text:
+              image_pattern = re.compile(r'(<Image\b[^>]*aeliana-portrait\.jpg[^>]*/>)', re.S)
+              vignette = '''\n                            <Rectangle x:Name="AaaCharacterPortraitVignette" IsHitTestVisible="False">
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#18070B0E" Offset="0"/>
+                                        <GradientStop Color="#00070B0E" Offset="0.48"/>
+                                        <GradientStop Color="#D8070B0E" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>'''
+              text, count = image_pattern.subn(r'\1' + vignette, text, count=1)
+              if count == 0:
+                  raise SystemExit('Aeliana portrait image was found but its XAML anchor could not be upgraded.')
+
+          # Normalize the six approved character workspace tabs to crisp line icons.
+          tab_icons = {
+              'Overview': '&#xE9D2;',
+              'Inventory': '&#xE7B8;',
+              'Spells': '&#xE945;',
+              'Conditions': '&#xE814;',
+              'Journal': '&#xE82D;',
+              'Progression': '&#xE74A;',
+          }
+          for label, glyph in tab_icons.items():
+              # Handles either Content="..." buttons or TextBlock tab labels.
+              text = text.replace(f'Content="{label}"', f'Content="{glyph}  {label}" FontFamily="Segoe Fluent Icons, Georgia"')
+              text = text.replace(f'Text="{label}"', f'Text="{glyph}  {label}" FontFamily="Segoe Fluent Icons, Georgia"')
+
+          # Stat-strip labels/icons: do not change values or bindings.
+          stat_replacements = {
+              '♥': '&#xEB51;',
+              '♜': '&#xE83D;',
+              '⚔': '&#xE7FC;',
+              '✦': '&#xE945;',
+          }
+          for old, new in stat_replacements.items():
+              text = text.replace(f'Text="{old}', f'Text="{new}')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit Characters fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App/Views/CharactersView.xaml; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App/Views/CharactersView.xaml
+          git commit -m "r50 ui: tighten Characters visual fidelity"
+          git push origin HEAD:feature/r50-aaa-gui
