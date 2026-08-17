@@ -3,181 +3,124 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:DungeonMasterAI.App.Controls"
              Background="Transparent">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="14,10,14,12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="270"/>
-                <RowDefinition Height="206"/>
-                <RowDefinition Height="*" MinHeight="235"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="292"/>
-            </Grid.ColumnDefinitions>
+    <Grid Margin="12,8,12,10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="276"/>
+            <RowDefinition Height="214"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="292"/>
+        </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#3D3528" BorderThickness="1" CornerRadius="5" ClipToBounds="True" Background="#0B1115">
-                <Grid>
-                    <controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.33" IsHitTestVisible="False"/>
-                    <Rectangle>
-                        <Rectangle.Fill>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                <GradientStop Color="#F4070B0E" Offset="0"/>
-                                <GradientStop Color="#DA070B0E" Offset="0.38"/>
-                                <GradientStop Color="#50070B0E" Offset="0.72"/>
-                                <GradientStop Color="#08070B0E" Offset="1"/>
-                            </LinearGradientBrush>
-                        </Rectangle.Fill>
-                    </Rectangle>
-                    <Grid Margin="30,25,28,24">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="132"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Border Width="104" Height="126" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#101713" BorderBrush="#8B7B5D" BorderThickness="2" CornerRadius="5">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
-                            </Border.Effect>
-                            <Grid>
-                                <Viewbox x:Name="AaaGreenhavenHeroCrest" Margin="11">
-                          <Grid Width="74" Height="90">
-                              <Path Data="M37,2 L70,14 L66,61 C61,74 51,83 37,88 C23,83 13,74 8,61 L4,14 Z" Fill="#0B1210" Stroke="#A68C5B" StrokeThickness="2"/>
-                              <Path Data="M37,17 C32,24 28,29 20,34 M37,17 C42,24 46,29 54,34 M37,17 L37,68 M20,34 C25,38 31,38 37,33 C43,38 49,38 54,34 M26,57 C31,51 34,45 37,38 C40,45 43,51 48,57 M30,68 C32,62 34,58 37,54 C40,58 42,62 44,68" Stroke="#B8C6A5" StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
-                          </Grid>
-                      </Viewbox>
-                                <Border BorderBrush="#29322A" BorderThickness="5" Margin="7" CornerRadius="4"/>
-                            </Grid>
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="760" HorizontalAlignment="Left">
-                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN}" Style="{StaticResource AaaHeroTitle}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding CampaignSummary}" FontFamily="Georgia" FontSize="15" Foreground="#E2D9C7" Margin="0,7,0,18" TextWrapping="Wrap" MaxWidth="610"/>
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Width="94"><TextBlock Text="Campaign Level" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="5" FontFamily="Georgia" FontSize="15"/></StackPanel>
-                                <StackPanel Width="120"><TextBlock Text="Play Style" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="Heroic Fantasy" FontFamily="Georgia" FontSize="13"/></StackPanel>
-                                <StackPanel Width="110"><TextBlock Text="Game System" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="{Binding SelectedCampaign.System, TargetNullValue=D&amp;D 5e}" FontFamily="Georgia" FontSize="13"/></StackPanel>
-                                <StackPanel Width="85"><TextBlock Text="Sessions" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="12" FontFamily="Georgia" FontSize="13"/></StackPanel>
-                            </StackPanel>
-                            <Button Content="⚙  Campaign Settings" Style="{StaticResource AaaTopButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Padding="12,6"/>
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaPanelBorder}" Padding="16">
-                <StackPanel>
-                    <TextBlock Text="&#xE950;  AI RUNTIME STATUS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaBlueBrush}"/>
-                    <Border Height="1" Background="#2D3438" Margin="0,13,0,12"/>
-                    <Border Background="#0A1217" BorderBrush="#26333A" BorderThickness="1" CornerRadius="4" Padding="10">
-                        <DockPanel>
-                            <Ellipse Width="8" Height="8" Fill="{StaticResource AaaGreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="Local AI" FontFamily="Georgia" FontSize="13"/>
-                            <TextBlock DockPanel.Dock="Right" Text="● Running" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/>
-                        </DockPanel>
+        <Border Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#4C402D" BorderThickness="1" CornerRadius="3" ClipToBounds="True">
+            <Border.Background>
+                <ImageBrush ImageSource="/DungeonMasterAI;component/Assets/Reference/home-hero-greenhaven.jpg" Stretch="UniformToFill" AlignmentX="Right"/>
+            </Border.Background>
+            <Grid>
+                <Rectangle>
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#F905090C" Offset="0"/>
+                            <GradientStop Color="#EB060A0D" Offset="0.34"/>
+                            <GradientStop Color="#A3080D11" Offset="0.58"/>
+                            <GradientStop Color="#35080D11" Offset="0.82"/>
+                            <GradientStop Color="#13080D11" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle VerticalAlignment="Bottom" Height="70">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#00070B0E" Offset="0"/>
+                            <GradientStop Color="#DA070B0E" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Grid Margin="30,24,26,22">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border Width="106" Height="132" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#D20A1110" BorderBrush="#9B865F" BorderThickness="2" CornerRadius="4">
+                        <Border.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.72" Color="#000000"/></Border.Effect>
+                        <Grid>
+                            <Viewbox Margin="12">
+                                <Grid Width="74" Height="90">
+                                    <Path Data="M37,2 L70,14 L66,61 C61,74 51,83 37,88 C23,83 13,74 8,61 L4,14 Z" Fill="#07100D" Stroke="#B29A68" StrokeThickness="2"/>
+                                    <Path Data="M37,15 C32,23 27,29 19,34 M37,15 C42,23 47,29 55,34 M37,15 L37,69 M19,34 C26,39 31,39 37,33 C43,39 48,39 55,34 M25,58 C31,51 34,44 37,37 C40,44 43,51 49,58 M29,69 C32,62 34,58 37,54 C40,58 42,62 45,69" Stroke="#C2CFB2" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                                </Grid>
+                            </Viewbox>
+                            <Border Margin="7" BorderBrush="#263128" BorderThickness="4" CornerRadius="3"/>
+                        </Grid>
                     </Border>
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/></Grid.RowDefinitions>
-                        <TextBlock Text="Model" Style="{StaticResource AaaMuted}"/>
-                        <TextBlock Grid.Column="1" Text="Bundled GGUF" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF"/>
-                        <TextBlock Grid.Row="1" Text="Runtime" Style="{StaticResource AaaMuted}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="llama.cpp • Local" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF"/>
-                        <TextBlock Grid.Row="2" Text="Status" Style="{StaticResource AaaMuted}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalAiStatus}" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF" TextTrimming="CharacterEllipsis"/>
-                    </Grid>
-                    <Border Height="32" Margin="0,8,0,0" Background="#0B2538" BorderBrush="#245272" BorderThickness="1" CornerRadius="3"><Grid Margin="9,0"><TextBlock Text="Configure Runtime" VerticalAlignment="Center" FontSize="11"/></Grid></Border>
-                </StackPanel>
-            </Border>
-
-            <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0">
-                    <StackPanel>
-                        <TextBlock Text="&#xE787;  NEXT SESSION" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}"/>
-                        <Border Height="1" Background="#3A3328" Margin="0,10,0,12"/>
-                        <TextBlock Text="Tomorrow" FontFamily="Georgia" FontSize="20"/>
-                        <TextBlock Text="May 24, 2025 · 7:00 PM" Foreground="#C2B79F" FontFamily="Georgia" FontSize="11" Margin="0,4,0,14"/>
-                        <TextBlock Text="The Old Watchtower" FontFamily="Georgia" FontSize="13"/>
-                        <TextBlock Text="Session 13" Style="{StaticResource AaaMuted}" Margin="0,2,0,10"/>
-                        <Button Content="View Session                              ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0" HorizontalContentAlignment="Stretch"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="1" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#384631">
-                    <StackPanel>
-                        <TextBlock Text="&#xE8FD;  ACTIVE QUEST" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaGreenBrush}"/>
-                        <Border Height="1" Background="#314131" Margin="0,10,0,12"/>
-                        <TextBlock Text="{Binding Quests[0].Name, TargetNullValue=Whispers in the Roots}" FontFamily="Georgia" FontSize="18" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding Quests[0].Summary, TargetNullValue=Investigate the corruption spreading through the Eldenwood.}" Foreground="#C8C0AF" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,11" LineHeight="17"/>
-                        <TextBlock Text="Objective: Find the source        ›" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#2C4051">
-                    <StackPanel>
-                        <TextBlock Text="&#xE81D;  CURRENT LOCATION" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#6EA6DF"/>
-                        <Border Height="1" Background="#293D4B" Margin="0,10,0,12"/>
-                        <TextBlock Text="{Binding CurrentLocationName, TargetNullValue=Greenhaven}" FontFamily="Georgia" FontSize="19"/>
-                        <TextBlock Text="A peaceful riverside town surrounded by ancient woodlands." Foreground="#C7BEAC" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,15" LineHeight="17"/>
-                        <Button Content="▧  Open Map                         ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="3" Style="{StaticResource AaaCardBorder}" Margin="0" BorderBrush="#49394B">
-                    <StackPanel>
-                        <TextBlock Text="&#xE716;  PARTY STATUS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#B485D4"/>
-                        <Border Height="1" Background="#3D3040" Margin="0,10,0,12"/>
-                        <TextBlock Text="4 / 4 Members" FontFamily="Georgia" FontSize="17"/>
-                        <ItemsControl ItemsSource="{Binding Characters}" Margin="0,10,0,8">
-                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate><DataTemplate><Border Width="38" Height="38" CornerRadius="19" Background="#151D21" BorderBrush="#8A7350" BorderThickness="1" Margin="0,0,5,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Width="30"/></Border></DataTemplate></ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <DockPanel><TextBlock Text="♥  Healthy" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Text="No Conditions" Style="{StaticResource AaaMuted}"/></DockPanel>
-                        <Button Content="▥  Manage Party                     ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0,10,0,0"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaCardBorder}">
-                <StackPanel>
-                    <TextBlock Text="&#xE83D;  SAVE &amp; RECOVERY" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}"/>
-                    <Border Height="1" Background="#3A3328" Margin="0,10,0,12"/>
-                    <TextBlock Text="Last Save" Style="{StaticResource AaaMuted}"/>
-                    <DockPanel Margin="0,3,0,14"><TextBlock Text="Autosave active" FontFamily="Georgia" FontSize="13"/><TextBlock DockPanel.Dock="Right" Text="Auto Save  ✓" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/></DockPanel>
-                    <TextBlock Text="Save Slots" Style="{StaticResource AaaMuted}"/>
-                    <UniformGrid Columns="5" Margin="0,9,0,12">
-                        <Border BorderBrush="#98753B" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Georgia"/></Border>
-                        <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                        <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                        <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                        <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="5" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                    </UniformGrid>
-                    <Border Background="#0E251A" BorderBrush="#284D36" BorderThickness="1" CornerRadius="3" Padding="9"><StackPanel><TextBlock Text="◇  Safe Recovery" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="All systems nominal" Style="{StaticResource AaaMuted}" Margin="17,2,0,0"/></StackPanel></Border>
-                </StackPanel>
-            </Border>
-
-            <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="0.86*"/><ColumnDefinition Width="1.04*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
-                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Text="&#xE128;  RECENT WORLD EVENTS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#7CAAE0"/>
-                        <ItemsControl Grid.Row="1" ItemsSource="{Binding RecentEvents}" Margin="0,10,0,8"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#252B2E" BorderThickness="0,0,0,1" Padding="2,8"><DockPanel><TextBlock Text="◉" Foreground="{StaticResource AaaGoldBrush}" Width="23"/><TextBlock Text="{Binding Summary}" FontFamily="Georgia" FontSize="10.5" TextWrapping="Wrap"/></DockPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                        <Button Grid.Row="2" Content="♙  View World Timeline                              ›" Style="{StaticResource AaaTopButton}" Padding="9,5" Margin="0"/>
-                    </Grid>
-                </Border>
-                <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
-                    <StackPanel>
-                        <DockPanel><TextBlock Text="&#xE823;  RECENT ACTIVITY" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="9,4" Margin="0"/></DockPanel>
-                        <Border Height="1" Background="#2C3031" Margin="0,10,0,5"/>
-                        <TextBlock Text="▣   Session saved" FontFamily="Georgia" FontSize="11" Margin="2,7"/>
-                        <TextBlock Text="▤   AI Note added: Possible motives for the druid circle." FontFamily="Georgia" FontSize="11" Margin="2,7" TextWrapping="Wrap"/>
-                        <TextBlock Text="▥   Quest updated: Whispers in the Roots" FontFamily="Georgia" FontSize="11" Margin="2,7"/>
-                        <TextBlock Text="⚔   Combat encounter resolved" FontFamily="Georgia" FontSize="11" Margin="2,7"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" BorderBrush="#4A3C28" BorderThickness="1" CornerRadius="4" ClipToBounds="True" Background="#231B10">
-                    <Grid>
-                        <controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.42" IsHitTestVisible="False"/>
-                        <Rectangle Fill="#8A4D351F"/>
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="270">
-                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN}" FontFamily="Georgia" FontSize="17" Foreground="#E1C891" HorizontalAlignment="Center"/>
-                            <TextBlock Text="“In every shadow, a story. In every choice, a legend.”" FontFamily="Georgia" FontStyle="Italic" FontSize="11" Foreground="#D6C49F" TextAlignment="Center" TextWrapping="Wrap" Margin="0,105,0,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="650">
+                        <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN, Mode=OneWay}" Style="{StaticResource AaaHeroTitle}" FontSize="43"/>
+                        <TextBlock Text="{Binding CampaignSummary, Mode=OneWay}" FontFamily="Georgia" FontSize="14" Foreground="#E3DAC7" Margin="1,7,0,16" MaxWidth="570" TextWrapping="Wrap" LineHeight="20"/>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Width="100"><TextBlock Text="Campaign Level" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="5" FontFamily="Georgia" FontSize="14"/></StackPanel>
+                            <StackPanel Width="120"><TextBlock Text="Play Style" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="Heroic Fantasy" FontFamily="Georgia" FontSize="13"/></StackPanel>
+                            <StackPanel Width="116"><TextBlock Text="Game System" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="{Binding SelectedCampaign.System, TargetNullValue=D&amp;D 5e, Mode=OneWay}" FontFamily="Georgia" FontSize="13"/></StackPanel>
+                            <StackPanel Width="86"><TextBlock Text="Sessions" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="12" FontFamily="Georgia" FontSize="13"/></StackPanel>
                         </StackPanel>
-                    </Grid>
-                </Border>
+                        <Button Content="⚙  Campaign Settings" Style="{StaticResource AaaTopButton}" HorizontalAlignment="Left" Padding="12,6" Margin="0,13,0,0"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
+        </Border>
+
+        <Border Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaPanelBorder}" Padding="14">
+            <StackPanel>
+                <TextBlock Text="AI RUNTIME STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="#6DA5DB"/>
+                <Border Height="1" Background="#273038" Margin="0,11,0,12"/>
+                <Border Background="#091217" BorderBrush="#263A45" BorderThickness="1" CornerRadius="3" Padding="10">
+                    <DockPanel>
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource AaaGreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Local AI" FontFamily="Georgia" FontSize="13"/>
+                        <TextBlock DockPanel.Dock="Right" Text="● Running" Foreground="{StaticResource AaaGreenBrush}" FontSize="10.5"/>
+                    </DockPanel>
+                </Border>
+                <Grid Margin="0,13,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="92"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="27"/><RowDefinition Height="27"/><RowDefinition Height="27"/><RowDefinition Height="27"/></Grid.RowDefinitions>
+                    <TextBlock Text="Model" Style="{StaticResource AaaMuted}"/><TextBlock Grid.Column="1" Text="Bundled GGUF" Style="{StaticResource AaaMuted}" Foreground="#D1C6B2"/>
+                    <TextBlock Grid.Row="1" Text="Runtime" Style="{StaticResource AaaMuted}"/><TextBlock Grid.Row="1" Grid.Column="1" Text="llama.cpp • Local" Style="{StaticResource AaaMuted}" Foreground="#D1C6B2"/>
+                    <TextBlock Grid.Row="2" Text="Status" Style="{StaticResource AaaMuted}"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalAiStatus, Mode=OneWay}" Style="{StaticResource AaaMuted}" Foreground="#D1C6B2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Row="3" Text="Data" Style="{StaticResource AaaMuted}"/><TextBlock Grid.Row="3" Grid.Column="1" Text="Local only" Style="{StaticResource AaaMuted}" Foreground="#D1C6B2"/>
+                </Grid>
+                <Button Content="⚙  Configure Runtime" Style="{StaticResource AaaPrimaryButton}" Padding="9,6" Margin="0,10,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0">
+                <StackPanel><TextBlock Text="▣  NEXT SESSION" Style="{StaticResource AaaSectionTitle}"/><Border Height="1" Background="#3B3326" Margin="0,9,0,11"/><TextBlock Text="Tomorrow" FontFamily="Georgia" FontSize="19"/><TextBlock Text="May 24, 2025 · 7:00 PM" Foreground="#BEB49F" FontFamily="Georgia" FontSize="10.5" Margin="0,3,0,13"/><TextBlock Text="The Old Watchtower" FontFamily="Georgia" FontSize="12.5"/><TextBlock Text="Session 13" Style="{StaticResource AaaMuted}" Margin="0,2,0,10"/><Button Content="View Session                               ›" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0"/></StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#43503A">
+                <StackPanel><TextBlock Text="▤  ACTIVE QUEST" Style="{StaticResource AaaSectionTitle}" Foreground="#86B67A"/><Border Height="1" Background="#314231" Margin="0,9,0,11"/><TextBlock Text="{Binding Quests[0].Name, TargetNullValue=Whispers in the Roots, Mode=OneWay}" FontFamily="Georgia" FontSize="17" TextWrapping="Wrap"/><TextBlock Text="{Binding Quests[0].Summary, TargetNullValue=Investigate the corruption spreading through the Eldenwood., Mode=OneWay}" Foreground="#C8C0AF" FontSize="10.5" TextWrapping="Wrap" Margin="0,8,0,10" LineHeight="16" MaxHeight="50"/><TextBlock Text="Objective: Find the source        ›" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="10.5"/></StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#30485C">
+                <StackPanel><TextBlock Text="●  CURRENT LOCATION" Style="{StaticResource AaaSectionTitle}" Foreground="#6FA8DE"/><Border Height="1" Background="#293D4B" Margin="0,9,0,11"/><TextBlock Text="{Binding CurrentLocationName, TargetNullValue=Greenhaven, Mode=OneWay}" FontFamily="Georgia" FontSize="18"/><TextBlock Text="A peaceful riverside town surrounded by ancient woodlands." Foreground="#C7BEAC" FontSize="10.5" TextWrapping="Wrap" Margin="0,8,0,13" LineHeight="16"/><Button Content="▧  Open Map                          ›" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0"/></StackPanel>
+            </Border>
+            <Border Grid.Column="3" Style="{StaticResource AaaCardBorder}" BorderBrush="#4C3B50">
+                <StackPanel><TextBlock Text="♟  PARTY STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="#B887D2"/><Border Height="1" Background="#3D3040" Margin="0,9,0,11"/><TextBlock Text="4 / 4 Members" FontFamily="Georgia" FontSize="16"/><ItemsControl ItemsSource="{Binding Characters}" Margin="0,9,0,7"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="36" Height="36" CornerRadius="18" Background="#151D21" BorderBrush="#8A7350" BorderThickness="1" Margin="0,0,5,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="8.5" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Width="28"/></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><DockPanel><TextBlock Text="♥  Healthy" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Text="No Conditions" Style="{StaticResource AaaMuted}"/></DockPanel><Button Content="▥  Manage Party                     ›" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0,8,0,0"/></StackPanel>
+            </Border>
         </Grid>
-    </ScrollViewer>
+
+        <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaCardBorder}" Padding="14">
+            <StackPanel><TextBlock Text="◇  SAVE &amp; RECOVERY" Style="{StaticResource AaaSectionTitle}"/><Border Height="1" Background="#3A3328" Margin="0,9,0,10"/><TextBlock Text="Last Save" Style="{StaticResource AaaMuted}"/><DockPanel Margin="0,3,0,11"><TextBlock Text="Today, 2:34 PM" FontFamily="Georgia" FontSize="12.5"/><TextBlock DockPanel.Dock="Right" Text="Auto Save  ✓" Foreground="{StaticResource AaaGreenBrush}" FontSize="10.5"/></DockPanel><TextBlock Text="Save Slots" Style="{StaticResource AaaMuted}"/><UniformGrid Columns="5" Margin="0,7,0,10"><Border BorderBrush="#9C763A" BorderThickness="1" CornerRadius="3" Height="31" Margin="2"><TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Georgia"/></Border><Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="31" Margin="2"><TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="31" Margin="2"><TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="31" Margin="2"><TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="31" Margin="2"><TextBlock Text="5" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></UniformGrid><Border Background="#0E251A" BorderBrush="#284D36" BorderThickness="1" CornerRadius="3" Padding="8"><StackPanel><TextBlock Text="◇  Safe Recovery" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="10.5"/><TextBlock Text="All systems nominal" Style="{StaticResource AaaMuted}" Margin="17,2,0,0"/></StackPanel></Border></StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="0.87*"/><ColumnDefinition Width="1.08*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0" Padding="13">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="▥  RECENT WORLD EVENTS" Style="{StaticResource AaaSectionTitle}" Foreground="#7CAAE0"/><ItemsControl Grid.Row="1" ItemsSource="{Binding RecentEvents}" Margin="0,8,0,7"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#252B2E" BorderThickness="0,0,0,1" Padding="2,7"><DockPanel><TextBlock Text="◉" Foreground="{StaticResource AaaGoldBrush}" Width="22"/><TextBlock Text="{Binding Summary}" FontFamily="Georgia" FontSize="10" TextWrapping="Wrap"/></DockPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><Button Grid.Row="2" Content="♙  View World Timeline                              ›" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0"/></Grid>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0" Padding="13">
+                <StackPanel><DockPanel><TextBlock Text="✎  RECENT ACTIVITY" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="8,3" Margin="0"/></DockPanel><Border Height="1" Background="#2C3031" Margin="0,9,0,4"/><TextBlock Text="▣   Session saved" FontFamily="Georgia" FontSize="10.5" Margin="2,6"/><TextBlock Text="▤   AI Note added: Possible motives for the druid circle." FontFamily="Georgia" FontSize="10.5" Margin="2,6" TextWrapping="Wrap"/><TextBlock Text="▥   Quest updated: Whispers in the Roots" FontFamily="Georgia" FontSize="10.5" Margin="2,6"/><TextBlock Text="⚔   Combat encounter resolved" FontFamily="Georgia" FontSize="10.5" Margin="2,6"/></StackPanel>
+            </Border>
+            <Border Grid.Column="2" BorderBrush="#4A3C28" BorderThickness="1" CornerRadius="3" ClipToBounds="True" Background="#231B10">
+                <Grid><controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.42" IsHitTestVisible="False"/><Rectangle Fill="#76442F1E"/><Rectangle Stroke="#735E3B" StrokeThickness="1" Margin="10" Opacity="0.55"/><StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="255"><TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN, Mode=OneWay}" FontFamily="Georgia" FontSize="17" Foreground="#E1C891" HorizontalAlignment="Center"/><TextBlock Text="“In every shadow, a story. In every choice, a legend.”" FontFamily="Georgia" FontStyle="Italic" FontSize="10.5" Foreground="#D6C49F" TextAlignment="Center" TextWrapping="Wrap" Margin="0,100,0,0"/></StackPanel></Grid>
+            </Border>
+        </Grid>
+    </Grid>
 </UserControl>
