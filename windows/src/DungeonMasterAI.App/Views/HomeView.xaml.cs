@@ -95,6 +95,8 @@ public partial class HomeView : UserControl
         if (index < 0) return;
 
         var iconBrush = block.Foreground;
+        parent.Children.RemoveAt(index);
+
         block.Text = label;
         block.VerticalAlignment = VerticalAlignment.Center;
 
@@ -114,8 +116,6 @@ public partial class HomeView : UserControl
             VerticalAlignment = VerticalAlignment.Center
         });
         wrapper.Children.Add(block);
-
-        parent.Children.RemoveAt(index);
         parent.Children.Insert(index, wrapper);
     }
 
