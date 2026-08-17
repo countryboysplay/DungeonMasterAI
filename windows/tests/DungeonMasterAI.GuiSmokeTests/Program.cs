@@ -6,6 +6,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using DungeonMasterAI.App;
 using DungeonMasterAI.App.Views;
+using DungeonMasterAI.Data;
+using DungeonMasterAI.Domain;
 
 namespace DungeonMasterAI.GuiSmokeTests;
 
@@ -44,8 +46,6 @@ internal static class Program
                     UriKind.Absolute)) is not null,
                 "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
 
-            // Real HWND startup test. The hosted runner may constrain the physical
-            // window to its virtual screen size, which is okay for this check.
             window.Show();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
@@ -115,23 +115,56 @@ internal static class Program
             return;
         }
 
-        if (viewModel.Campaigns.Count == 0 && viewModel.LoadSampleCommand.CanExecute(null))
-            viewModel.LoadSampleCommand.Execute(null);
+        var samplePath = Path.Combine(AppContext.BaseDirectory, "Assets", "Sample", "sample_campaign_manifest.json");
+        if (!File.Exists(samplePath))
+        {
+            failures.Add($"Included Greenhaven sample exists at runtime path: {samplePath}");
+            return;
+        }
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(12);
-        while (viewModel.Campaigns.Count == 0 && DateTime.UtcNow < deadline)
-            PumpDispatcher(TimeSpan.FromMilliseconds(75));
+        var importer = new CampaignImportService();
+        var imported = importer.ImportManifestAsync(samplePath).GetAwaiter().GetResult();
+        var campaign = imported.Campaign;
 
-        Check(viewModel.Campaigns.Count > 0,
-            $"Included Greenhaven sample loads for populated GUI screenshots. Status: {viewModel.StatusMessage}", failures);
-        if (viewModel.Campaigns.Count == 0) return;
+        // Preview-only setup uses real domain objects and the real importer. It does
+        // not persist anything or alter production defaults; it simply places the
+        // sample in a representative playable state for visual regression captures.
+        campaign.Name = "Greenhaven";
+        campaign.Day = 2;
+        campaign.MinuteOfDay = 19 * 60 + 43;
+        foreach (var location in campaign.Locations.Where(l => !l.DmOnly))
+            location.Discovered = true;
 
-        // Allow the command's save/status continuation and all ItemsControl templates
-        // to settle before the reference captures are taken.
-        var settleDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
-        while (!viewModel.LoadSampleCommand.CanExecute(null) && DateTime.UtcNow < settleDeadline)
-            PumpDispatcher(TimeSpan.FromMilliseconds(50));
-        PumpDispatcher(TimeSpan.FromMilliseconds(150));
+        var encounter = campaign.Encounters.FirstOrDefault();
+        if (encounter is not null)
+        {
+            encounter.Status = "active";
+            encounter.Round = 3;
+            encounter.TurnIndex = 0;
+            var player = campaign.Characters.FirstOrDefault(c => c.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase));
+            if (player is not null && encounter.Combatants.All(c => c.CharacterId != player.Id))
+                encounter.Combatants.Insert(0, new CombatantState { CharacterId = player.Id, Side = "player", TieBreaker = -1 });
+
+            var positions = new (int X, int Y)[] { (4, 6), (9, 4), (11, 7), (8, 9), (5, 10), (12, 10) };
+            for (var i = 0; i < encounter.Combatants.Count; i++)
+            {
+                var combatant = encounter.Combatants[i];
+                var position = positions[i % positions.Length];
+                combatant.Positioned = true;
+                combatant.GridX = position.X;
+                combatant.GridY = position.Y;
+                combatant.Initiative = Math.Max(1, 18 - i * 2);
+                combatant.MovementRemainingFeet = 30;
+                if (string.IsNullOrWhiteSpace(combatant.Side)) combatant.Side = "enemy";
+            }
+        }
+
+        viewModel.SelectedCampaign = campaign;
+        viewModel.ShowDmMap = true;
+        PumpDispatcher(TimeSpan.FromMilliseconds(180));
+
+        Check(viewModel.SelectedCampaign is not null, "Direct-import Greenhaven preview selects a campaign.", failures);
+        Check(viewModel.SelectedEncounter is not null, "Direct-import Greenhaven preview selects an encounter.", failures);
     }
 
     private static void PumpDispatcher(TimeSpan duration)
@@ -192,8 +225,6 @@ internal static class Program
         if (window.Content is not FrameworkElement root)
             throw new InvalidOperationException("AAA shell root visual is unavailable.");
 
-        // Render the already-loaded real shell content at the authoritative design
-        // canvas, independent of the CI runner's smaller physical desktop.
         LayoutVisual(root, ReferenceWidth, ReferenceHeight);
         var bitmap = new RenderTargetBitmap(ReferenceWidth, ReferenceHeight, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(root);
