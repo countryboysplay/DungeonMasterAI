@@ -74,7 +74,6 @@
 
     <Style x:Key="AaaHeroTitle" TargetType="TextBlock" BasedOn="{StaticResource AaaTitle}">
         <Setter Property="FontSize" Value="44"/>
-        <Setter Property="CharacterSpacing" Value="45"/>
     </Style>
 
     <Style x:Key="AaaSectionTitle" TargetType="TextBlock">
@@ -82,14 +81,12 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource AaaGoldBrightBrush}"/>
-        <Setter Property="CharacterSpacing" Value="45"/>
     </Style>
 
     <Style x:Key="AaaEyebrow" TargetType="TextBlock">
         <Setter Property="FontSize" Value="10"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource AaaBlueBrush}"/>
-        <Setter Property="CharacterSpacing" Value="80"/>
     </Style>
 
     <Style x:Key="AaaMuted" TargetType="TextBlock">
