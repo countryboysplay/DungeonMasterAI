@@ -13,6 +13,7 @@ public partial class AaaShellWindow : Window
     private bool _brandMarkApplied;
     private bool _campaignCrestApplied;
     private bool _vectorChromeApplied;
+    private bool _compassApplied;
 
     public AaaShellWindow() : this(initializeOnLoad: true)
     {
@@ -216,6 +217,7 @@ public partial class AaaShellWindow : Window
     private void ApplyNavigationState()
     {
         MainTabs.ApplyTemplate();
+        ApplyApprovedCompass();
         var layoutGrid = FindNavigationLayoutGrid(MainTabs);
         if (layoutGrid is not null)
             layoutGrid.ColumnDefinitions[0].Width = new GridLength(_navigationCollapsed ? 64 : 198);
@@ -242,6 +244,23 @@ public partial class AaaShellWindow : Window
             _navigationCollapsed ? "Expand navigation" : "Collapse navigation");
     }
 
+    private void ApplyApprovedCompass()
+    {
+        if (_compassApplied) return;
+        var placeholder = FindLargeTextBlock(this, "✦", 40);
+        if (placeholder?.Parent is not Grid compassGrid) return;
+
+        compassGrid.Children.Clear();
+        compassGrid.Children.Add(new AaaArcaneCompass
+        {
+            Width = 132,
+            Height = 132,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _compassApplied = true;
+    }
+
     private static Button? FindButtonByStringContent(DependencyObject root, string content)
     {
         if (root is Button button && button.Content is string text && text == content) return button;
@@ -259,6 +278,17 @@ public partial class AaaShellWindow : Window
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
             var found = FindTextBlock(VisualTreeHelper.GetChild(root, i), text);
+            if (found is not null) return found;
+        }
+        return null;
+    }
+
+    private static TextBlock? FindLargeTextBlock(DependencyObject root, string text, double minimumFontSize)
+    {
+        if (root is TextBlock block && block.Text == text && block.FontSize >= minimumFontSize) return block;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindLargeTextBlock(VisualTreeHelper.GetChild(root, i), text, minimumFontSize);
             if (found is not null) return found;
         }
         return null;
