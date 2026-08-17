@@ -52,7 +52,10 @@
                     </StackPanel>
                 </Border>
 
-                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="250" Background="#F20A1116" BorderBrush="#7B6137" BorderThickness="1" CornerRadius="3" Padding="10" Effect="{StaticResource AaaShadow}">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="250" Background="#F20A1116" BorderBrush="#7B6137" BorderThickness="1" CornerRadius="3" Padding="10">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
+                    </Border.Effect>
                     <StackPanel>
                         <DockPanel><TextBlock Text="{Binding SelectedLocation.Name, TargetNullValue=GREENHAVEN}" FontFamily="Georgia" FontSize="17" Foreground="#E1C27B"/><TextBlock DockPanel.Dock="Right" Text="×" Foreground="#B9B1A2"/></DockPanel>
                         <TextBlock Text="{Binding SelectedLocation.Type, TargetNullValue=Peaceful Riverside Town}" FontFamily="Georgia" FontSize="10" Foreground="#C9C0AD"/>
