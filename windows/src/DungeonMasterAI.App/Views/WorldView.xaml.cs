@@ -30,76 +30,55 @@ public partial class WorldView : UserControl
         var player = FindRadioButton(this, "PLAYER VIEW");
         var dm = FindRadioButton(this, "DM VIEW");
         if (player is null || dm is null) return;
-
-        player.Checked += (_, _) =>
-        {
-            if (DataContext is MainViewModel vm) vm.ShowDmMap = false;
-        };
-        dm.Checked += (_, _) =>
-        {
-            if (DataContext is MainViewModel vm) vm.ShowDmMap = true;
-        };
-
+        player.Checked += (_, _) => { if (DataContext is MainViewModel vm) vm.ShowDmMap = false; };
+        dm.Checked += (_, _) => { if (DataContext is MainViewModel vm) vm.ShowDmMap = true; };
         if (DataContext is MainViewModel viewModel)
         {
             dm.IsChecked = viewModel.ShowDmMap;
             player.IsChecked = !viewModel.ShowDmMap;
         }
-        else
-        {
-            player.IsChecked = true;
-        }
+        else player.IsChecked = true;
         _controlsWired = true;
     }
 
     private void ApplyStaticVectorTreatment()
     {
         if (_staticVectorTreatmentApplied) return;
-
         ReplaceLabeledGlyph("◇ LEGEND", "LEGEND", AaaIconKind.Maps, 13);
         ReplaceLabeledGlyph("● Ping", "Ping", AaaIconKind.Location, 12);
         ReplaceLabeledGlyph("◉ Reveal", "Reveal", AaaIconKind.Spark, 12);
         ReplaceLabeledGlyph("⊘ Hide", "Hide", AaaIconKind.Condition, 12);
         ReplaceLabeledGlyph("▽ Filter", "Filter", AaaIconKind.Settings, 12);
         ReplaceLabeledGlyph("▣ Add Note", "Add Note", AaaIconKind.Note, 12);
-
         ReplaceHeader("CURRENT QUESTS", AaaIconKind.Quests);
         ReplaceHeader("FACTIONS", AaaIconKind.Shield);
         ReplaceHeader("RUMORS", AaaIconKind.LivePlay);
         ReplaceHeader("SECRETS  ◉", AaaIconKind.Rules, "SECRETS");
         ReplaceHeader("WORLD TIMELINE", AaaIconKind.Timeline);
         ReplaceHeader("QUEST TRACKER", AaaIconKind.Quests);
-
-        // Selected-location illustration slot should read as an intentional map card,
-        // not as a giant chess-piece placeholder.
         ReplaceIconOnly("♜", AaaIconKind.Location, 39);
-
         _staticVectorTreatmentApplied = true;
     }
 
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
         if (_dynamicVectorTreatmentApplied) return;
-        var questGlyphs = ReplaceAllIconOnly("♜", AaaIconKind.Quests, 14);
-        if (questGlyphs > 0)
-        {
-            _dynamicVectorTreatmentApplied = true;
-            LayoutUpdated -= OnLayoutUpdated;
-        }
+        if (FindText(this, "♜") is null) return;
+        _dynamicVectorTreatmentApplied = true;
+        LayoutUpdated -= OnLayoutUpdated;
+        ReplaceAllIconOnly("♜", AaaIconKind.Quests, 14);
     }
 
     private void ReplaceHeader(string currentText, AaaIconKind kind, string? replacementText = null)
     {
         var block = FindText(this, currentText);
-        if (block is null) return;
-        WrapTextBlock(block, replacementText ?? currentText, kind, 13, 6);
+        if (block is not null) WrapTextBlock(block, replacementText ?? currentText, kind, 13, 6);
     }
 
     private void ReplaceLabeledGlyph(string currentText, string label, AaaIconKind kind, double iconSize)
     {
         var block = FindText(this, currentText);
-        if (block is null) return;
-        WrapTextBlock(block, label, kind, iconSize, 5);
+        if (block is not null) WrapTextBlock(block, label, kind, iconSize, 5);
     }
 
     private static void WrapTextBlock(TextBlock block, string label, AaaIconKind kind, double iconSize, double gap)
@@ -109,51 +88,24 @@ public partial class WorldView : UserControl
         var index = parent is Panel existingPanel ? existingPanel.Children.IndexOf(block) : -1;
         switch (parent)
         {
-            case Panel targetPanel when index >= 0:
-                targetPanel.Children.RemoveAt(index);
-                break;
-            case Border border:
-                border.Child = null;
-                break;
-            case ContentControl contentControl:
-                contentControl.Content = null;
-                break;
-            default:
-                return;
+            case Panel targetPanel when index >= 0: targetPanel.Children.RemoveAt(index); break;
+            case Border border: border.Child = null; break;
+            case ContentControl contentControl: contentControl.Content = null; break;
+            default: return;
         }
-
-        block.Text = label;
-        block.Margin = new Thickness(0);
-        block.VerticalAlignment = VerticalAlignment.Center;
-        var wrapper = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = margin,
-            VerticalAlignment = VerticalAlignment.Center
-        };
+        block.Text = label; block.Margin = new Thickness(0); block.VerticalAlignment = VerticalAlignment.Center;
+        var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = margin, VerticalAlignment = VerticalAlignment.Center };
         wrapper.Children.Add(new AaaVectorIcon
         {
-            Kind = kind,
-            Width = iconSize,
-            Height = iconSize,
-            Foreground = block.Foreground,
-            StrokeThickness = 1.4,
-            Margin = new Thickness(0, 0, gap, 0),
-            VerticalAlignment = VerticalAlignment.Center
+            Kind = kind, Width = iconSize, Height = iconSize, Foreground = block.Foreground,
+            StrokeThickness = 1.4, Margin = new Thickness(0, 0, gap, 0), VerticalAlignment = VerticalAlignment.Center
         });
         wrapper.Children.Add(block);
-
         switch (parent)
         {
-            case Panel targetPanel when index >= 0:
-                targetPanel.Children.Insert(index, wrapper);
-                break;
-            case Border border:
-                border.Child = wrapper;
-                break;
-            case ContentControl contentControl:
-                contentControl.Content = wrapper;
-                break;
+            case Panel targetPanel when index >= 0: targetPanel.Children.Insert(index, wrapper); break;
+            case Border border: border.Child = wrapper; break;
+            case ContentControl contentControl: contentControl.Content = wrapper; break;
         }
     }
 
@@ -175,31 +127,17 @@ public partial class WorldView : UserControl
     {
         var icon = new AaaVectorIcon
         {
-            Kind = kind,
-            Width = size,
-            Height = size,
-            Foreground = block.Foreground,
-            StrokeThickness = 1.35,
-            HorizontalAlignment = block.HorizontalAlignment,
-            VerticalAlignment = block.VerticalAlignment,
-            Margin = block.Margin
+            Kind = kind, Width = size, Height = size, Foreground = block.Foreground, StrokeThickness = 1.35,
+            HorizontalAlignment = block.HorizontalAlignment, VerticalAlignment = block.VerticalAlignment, Margin = block.Margin
         };
         switch (block.Parent)
         {
             case Panel panel:
                 var index = panel.Children.IndexOf(block);
-                if (index >= 0)
-                {
-                    panel.Children.RemoveAt(index);
-                    panel.Children.Insert(index, icon);
-                }
+                if (index >= 0) { panel.Children.RemoveAt(index); panel.Children.Insert(index, icon); }
                 break;
-            case Border border:
-                border.Child = icon;
-                break;
-            case ContentControl contentControl:
-                contentControl.Content = icon;
-                break;
+            case Border border: border.Child = icon; break;
+            case ContentControl contentControl: contentControl.Content = icon; break;
         }
     }
 
