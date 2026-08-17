@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using DungeonMasterAI.App.Controls;
 
 namespace DungeonMasterAI.App;
 
@@ -9,6 +10,7 @@ public partial class AaaShellWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private bool _navigationCollapsed;
+    private bool _brandMarkApplied;
 
     public AaaShellWindow()
     {
@@ -30,6 +32,7 @@ public partial class AaaShellWindow : Window
     {
         try
         {
+            ApplyApprovedBrandMark();
             ApplyNavigationState();
             App.LogStartup("AAA shell loaded; initializing application data.");
             await _viewModel.InitializeAsync();
@@ -68,6 +71,23 @@ public partial class AaaShellWindow : Window
         ApplyNavigationState();
     }
 
+    private void ApplyApprovedBrandMark()
+    {
+        if (_brandMarkApplied) return;
+        var placeholder = FindTextBlock(this, "◈");
+        if (placeholder?.Parent is not StackPanel parent) return;
+
+        var index = parent.Children.IndexOf(placeholder);
+        if (index < 0) return;
+        parent.Children.RemoveAt(index);
+        parent.Children.Insert(index, new AaaBrandMark
+        {
+            Margin = new Thickness(0, 0, 9, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _brandMarkApplied = true;
+    }
+
     private void ApplyNavigationState()
     {
         MainTabs.ApplyTemplate();
@@ -90,6 +110,17 @@ public partial class AaaShellWindow : Window
 
         ToolTipService.SetToolTip(MainTabs,
             _navigationCollapsed ? "Expand navigation" : "Collapse navigation");
+    }
+
+    private static TextBlock? FindTextBlock(DependencyObject root, string text)
+    {
+        if (root is TextBlock block && block.Text == text) return block;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindTextBlock(VisualTreeHelper.GetChild(root, i), text);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static Grid? FindNavigationLayoutGrid(DependencyObject root)
