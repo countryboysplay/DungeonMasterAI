@@ -49,10 +49,6 @@
         <GradientStop Color="#0C2238" Offset="1"/>
     </LinearGradientBrush>
 
-    <DropShadowEffect x:Key="AaaShadow" BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
-    <DropShadowEffect x:Key="AaaGoldGlow" BlurRadius="14" ShadowDepth="0" Opacity="0.22" Color="#D3A853"/>
-    <DropShadowEffect x:Key="AaaBlueGlow" BlurRadius="18" ShadowDepth="0" Opacity="0.28" Color="#4AA4F0"/>
-
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="Segoe UI"/>
         <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
@@ -100,7 +96,11 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="14"/>
-        <Setter Property="Effect" Value="{StaticResource AaaShadow}"/>
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="AaaCardBorder" TargetType="Border" BasedOn="{StaticResource AaaPanelBorder}">
@@ -141,7 +141,11 @@
     <Style x:Key="AaaPrimaryButton" TargetType="Button" BasedOn="{StaticResource AaaTopButton}">
         <Setter Property="Background" Value="{StaticResource AaaBlueButtonGradient}"/>
         <Setter Property="BorderBrush" Value="#285F91"/>
-        <Setter Property="Effect" Value="{StaticResource AaaBlueGlow}"/>
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.28" Color="#4AA4F0"/>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="AaaGoldButton" TargetType="Button" BasedOn="{StaticResource AaaTopButton}">
@@ -200,7 +204,11 @@
                                     <Grid>
                                         <Ellipse Width="112" Height="112" Stroke="#7A6034" StrokeThickness="1" Opacity="0.46" VerticalAlignment="Center"/>
                                         <Ellipse Width="74" Height="74" Stroke="#6A5430" StrokeThickness="1" Opacity="0.6" VerticalAlignment="Center"/>
-                                        <TextBlock Text="✦" FontSize="47" Foreground="#2C8BD8" HorizontalAlignment="Center" VerticalAlignment="Center" Effect="{StaticResource AaaBlueGlow}"/>
+                                        <TextBlock Text="✦" FontSize="47" Foreground="#2C8BD8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock.Effect>
+                                                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.28" Color="#4AA4F0"/>
+                                            </TextBlock.Effect>
+                                        </TextBlock>
                                     </Grid>
                                 </Border>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
