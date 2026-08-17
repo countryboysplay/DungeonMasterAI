@@ -15,7 +15,6 @@
                 <ColumnDefinition Width="292"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Campaign hero -->
             <Border Grid.Row="0" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#3D3528" BorderThickness="1" CornerRadius="5" ClipToBounds="True" Background="#0B1115">
                 <Grid>
                     <controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.33" IsHitTestVisible="False"/>
@@ -39,7 +38,7 @@
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="760" HorizontalAlignment="Left">
                             <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN}" Style="{StaticResource AaaHeroTitle}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding CampaignSummary, TargetNullValue=A living realm of ancient forests, forgotten ruins, and fragile alliances.}" FontFamily="Georgia" FontSize="15" Foreground="#E2D9C7" Margin="0,7,0,18" TextWrapping="Wrap" MaxWidth="610"/>
+                            <TextBlock Text="{Binding CampaignSummary}" FontFamily="Georgia" FontSize="15" Foreground="#E2D9C7" Margin="0,7,0,18" TextWrapping="Wrap" MaxWidth="610"/>
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel Width="94"><TextBlock Text="Campaign Level" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="5" FontFamily="Georgia" FontSize="15"/></StackPanel>
                                 <StackPanel Width="120"><TextBlock Text="Play Style" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="Heroic Fantasy" FontFamily="Georgia" FontSize="13"/></StackPanel>
@@ -52,7 +51,6 @@
                 </Grid>
             </Border>
 
-            <!-- AI runtime status -->
             <Border Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaPanelBorder}" Padding="16">
                 <StackPanel>
                     <TextBlock Text="♧  AI RUNTIME STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaBlueBrush}"/>
@@ -74,13 +72,10 @@
                         <TextBlock Grid.Row="2" Text="Status" Style="{StaticResource AaaMuted}"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LocalAiStatus}" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF" TextTrimming="CharacterEllipsis"/>
                     </Grid>
-                    <Border Height="32" Margin="0,8,0,0" Background="#0B2538" BorderBrush="#245272" BorderThickness="1" CornerRadius="3">
-                        <Grid Margin="9,0"><TextBlock Text="Configure Runtime" VerticalAlignment="Center" FontSize="11"/></Grid>
-                    </Border>
+                    <Border Height="32" Margin="0,8,0,0" Background="#0B2538" BorderBrush="#245272" BorderThickness="1" CornerRadius="3"><Grid Margin="9,0"><TextBlock Text="Configure Runtime" VerticalAlignment="Center" FontSize="11"/></Grid></Border>
                 </StackPanel>
             </Border>
 
-            <!-- Mid cards -->
             <Grid Grid.Row="1" Grid.Column="0" Margin="0,0,8,8">
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0">
@@ -119,7 +114,7 @@
                         <TextBlock Text="4 / 4 Members" FontFamily="Georgia" FontSize="17"/>
                         <ItemsControl ItemsSource="{Binding Characters}" Margin="0,10,0,8">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate><DataTemplate><Border Width="38" Height="38" CornerRadius="19" Background="#151D21" BorderBrush="#8A7350" BorderThickness="1" Margin="0,0,5,0"><TextBlock Text="{Binding Name[0]}" FontFamily="Georgia" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></DataTemplate></ItemsControl.ItemTemplate>
+                            <ItemsControl.ItemTemplate><DataTemplate><Border Width="38" Height="38" CornerRadius="19" Background="#151D21" BorderBrush="#8A7350" BorderThickness="1" Margin="0,0,5,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Width="30"/></Border></DataTemplate></ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <DockPanel><TextBlock Text="♥  Healthy" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Text="No Conditions" Style="{StaticResource AaaMuted}"/></DockPanel>
                         <Button Content="▥  Manage Party                     ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0,10,0,0"/>
@@ -127,7 +122,6 @@
                 </Border>
             </Grid>
 
-            <!-- Save / recovery -->
             <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaCardBorder}">
                 <StackPanel>
                     <TextBlock Text="◇  SAVE &amp; RECOVERY" Style="{StaticResource AaaSectionTitle}"/>
@@ -142,21 +136,16 @@
                         <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         <Border BorderBrush="#403C33" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="5" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                     </UniformGrid>
-                    <Border Background="#0E251A" BorderBrush="#284D36" BorderThickness="1" CornerRadius="3" Padding="9">
-                        <StackPanel><TextBlock Text="◇  Safe Recovery" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="All systems nominal" Style="{StaticResource AaaMuted}" Margin="17,2,0,0"/></StackPanel>
-                    </Border>
+                    <Border Background="#0E251A" BorderBrush="#284D36" BorderThickness="1" CornerRadius="3" Padding="9"><StackPanel><TextBlock Text="◇  Safe Recovery" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="All systems nominal" Style="{StaticResource AaaMuted}" Margin="17,2,0,0"/></StackPanel></Border>
                 </StackPanel>
             </Border>
 
-            <!-- Bottom activity area -->
             <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="0.86*"/><ColumnDefinition Width="1.04*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
                     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <TextBlock Text="▥  RECENT WORLD EVENTS" Style="{StaticResource AaaSectionTitle}" Foreground="#7CAAE0"/>
-                        <ItemsControl Grid.Row="1" ItemsSource="{Binding RecentEvents}" Margin="0,10,0,8">
-                            <ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#252B2E" BorderThickness="0,0,0,1" Padding="2,8"><DockPanel><TextBlock Text="◉" Foreground="{StaticResource AaaGoldBrush}" Width="23"/><TextBlock Text="{Binding Summary}" FontFamily="Georgia" FontSize="10.5" TextWrapping="Wrap"/></DockPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding RecentEvents}" Margin="0,10,0,8"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#252B2E" BorderThickness="0,0,0,1" Padding="2,8"><DockPanel><TextBlock Text="◉" Foreground="{StaticResource AaaGoldBrush}" Width="23"/><TextBlock Text="{Binding Summary}" FontFamily="Georgia" FontSize="10.5" TextWrapping="Wrap"/></DockPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                         <Button Grid.Row="2" Content="♙  View World Timeline                              ›" Style="{StaticResource AaaTopButton}" Padding="9,5" Margin="0"/>
                     </Grid>
                 </Border>
