@@ -9,12 +9,33 @@ public partial class LivePlayView : UserControl
 {
     private bool _staticTreatmentApplied;
     private bool _dynamicTreatmentApplied;
+    private bool _atmosphereApplied;
 
     public LivePlayView()
     {
         InitializeComponent();
-        Loaded += (_, _) => ApplyStaticTreatment();
+        Loaded += (_, _) =>
+        {
+            ApplyStaticTreatment();
+            ApplyCombatAtmosphere();
+        };
         LayoutUpdated += OnLayoutUpdated;
+    }
+
+    private void ApplyCombatAtmosphere()
+    {
+        if (_atmosphereApplied) return;
+        var gridControl = FindDescendant<CombatGridControl>(this);
+        if (gridControl?.Parent is not Grid battlefield) return;
+        var index = battlefield.Children.IndexOf(gridControl);
+        if (index < 0) return;
+
+        battlefield.Children.Insert(index + 1, new AaaCombatAtmosphere
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        });
+        _atmosphereApplied = true;
     }
 
     private void ApplyStaticTreatment()
@@ -177,6 +198,17 @@ public partial class LivePlayView : UserControl
                 contentControl.Content = icon;
                 break;
         }
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root is T match) return match;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindDescendant<T>(VisualTreeHelper.GetChild(root, i));
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static Button? FindButton(DependencyObject root, string content)
