@@ -38,11 +38,19 @@ internal static class Program
                 "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
 
             Layout(window, 1536, 864);
-            var tabs = FindVisualDescendant<TabControl>(window);
+
+            // The CI smoke host intentionally does not Show() the window because
+            // Show would run the app's asynchronous startup/data initialization.
+            // Named XAML elements are already registered in the window namescope
+            // after InitializeComponent(), so use that stable contract instead of
+            // depending on an HWND-backed visual tree being realized.
+            var tabs = window.FindName("MainTabs") as TabControl;
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
             if (tabs is not null)
             {
                 Check(tabs.Items.Count == 10, "Main navigation contains the 10 approved destinations.", failures);
+
+                var tabItems = tabs.Items.OfType<TabItem>().ToArray();
                 var requiredTypes = new[]
                 {
                     typeof(HomeView),
@@ -52,12 +60,13 @@ internal static class Program
                 };
 
                 foreach (var requiredType in requiredTypes)
-                    Check(FindVisualDescendant(window, requiredType) is not null,
+                    Check(tabItems.Any(item => requiredType.IsInstanceOfType(item.Content)),
                         $"Approved view {requiredType.Name} constructs in the shell.", failures);
 
                 for (var index = 0; index < tabs.Items.Count; index++)
                 {
                     tabs.SelectedIndex = index;
+                    tabs.ApplyTemplate();
                     Layout(window, 1536, 864);
                 }
             }
@@ -99,22 +108,5 @@ internal static class Program
     private static void Check(bool condition, string message, ICollection<string> failures)
     {
         if (!condition) failures.Add(message);
-    }
-
-    private static T? FindVisualDescendant<T>(DependencyObject root) where T : DependencyObject
-    {
-        return FindVisualDescendant(root, typeof(T)) as T;
-    }
-
-    private static DependencyObject? FindVisualDescendant(DependencyObject root, Type type)
-    {
-        if (type.IsInstanceOfType(root)) return root;
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            var found = FindVisualDescendant(child, type);
-            if (found is not null) return found;
-        }
-        return null;
     }
 }
