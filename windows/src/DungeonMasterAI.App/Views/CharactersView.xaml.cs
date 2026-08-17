@@ -76,10 +76,10 @@ public partial class CharactersView : UserControl
         if (block is null) return;
         var parent = block.Parent;
         var margin = block.Margin;
-        var index = parent is Panel panel ? panel.Children.IndexOf(block) : -1;
+        var index = parent is Panel existingPanel ? existingPanel.Children.IndexOf(block) : -1;
         switch (parent)
         {
-            case Panel panel when index >= 0: panel.Children.RemoveAt(index); break;
+            case Panel targetPanel when index >= 0: targetPanel.Children.RemoveAt(index); break;
             case Border border: border.Child = null; break;
             case ContentControl contentControl: contentControl.Content = null; break;
             default: return;
@@ -101,7 +101,7 @@ public partial class CharactersView : UserControl
         wrapper.Children.Add(block);
         switch (parent)
         {
-            case Panel panel when index >= 0: panel.Children.Insert(index, wrapper); break;
+            case Panel targetPanel when index >= 0: targetPanel.Children.Insert(index, wrapper); break;
             case Border border: border.Child = wrapper; break;
             case ContentControl contentControl: contentControl.Content = wrapper; break;
         }
@@ -140,9 +140,9 @@ public partial class CharactersView : UserControl
     {
         switch (oldChild.Parent)
         {
-            case Panel panel:
-                var index = panel.Children.IndexOf(oldChild);
-                if (index >= 0) { panel.Children.RemoveAt(index); panel.Children.Insert(index, newChild); }
+            case Panel targetPanel:
+                var childIndex = targetPanel.Children.IndexOf(oldChild);
+                if (childIndex >= 0) { targetPanel.Children.RemoveAt(childIndex); targetPanel.Children.Insert(childIndex, newChild); }
                 break;
             case Border border: border.Child = newChild; break;
             case ContentControl contentControl: contentControl.Content = newChild; break;
