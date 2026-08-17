@@ -9,11 +9,16 @@ namespace DungeonMasterAI.App.Views;
 public partial class HomeView : UserControl
 {
     private bool _referenceArtApplied;
+    private bool _campaignCrestApplied;
 
     public HomeView()
     {
         InitializeComponent();
-        Loaded += (_, _) => ApplyApprovedHeroArtwork();
+        Loaded += (_, _) =>
+        {
+            ApplyApprovedHeroArtwork();
+            ApplyApprovedCampaignCrest();
+        };
     }
 
     private void ApplyApprovedHeroArtwork()
@@ -39,6 +44,39 @@ public partial class HomeView : UserControl
         map.Visibility = Visibility.Collapsed;
         heroGrid.Children.Insert(index, artwork);
         _referenceArtApplied = true;
+    }
+
+    private void ApplyApprovedCampaignCrest()
+    {
+        if (_campaignCrestApplied) return;
+        var placeholder = FindTextBlock(this, "♧");
+        if (placeholder?.Parent is not Grid crestGrid) return;
+        if (crestGrid.Parent is Border frame)
+        {
+            frame.Background = Brushes.Transparent;
+            frame.BorderThickness = new Thickness(0);
+        }
+
+        crestGrid.Children.Clear();
+        crestGrid.Children.Add(new AaaCampaignCrest
+        {
+            Width = 104,
+            Height = 126,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _campaignCrestApplied = true;
+    }
+
+    private static TextBlock? FindTextBlock(DependencyObject root, string text)
+    {
+        if (root is TextBlock block && block.Text == text) return block;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindTextBlock(VisualTreeHelper.GetChild(root, i), text);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
