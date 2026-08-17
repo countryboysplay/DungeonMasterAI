@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace DungeonMasterAI.App;
 
@@ -29,6 +30,7 @@ public partial class AaaShellWindow : Window
     {
         try
         {
+            ApplyNavigationState();
             App.LogStartup("AAA shell loaded; initializing application data.");
             await _viewModel.InitializeAsync();
             App.LogStartup("AAA shell initialization completed successfully.");
@@ -46,8 +48,7 @@ public partial class AaaShellWindow : Window
 
     private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Views bind directly to the authoritative MainViewModel.  This hook is
-        // intentionally kept for shell-wide polish such as toast notifications.
+        // Major screens bind directly to the authoritative MainViewModel.
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -64,10 +65,47 @@ public partial class AaaShellWindow : Window
     private void ToggleNavigation_Click(object sender, RoutedEventArgs e)
     {
         _navigationCollapsed = !_navigationCollapsed;
-        // The approved renders use a 198px full rail.  Until the compact icon-only
-        // rail is finished, keep the visual geometry stable rather than distorting
-        // the content.  The state is retained so the next shell pass can animate it.
+        ApplyNavigationState();
+    }
+
+    private void ApplyNavigationState()
+    {
+        MainTabs.ApplyTemplate();
+        var layoutGrid = FindNavigationLayoutGrid(MainTabs);
+        if (layoutGrid is not null)
+            layoutGrid.ColumnDefinitions[0].Width = new GridLength(_navigationCollapsed ? 64 : 198);
+
+        foreach (var item in MainTabs.Items.OfType<TabItem>())
+        {
+            item.Padding = _navigationCollapsed ? new Thickness(10, 13, 8, 13) : new Thickness(18, 13, 18, 13);
+            item.Margin = _navigationCollapsed ? new Thickness(5, 2, 5, 2) : new Thickness(8, 2, 8, 2);
+
+            if (item.Header is not StackPanel header) continue;
+            var textBlocks = header.Children.OfType<TextBlock>().ToArray();
+            if (textBlocks.Length < 2) continue;
+            textBlocks[1].Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+            textBlocks[0].Width = _navigationCollapsed ? 26 : 30;
+            textBlocks[0].TextAlignment = TextAlignment.Center;
+        }
+
         ToolTipService.SetToolTip(MainTabs,
-            _navigationCollapsed ? "Navigation compact mode queued" : "Navigation expanded");
+            _navigationCollapsed ? "Expand navigation" : "Collapse navigation");
+    }
+
+    private static Grid? FindNavigationLayoutGrid(DependencyObject root)
+    {
+        if (root is Grid grid
+            && grid.ColumnDefinitions.Count == 2
+            && grid.ColumnDefinitions[1].Width.IsStar
+            && grid.ColumnDefinitions[0].Width.IsAbsolute
+            && Math.Abs(grid.ColumnDefinitions[0].Width.Value - 198) < 1)
+            return grid;
+
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindNavigationLayoutGrid(VisualTreeHelper.GetChild(root, i));
+            if (found is not null) return found;
+        }
+        return null;
     }
 }
