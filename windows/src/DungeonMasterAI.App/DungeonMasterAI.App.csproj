@@ -16,6 +16,7 @@
     <Content Include="../../../reference-python/knowledge/srd_chunks.jsonl" Link="Knowledge/srd_chunks.jsonl" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../../reference-python/demo/sample_campaign_manifest.json" Link="Assets/Sample/sample_campaign_manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets/Rules/srd_spells.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets/MapPacks/**/*" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets/Reference/home-hero-greenhaven.jpg" />
     <Resource Include="Assets/Reference/home-parchment.jpg" />
     <Resource Include="Assets/Reference/aeliana-portrait.jpg" />
