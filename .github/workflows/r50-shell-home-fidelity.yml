@@ -1,0 +1,134 @@
+name: Apply r50 shell and home fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-shell-home-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Apply visual fidelity changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('windows/src/DungeonMasterAI.App')
+
+          # HOME: replace the low-opacity tactical map stand-in with the approved
+          # Greenhaven hero art that is already packaged in the application.
+          home = root / 'Views' / 'HomeView.xaml'
+          text = home.read_text(encoding='utf-8')
+          if 'AaaApprovedHomeHero' not in text:
+              old = '<controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.33" IsHitTestVisible="False"/>'
+              new = '''<Image x:Name="AaaApprovedHomeHero"
+                           Source="/DungeonMasterAI;component/Assets/Reference/home-hero-greenhaven.jpg"
+                           Stretch="UniformToFill"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           SnapsToDevicePixels="True"/>
+                    <Rectangle IsHitTestVisible="False">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#08070B0E" Offset="0"/>
+                                <GradientStop Color="#12070B0E" Offset="0.62"/>
+                                <GradientStop Color="#C8070B0E" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>'''
+              if old not in text:
+                  raise SystemExit('Home hero anchor not found and approved hero is not already installed.')
+              text = text.replace(old, new, 1)
+              home.write_text(text, encoding='utf-8')
+
+          # SHELL: replace the generic chess-piece campaign badge with a restrained
+          # shield/tree crest constructed from native WPF vectors.
+          shell = root / 'AaaShellWindow.xaml'
+          text = shell.read_text(encoding='utf-8')
+          if 'CurrentCampaignCrest' not in text:
+              old = '''<Border Width="36" Height="36" Background="#10161A" BorderBrush="#55462D" BorderThickness="1" CornerRadius="4" Margin="0,0,9,0">
+                            <TextBlock Text="♜" Foreground="{StaticResource AaaGoldBrush}" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>'''
+              new = '''<Border x:Name="CurrentCampaignCrest" Width="40" Height="42" Background="#10161A" BorderBrush="#79613D" BorderThickness="1" CornerRadius="3" Margin="0,0,10,0">
+                            <Viewbox Margin="5">
+                                <Grid Width="30" Height="34">
+                                    <Path Data="M15,1 L28,6 L26,23 C24,28 20,31 15,33 C10,31 6,28 4,23 L2,6 Z" Fill="#0B1210" Stroke="#A88B54" StrokeThickness="1.2"/>
+                                    <Path Data="M15,7 C13,11 11,13 8,16 M15,7 C17,11 19,13 22,16 M15,7 L15,25 M10,23 C12,20 13,18 15,15 C17,18 18,20 20,23 M8,16 C10,17 12,17 15,15 C18,17 20,17 22,16" Stroke="#B5C19D" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                                </Grid>
+                            </Viewbox>
+                        </Border>'''
+              if old not in text:
+                  raise SystemExit('Campaign crest anchor not found and vector crest is not already installed.')
+              text = text.replace(old, new, 1)
+
+          # SHELL: add the arcane compass ornament shown at the bottom of the
+          # approved navigation rail. It deliberately does not intercept clicks.
+          if 'NavCompassOrnament' not in text:
+              marker = '            </TabControl>\n\n            <Border Grid.Row="2"'
+              ornament = '''            </TabControl>
+
+            <Viewbox x:Name="NavCompassOrnament"
+                     Grid.Row="1" Width="170" Height="170"
+                     HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                     Margin="14,0,0,12" Opacity="0.72"
+                     IsHitTestVisible="False">
+                <Grid Width="170" Height="170">
+                    <Ellipse Margin="8" Stroke="#3C3327" StrokeThickness="1" Fill="#080B0D"/>
+                    <Ellipse Margin="20" Stroke="#5C4A31" StrokeThickness="0.8"/>
+                    <Ellipse Margin="43" Stroke="#273A49" StrokeThickness="1"/>
+                    <Line X1="85" Y1="13" X2="85" Y2="157" Stroke="#4A3D2C" StrokeThickness="0.7"/>
+                    <Line X1="13" Y1="85" X2="157" Y2="85" Stroke="#4A3D2C" StrokeThickness="0.7"/>
+                    <Line X1="34" Y1="34" X2="136" Y2="136" Stroke="#2D3232" StrokeThickness="0.6"/>
+                    <Line X1="136" Y1="34" X2="34" Y2="136" Stroke="#2D3232" StrokeThickness="0.6"/>
+                    <Path Data="M85,22 L96,72 L85,64 L74,72 Z M148,85 L98,96 L106,85 L98,74 Z M85,148 L74,98 L85,106 L96,98 Z M22,85 L72,74 L64,85 L72,96 Z" Fill="#171C20" Stroke="#8A6D3D" StrokeThickness="0.9"/>
+                    <Path Data="M85,47 L92,78 L123,85 L92,92 L85,123 L78,92 L47,85 L78,78 Z" Fill="#101820" Stroke="#A2854E" StrokeThickness="1"/>
+                    <Ellipse Width="38" Height="38" Fill="#07121B" Stroke="#76603A" StrokeThickness="1.2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Ellipse Width="22" Height="22" Fill="#0C2740" Stroke="#3975A5" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Path Data="M85,72 L91,85 L85,98 L79,85 Z" Fill="#72A7D1" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+            </Viewbox>
+
+            <Border Grid.Row="2"'''
+              if marker not in text:
+                  raise SystemExit('TabControl/status-rail anchor not found and nav ornament is not already installed.')
+              text = text.replace(marker, ornament, 1)
+
+          shell.write_text(text, encoding='utf-8')
+
+          # Keep the navigation ornament out of the compact 64px rail.
+          code = root / 'AaaShellWindow.xaml.cs'
+          src = code.read_text(encoding='utf-8')
+          if 'NavCompassOrnament.Visibility' not in src:
+              anchor = '''        ToolTipService.SetToolTip(MainTabs,
+            _navigationCollapsed ? "Expand navigation" : "Collapse navigation");'''
+              replacement = '''        NavCompassOrnament.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+        ToolTipService.SetToolTip(MainTabs,
+            _navigationCollapsed ? "Expand navigation" : "Collapse navigation");'''
+              if anchor not in src:
+                  raise SystemExit('Navigation-state anchor not found.')
+              src = src.replace(anchor, replacement, 1)
+              code.write_text(src, encoding='utf-8')
+
+      - name: Commit fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App; then
+            echo "No source changes were required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App
+          git commit -m "r50 ui: tighten shell and Home fidelity"
+          git push origin HEAD:feature/r50-aaa-gui
