@@ -17,7 +17,7 @@ internal static class Program
 
         try
         {
-            application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            application = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             window = new AaaShellWindow();
 
             Check(window.Width == 1536, "AAA shell reference width is 1536.", failures);
