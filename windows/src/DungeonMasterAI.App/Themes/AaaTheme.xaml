@@ -13,7 +13,7 @@
     <Color x:Key="AaaRed">#D26057</Color>
     <Color x:Key="AaaPurple">#9B78C6</Color>
     <Color x:Key="AaaText">#EEE7D7</Color>
-    <Color x:Key="AaaMuted">#AAA99F</Color>
+    <Color x:Key="AaaMutedColor">#AAA99F</Color>
     <Color x:Key="AaaBorder">#3A3328</Color>
     <Color x:Key="AaaBorderSoft">#252A2C</Color>
 
@@ -28,7 +28,7 @@
     <SolidColorBrush x:Key="AaaRedBrush" Color="{StaticResource AaaRed}"/>
     <SolidColorBrush x:Key="AaaPurpleBrush" Color="{StaticResource AaaPurple}"/>
     <SolidColorBrush x:Key="AaaTextBrush" Color="{StaticResource AaaText}"/>
-    <SolidColorBrush x:Key="AaaMutedBrush" Color="{StaticResource AaaMuted}"/>
+    <SolidColorBrush x:Key="AaaMutedBrush" Color="{StaticResource AaaMutedColor}"/>
     <SolidColorBrush x:Key="AaaBorderBrush" Color="{StaticResource AaaBorder}"/>
     <SolidColorBrush x:Key="AaaBorderSoftBrush" Color="{StaticResource AaaBorderSoft}"/>
 
