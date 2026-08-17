@@ -234,6 +234,16 @@
         <Setter Property="CaretBrush" Value="{StaticResource AaaGoldBrightBrush}"/>
     </Style>
 
+    <Style x:Key="AaaComboBox" TargetType="ComboBox">
+        <Setter Property="Background" Value="#0B1116"/>
+        <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
+        <Setter Property="BorderBrush" Value="#45423A"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="FontFamily" Value="Georgia"/>
+        <Setter Property="FontSize" Value="10"/>
+    </Style>
+
     <Style x:Key="AaaListBox" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
