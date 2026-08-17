@@ -1,0 +1,75 @@
+name: Apply r50 icon fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-icon-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Replace placeholder shell glyphs
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('windows/src/DungeonMasterAI.App/AaaShellWindow.xaml')
+          text = path.read_text(encoding='utf-8')
+
+          # Use Windows' native Fluent icon font for crisp, deterministic vector-like
+          # glyphs instead of emoji/chess/box characters. The fantasy character still
+          # comes from the bronze framing and custom crest/ornament work.
+          icons = {
+              'Home': '&#xE80F;',
+              'Live Play': '&#xE768;',
+              'Combat': '&#xE7FC;',
+              'Characters': '&#xE716;',
+              'World': '&#xE774;',
+              'Maps': '&#xE707;',
+              'Quests': '&#xE8FD;',
+              'Rules': '&#xE736;',
+              'Import': '&#xE896;',
+              'Settings': '&#xE713;',
+          }
+
+          for label, glyph in icons.items():
+              # Match the first icon TextBlock immediately before the label TextBlock.
+              pattern = rf'<TextBlock Text="[^"]*" FontSize="(?:18|20)" Width="30"/><TextBlock Text="{re.escape(label)}"'
+              replacement = f'<TextBlock Text="{glyph}" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{{StaticResource AaaGoldBrush}}"/><TextBlock Text="{label}"'
+              text, count = re.subn(pattern, replacement, text, count=1)
+              if count == 0 and f'Text="{glyph}"' not in text:
+                  raise SystemExit(f'Navigation icon anchor not found for {label}.')
+
+          # Top-left hamburger should use the same crisp Windows glyph language.
+          text = text.replace('Content="☰" FontSize="18"', 'Content="&#xE700;" FontFamily="Segoe Fluent Icons" FontSize="17"')
+
+          # Window controls: use Fluent glyphs so maximize/close/minimize align cleanly.
+          text = text.replace('Content="—" Click="Minimize_Click"', 'Content="&#xE921;" FontFamily="Segoe Fluent Icons" Click="Minimize_Click"')
+          text = text.replace('Content="□" Click="MaximizeRestore_Click"', 'Content="&#xE922;" FontFamily="Segoe Fluent Icons" Click="MaximizeRestore_Click"')
+          text = text.replace('Content="×" Click="Close_Click"', 'Content="&#xE8BB;" FontFamily="Segoe Fluent Icons" Click="Close_Click"')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit icon fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App/AaaShellWindow.xaml; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App/AaaShellWindow.xaml
+          git commit -m "r50 ui: replace shell placeholder glyphs"
+          git push origin HEAD:feature/r50-aaa-gui
