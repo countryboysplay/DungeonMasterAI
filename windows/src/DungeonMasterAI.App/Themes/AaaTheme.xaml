@@ -4,17 +4,17 @@
     <!-- Approved render palette -->
     <Color x:Key="AaaBg">#070B0E</Color>
     <Color x:Key="AaaBg2">#0A1015</Color>
-    <Color x:Key="AaaPanel">#0D141A</Color>
-    <Color x:Key="AaaPanel2">#111920</Color>
-    <Color x:Key="AaaGold">#C7A25C</Color>
-    <Color x:Key="AaaGoldBright">#E1C27B</Color>
+    <Color x:Key="AaaPanel">#0B1116</Color>
+    <Color x:Key="AaaPanel2">#10171D</Color>
+    <Color x:Key="AaaGold">#B38B4C</Color>
+    <Color x:Key="AaaGoldBright">#DFC07A</Color>
     <Color x:Key="AaaBlue">#4B9BD8</Color>
     <Color x:Key="AaaGreen">#64B96C</Color>
     <Color x:Key="AaaRed">#D26057</Color>
     <Color x:Key="AaaPurple">#9B78C6</Color>
     <Color x:Key="AaaText">#EEE7D7</Color>
-    <Color x:Key="AaaMutedColor">#AAA99F</Color>
-    <Color x:Key="AaaBorder">#3A3328</Color>
+    <Color x:Key="AaaMutedColor">#A9A69C</Color>
+    <Color x:Key="AaaBorder">#403626</Color>
     <Color x:Key="AaaBorderSoft">#252A2C</Color>
 
     <SolidColorBrush x:Key="AaaBackgroundBrush" Color="{StaticResource AaaBg}"/>
@@ -39,14 +39,20 @@
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="AaaGoldPanelGradient" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#19160F" Offset="0"/>
-        <GradientStop Color="#0D1318" Offset="0.5"/>
-        <GradientStop Color="#0A1014" Offset="1"/>
+        <GradientStop Color="#18140E" Offset="0"/>
+        <GradientStop Color="#0C1216" Offset="0.48"/>
+        <GradientStop Color="#081014" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AaaSelectedNavGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#4A3317" Offset="0"/>
+        <GradientStop Color="#241A0E" Offset="0.55"/>
+        <GradientStop Color="#101215" Offset="1"/>
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="AaaBlueButtonGradient" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Color="#103155" Offset="0"/>
-        <GradientStop Color="#0C2238" Offset="1"/>
+        <GradientStop Color="#123761" Offset="0"/>
+        <GradientStop Color="#0B223B" Offset="1"/>
     </LinearGradientBrush>
 
     <Style TargetType="Window">
@@ -70,11 +76,12 @@
 
     <Style x:Key="AaaHeroTitle" TargetType="TextBlock" BasedOn="{StaticResource AaaTitle}">
         <Setter Property="FontSize" Value="44"/>
+        <Setter Property="FontWeight" Value="Normal"/>
     </Style>
 
     <Style x:Key="AaaSectionTitle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Georgia"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource AaaGoldBrightBrush}"/>
     </Style>
@@ -87,47 +94,47 @@
 
     <Style x:Key="AaaMuted" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource AaaMutedBrush}"/>
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="10.5"/>
     </Style>
 
     <Style x:Key="AaaPanelBorder" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource AaaPanelBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource AaaBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="Padding" Value="14"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="Padding" Value="13"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
+                <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.48" Color="#000000"/>
             </Setter.Value>
         </Setter>
     </Style>
 
     <Style x:Key="AaaCardBorder" TargetType="Border" BasedOn="{StaticResource AaaPanelBorder}">
         <Setter Property="Background" Value="{StaticResource AaaGoldPanelGradient}"/>
-        <Setter Property="Padding" Value="16"/>
-        <Setter Property="Margin" Value="4"/>
+        <Setter Property="Padding" Value="14"/>
+        <Setter Property="Margin" Value="0"/>
     </Style>
 
     <Style x:Key="AaaTopButton" TargetType="Button">
         <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
-        <Setter Property="Background" Value="#0B1116"/>
+        <Setter Property="Background" Value="#0A1015"/>
         <Setter Property="BorderBrush" Value="#30363A"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="15,9"/>
+        <Setter Property="Padding" Value="13,8"/>
         <Setter Property="Margin" Value="4,0"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="11.5"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AaaGoldBrush}"/>
-                            <Setter TargetName="Root" Property="Background" Value="#131A20"/>
+                            <Setter TargetName="Root" Property="Background" Value="#14191C"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Root" Property="Opacity" Value="0.78"/>
@@ -143,7 +150,7 @@
         <Setter Property="BorderBrush" Value="#285F91"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.28" Color="#4AA4F0"/>
+                <DropShadowEffect BlurRadius="17" ShadowDepth="0" Opacity="0.26" Color="#4AA4F0"/>
             </Setter.Value>
         </Setter>
     </Style>
@@ -164,7 +171,7 @@
         <Setter Property="FontFamily" Value="Georgia"/>
         <Setter Property="FontSize" Value="15"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Padding" Value="18,13"/>
+        <Setter Property="Padding" Value="17,12"/>
         <Setter Property="Margin" Value="8,2"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -174,12 +181,17 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="NavRoot" Property="Background" Value="#211A10"/>
-                            <Setter TargetName="NavRoot" Property="BorderBrush" Value="#8A6B38"/>
-                            <Setter Property="Foreground" Value="#F0DFC0"/>
+                            <Setter TargetName="NavRoot" Property="Background" Value="{StaticResource AaaSelectedNavGradient}"/>
+                            <Setter TargetName="NavRoot" Property="BorderBrush" Value="#9A763D"/>
+                            <Setter TargetName="NavRoot" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect BlurRadius="12" ShadowDepth="0" Opacity="0.34" Color="#C18A38"/>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Foreground" Value="#F2E2C2"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="NavRoot" Property="Background" Value="#12171A"/>
+                            <Setter TargetName="NavRoot" Property="Background" Value="#14181A"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -198,21 +210,23 @@
                             <ColumnDefinition Width="198"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Background="#080D11" BorderBrush="#292A26" BorderThickness="0,0,1,0">
+                        <Border Grid.Column="0" Background="#070C10" BorderBrush="#302B22" BorderThickness="0,0,1,0">
                             <DockPanel LastChildFill="True">
-                                <Border DockPanel.Dock="Bottom" Height="176" Margin="14,4,14,12" BorderBrush="#2B2A24" BorderThickness="0,1,0,0">
-                                    <Grid>
-                                        <Ellipse Width="112" Height="112" Stroke="#7A6034" StrokeThickness="1" Opacity="0.46" VerticalAlignment="Center"/>
-                                        <Ellipse Width="74" Height="74" Stroke="#6A5430" StrokeThickness="1" Opacity="0.6" VerticalAlignment="Center"/>
-                                        <TextBlock Text="✦" FontSize="47" Foreground="#2C8BD8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Effect>
-                                                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.28" Color="#4AA4F0"/>
-                                            </TextBlock.Effect>
-                                        </TextBlock>
-                                    </Grid>
-                                </Border>
+                                <Grid DockPanel.Dock="Bottom" Height="176" Margin="12,2,12,9">
+                                    <Ellipse Width="128" Height="128" Stroke="#745B31" StrokeThickness="1" Opacity="0.38"/>
+                                    <Ellipse Width="96" Height="96" Stroke="#6C542E" StrokeThickness="1" Opacity="0.48"/>
+                                    <Ellipse Width="58" Height="58" Stroke="#56452C" StrokeThickness="1" Opacity="0.68"/>
+                                    <Line X1="64" Y1="12" X2="64" Y2="164" Stroke="#765D31" StrokeThickness="1" Opacity="0.45" HorizontalAlignment="Center"/>
+                                    <Line X1="0" Y1="88" X2="128" Y2="88" Stroke="#765D31" StrokeThickness="1" Opacity="0.45" HorizontalAlignment="Center"/>
+                                    <Polygon Points="64,18 72,68 64,78 56,68" Fill="#3C8BC2" Stroke="#A88443" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Width="128" Height="128" Stretch="Fill" Opacity="0.75"/>
+                                    <TextBlock Text="✦" FontSize="43" Foreground="#58A6E0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock.Effect>
+                                            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.55" Color="#4AA4F0"/>
+                                        </TextBlock.Effect>
+                                    </TextBlock>
+                                </Grid>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <TabPanel IsItemsHost="True" Margin="0,12,0,0"/>
+                                    <TabPanel IsItemsHost="True" Margin="0,11,0,0"/>
                                 </ScrollViewer>
                             </DockPanel>
                         </Border>
