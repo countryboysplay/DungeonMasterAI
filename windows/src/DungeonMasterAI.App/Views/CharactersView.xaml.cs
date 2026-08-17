@@ -28,16 +28,63 @@ public partial class CharactersView : UserControl
         if (_referenceArtApplied) return;
         var placeholder = FindText(this, "♛");
         if (placeholder?.Parent is not Grid portraitGrid) return;
+
         portraitGrid.Children.Clear();
         portraitGrid.Children.Add(new Image
         {
-            Source = new BitmapImage(new Uri("pack://application:,,,/DungeonMasterAI;component/Assets/Reference/aeliana-portrait.jpg", UriKind.Absolute)),
+            Source = LoadReferenceBitmap("Assets/Reference/aeliana-portrait.jpg"),
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             SnapsToDevicePixels = true
         });
+        portraitGrid.Children.Add(new Rectangle
+        {
+            IsHitTestVisible = false,
+            Fill = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(0, 1),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(0, 0, 0, 0), .48),
+                    new GradientStop(Color.FromArgb(110, 3, 7, 8), 1)
+                }
+            }
+        });
+        portraitGrid.Children.Add(new Border
+        {
+            Width = 58,
+            Height = 58,
+            Background = new SolidColorBrush(Color.FromRgb(21, 19, 15)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(162, 129, 73)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(29),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 15),
+            Child = new AaaVectorIcon
+            {
+                Kind = AaaIconKind.Shield,
+                Width = 28,
+                Height = 28,
+                Foreground = new SolidColorBrush(Color.FromRgb(199, 162, 92)),
+                StrokeThickness = 1.5
+            }
+        });
         _referenceArtApplied = true;
+    }
+
+    private static BitmapImage LoadReferenceBitmap(string relativePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        bitmap.UriSource = new Uri($"pack://application:,,,/DungeonMasterAI;component/{relativePath}", UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
     }
 
     private void ApplyStaticVectorTreatment()
