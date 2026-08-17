@@ -35,7 +35,12 @@
                                 <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.55" Color="#000000"/>
                             </Border.Effect>
                             <Grid>
-                                <TextBlock Text="♧" FontFamily="Georgia" FontSize="64" Foreground="#B8C5AA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Viewbox x:Name="AaaGreenhavenHeroCrest" Margin="11">
+                          <Grid Width="74" Height="90">
+                              <Path Data="M37,2 L70,14 L66,61 C61,74 51,83 37,88 C23,83 13,74 8,61 L4,14 Z" Fill="#0B1210" Stroke="#A68C5B" StrokeThickness="2"/>
+                              <Path Data="M37,17 C32,24 28,29 20,34 M37,17 C42,24 46,29 54,34 M37,17 L37,68 M20,34 C25,38 31,38 37,33 C43,38 49,38 54,34 M26,57 C31,51 34,45 37,38 C40,45 43,51 48,57 M30,68 C32,62 34,58 37,54 C40,58 42,62 44,68" Stroke="#B8C6A5" StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                          </Grid>
+                      </Viewbox>
                                 <Border BorderBrush="#29322A" BorderThickness="5" Margin="7" CornerRadius="4"/>
                             </Grid>
                         </Border>
@@ -56,7 +61,7 @@
 
             <Border Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaPanelBorder}" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="♧  AI RUNTIME STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaBlueBrush}"/>
+                    <TextBlock Text="&#xE950;  AI RUNTIME STATUS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaBlueBrush}"/>
                     <Border Height="1" Background="#2D3438" Margin="0,13,0,12"/>
                     <Border Background="#0A1217" BorderBrush="#26333A" BorderThickness="1" CornerRadius="4" Padding="10">
                         <DockPanel>
@@ -83,7 +88,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0">
                     <StackPanel>
-                        <TextBlock Text="▣  NEXT SESSION" Style="{StaticResource AaaSectionTitle}"/>
+                        <TextBlock Text="&#xE787;  NEXT SESSION" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}"/>
                         <Border Height="1" Background="#3A3328" Margin="0,10,0,12"/>
                         <TextBlock Text="Tomorrow" FontFamily="Georgia" FontSize="20"/>
                         <TextBlock Text="May 24, 2025 · 7:00 PM" Foreground="#C2B79F" FontFamily="Georgia" FontSize="11" Margin="0,4,0,14"/>
@@ -94,7 +99,7 @@
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#384631">
                     <StackPanel>
-                        <TextBlock Text="▤  ACTIVE QUEST" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaGreenBrush}"/>
+                        <TextBlock Text="&#xE8FD;  ACTIVE QUEST" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaGreenBrush}"/>
                         <Border Height="1" Background="#314131" Margin="0,10,0,12"/>
                         <TextBlock Text="{Binding Quests[0].Name, TargetNullValue=Whispers in the Roots}" FontFamily="Georgia" FontSize="18" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding Quests[0].Summary, TargetNullValue=Investigate the corruption spreading through the Eldenwood.}" Foreground="#C8C0AF" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,11" LineHeight="17"/>
@@ -103,7 +108,7 @@
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#2C4051">
                     <StackPanel>
-                        <TextBlock Text="●  CURRENT LOCATION" Style="{StaticResource AaaSectionTitle}" Foreground="#6EA6DF"/>
+                        <TextBlock Text="&#xE81D;  CURRENT LOCATION" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#6EA6DF"/>
                         <Border Height="1" Background="#293D4B" Margin="0,10,0,12"/>
                         <TextBlock Text="{Binding CurrentLocationName, TargetNullValue=Greenhaven}" FontFamily="Georgia" FontSize="19"/>
                         <TextBlock Text="A peaceful riverside town surrounded by ancient woodlands." Foreground="#C7BEAC" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,15" LineHeight="17"/>
@@ -112,7 +117,7 @@
                 </Border>
                 <Border Grid.Column="3" Style="{StaticResource AaaCardBorder}" Margin="0" BorderBrush="#49394B">
                     <StackPanel>
-                        <TextBlock Text="♟  PARTY STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="#B485D4"/>
+                        <TextBlock Text="&#xE716;  PARTY STATUS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#B485D4"/>
                         <Border Height="1" Background="#3D3040" Margin="0,10,0,12"/>
                         <TextBlock Text="4 / 4 Members" FontFamily="Georgia" FontSize="17"/>
                         <ItemsControl ItemsSource="{Binding Characters}" Margin="0,10,0,8">
@@ -127,7 +132,7 @@
 
             <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource AaaCardBorder}">
                 <StackPanel>
-                    <TextBlock Text="◇  SAVE &amp; RECOVERY" Style="{StaticResource AaaSectionTitle}"/>
+                    <TextBlock Text="&#xE83D;  SAVE &amp; RECOVERY" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}"/>
                     <Border Height="1" Background="#3A3328" Margin="0,10,0,12"/>
                     <TextBlock Text="Last Save" Style="{StaticResource AaaMuted}"/>
                     <DockPanel Margin="0,3,0,14"><TextBlock Text="Autosave active" FontFamily="Georgia" FontSize="13"/><TextBlock DockPanel.Dock="Right" Text="Auto Save  ✓" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/></DockPanel>
@@ -147,14 +152,14 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="0.86*"/><ColumnDefinition Width="1.04*"/><ColumnDefinition Width="0.92*"/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
                     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Text="▥  RECENT WORLD EVENTS" Style="{StaticResource AaaSectionTitle}" Foreground="#7CAAE0"/>
+                        <TextBlock Text="&#xE128;  RECENT WORLD EVENTS" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#7CAAE0"/>
                         <ItemsControl Grid.Row="1" ItemsSource="{Binding RecentEvents}" Margin="0,10,0,8"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#252B2E" BorderThickness="0,0,0,1" Padding="2,8"><DockPanel><TextBlock Text="◉" Foreground="{StaticResource AaaGoldBrush}" Width="23"/><TextBlock Text="{Binding Summary}" FontFamily="Georgia" FontSize="10.5" TextWrapping="Wrap"/></DockPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
                         <Button Grid.Row="2" Content="♙  View World Timeline                              ›" Style="{StaticResource AaaTopButton}" Padding="9,5" Margin="0"/>
                     </Grid>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
                     <StackPanel>
-                        <DockPanel><TextBlock Text="✎  RECENT ACTIVITY" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="9,4" Margin="0"/></DockPanel>
+                        <DockPanel><TextBlock Text="&#xE823;  RECENT ACTIVITY" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="9,4" Margin="0"/></DockPanel>
                         <Border Height="1" Background="#2C3031" Margin="0,10,0,5"/>
                         <TextBlock Text="▣   Session saved" FontFamily="Georgia" FontSize="11" Margin="2,7"/>
                         <TextBlock Text="▤   AI Note added: Possible motives for the druid circle." FontFamily="Georgia" FontSize="11" Margin="2,7" TextWrapping="Wrap"/>
