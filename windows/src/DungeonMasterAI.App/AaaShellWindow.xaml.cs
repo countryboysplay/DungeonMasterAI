@@ -11,6 +11,8 @@ public partial class AaaShellWindow : Window
     private readonly MainViewModel _viewModel;
     private bool _navigationCollapsed;
     private bool _brandMarkApplied;
+    private bool _campaignCrestApplied;
+    private bool _vectorChromeApplied;
 
     public AaaShellWindow() : this(initializeOnLoad: true)
     {
@@ -23,6 +25,9 @@ public partial class AaaShellWindow : Window
         _viewModel = new MainViewModel();
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
+
+        ApplyApprovedStaticChrome();
+        ApplyNavigationState();
 
         if (initializeOnLoad)
             Loaded += OnLoaded;
@@ -38,8 +43,6 @@ public partial class AaaShellWindow : Window
     {
         try
         {
-            ApplyApprovedBrandMark();
-            ApplyNavigationState();
             App.LogStartup("AAA shell loaded; initializing application data.");
             await _viewModel.InitializeAsync();
             App.LogStartup("AAA shell initialization completed successfully.");
@@ -77,6 +80,13 @@ public partial class AaaShellWindow : Window
         ApplyNavigationState();
     }
 
+    private void ApplyApprovedStaticChrome()
+    {
+        ApplyApprovedBrandMark();
+        ApplyApprovedCampaignSelectorCrest();
+        ApplyVectorChrome();
+    }
+
     private void ApplyApprovedBrandMark()
     {
         if (_brandMarkApplied) return;
@@ -94,6 +104,116 @@ public partial class AaaShellWindow : Window
         _brandMarkApplied = true;
     }
 
+    private void ApplyApprovedCampaignSelectorCrest()
+    {
+        if (_campaignCrestApplied) return;
+        var placeholder = FindTextBlock(this, "♜");
+        if (placeholder?.Parent is not Border frame) return;
+
+        frame.Child = new AaaCampaignCrest
+        {
+            Width = 25,
+            Height = 31,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _campaignCrestApplied = true;
+    }
+
+    private void ApplyVectorChrome()
+    {
+        if (_vectorChromeApplied) return;
+
+        var gold = TryFindResource("AaaGoldBrush") as Brush ?? Brushes.BurlyWood;
+        var blue = TryFindResource("AaaBlueBrush") as Brush ?? Brushes.CornflowerBlue;
+        var ivory = new SolidColorBrush(Color.FromRgb(226, 217, 199));
+        ivory.Freeze();
+
+        var navKinds = new[]
+        {
+            AaaIconKind.Home,
+            AaaIconKind.LivePlay,
+            AaaIconKind.Combat,
+            AaaIconKind.Characters,
+            AaaIconKind.World,
+            AaaIconKind.Maps,
+            AaaIconKind.Quests,
+            AaaIconKind.Rules,
+            AaaIconKind.Import,
+            AaaIconKind.Settings
+        };
+
+        var tabItems = MainTabs.Items.OfType<TabItem>().ToArray();
+        for (var i = 0; i < Math.Min(tabItems.Length, navKinds.Length); i++)
+        {
+            if (tabItems[i].Header is not StackPanel header || header.Children.Count == 0) continue;
+            var old = header.Children[0];
+            header.Children.RemoveAt(0);
+            header.Children.Insert(0, new AaaVectorIcon
+            {
+                Kind = navKinds[i],
+                Width = 30,
+                Height = 20,
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = gold,
+                StrokeThickness = 1.45
+            });
+        }
+
+        ReplaceButtonGlyph("☰", AaaIconKind.Menu, gold, null, 18);
+        ReplaceButtonGlyph("▶  New Session", AaaIconKind.Play, blue, "New Session", 16);
+        ReplaceButtonGlyph("▤  Add Note", AaaIconKind.Note, ivory, "Add Note", 15);
+        ReplaceButtonGlyph("⬡  Quick Roll", AaaIconKind.Dice, ivory, "Quick Roll", 16);
+        ReplaceButtonGlyph("✦  Ask AI", AaaIconKind.Spark, blue, "Ask AI", 15);
+
+        _vectorChromeApplied = true;
+    }
+
+    private void ReplaceButtonGlyph(string currentContent, AaaIconKind kind, Brush brush, string? label, double iconSize)
+    {
+        var button = FindButtonByStringContent(this, currentContent);
+        if (button is null) return;
+
+        if (label is null)
+        {
+            button.Content = new AaaVectorIcon
+            {
+                Kind = kind,
+                Width = iconSize,
+                Height = iconSize,
+                Foreground = brush,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            return;
+        }
+
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        content.Children.Add(new AaaVectorIcon
+        {
+            Kind = kind,
+            Width = iconSize,
+            Height = iconSize,
+            Foreground = brush,
+            Margin = new Thickness(0, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontFamily = new FontFamily("Georgia"),
+            FontSize = 12,
+            Foreground = brush,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        button.Content = content;
+    }
+
     private void ApplyNavigationState()
     {
         MainTabs.ApplyTemplate();
@@ -107,15 +227,31 @@ public partial class AaaShellWindow : Window
             item.Margin = _navigationCollapsed ? new Thickness(5, 2, 5, 2) : new Thickness(8, 2, 8, 2);
 
             if (item.Header is not StackPanel header) continue;
-            var textBlocks = header.Children.OfType<TextBlock>().ToArray();
-            if (textBlocks.Length < 2) continue;
-            textBlocks[1].Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
-            textBlocks[0].Width = _navigationCollapsed ? 26 : 30;
-            textBlocks[0].TextAlignment = TextAlignment.Center;
+            var label = header.Children.OfType<TextBlock>().LastOrDefault();
+            if (label is not null)
+                label.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+            var icon = header.Children.OfType<AaaVectorIcon>().FirstOrDefault();
+            if (icon is not null)
+            {
+                icon.Width = _navigationCollapsed ? 25 : 30;
+                icon.Margin = _navigationCollapsed ? new Thickness(0) : new Thickness(0, 0, 4, 0);
+            }
         }
 
         ToolTipService.SetToolTip(MainTabs,
             _navigationCollapsed ? "Expand navigation" : "Collapse navigation");
+    }
+
+    private static Button? FindButtonByStringContent(DependencyObject root, string content)
+    {
+        if (root is Button button && button.Content is string text && text == content) return button;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindButtonByStringContent(VisualTreeHelper.GetChild(root, i), content);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static TextBlock? FindTextBlock(DependencyObject root, string text)
