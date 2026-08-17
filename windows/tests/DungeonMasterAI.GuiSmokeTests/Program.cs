@@ -1,5 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using DungeonMasterAI.App;
 using DungeonMasterAI.App.Views;
@@ -22,9 +25,6 @@ internal static class Program
                 ShutdownMode = ShutdownMode.OnExplicitShutdown
             };
 
-            // Construct the real shell with data/runtime initialization suppressed,
-            // then actually Show() it. Showing the HWND-backed window forces WPF to
-            // activate bindings exactly as the installed application does at startup.
             window = new AaaShellWindow(initializeOnLoad: false);
 
             Check(window.Width == 1536, "AAA shell reference width is 1536.", failures);
@@ -66,6 +66,8 @@ internal static class Program
                     Check(tabItems.Any(item => requiredType.IsInstanceOfType(item.Content)),
                         $"Approved view {requiredType.Name} constructs in the shell.", failures);
 
+                CaptureApprovedViews(window, tabs, failures);
+
                 for (var index = 0; index < tabs.Items.Count; index++)
                 {
                     tabs.SelectedIndex = index;
@@ -92,7 +94,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("GUI SMOKE PASS");
-            Console.WriteLine("AAA shell can be shown; approved major views and packaged reference artwork verified.");
+            Console.WriteLine("AAA shell can be shown; approved major views, packaged artwork, and CI screenshots verified.");
             return 0;
         }
 
@@ -100,6 +102,47 @@ internal static class Program
         foreach (var failure in failures)
             Console.Error.WriteLine($" - {failure}");
         return 1;
+    }
+
+    private static void CaptureApprovedViews(AaaShellWindow window, TabControl tabs, ICollection<string> failures)
+    {
+        var outputDirectory = Path.GetFullPath(Path.Combine("artifacts", "gui-snapshots"));
+        Directory.CreateDirectory(outputDirectory);
+
+        var captures = new (int Index, string Name)[]
+        {
+            (0, "home"),
+            (1, "live-play"),
+            (3, "characters"),
+            (4, "world")
+        };
+
+        foreach (var capture in captures)
+        {
+            tabs.SelectedIndex = capture.Index;
+            tabs.ApplyTemplate();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Layout(window, 1536, 864);
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
+
+            var path = Path.Combine(outputDirectory, $"r51-{capture.Name}-1536x864.png");
+            CaptureWindow(window, path);
+            Check(File.Exists(path) && new FileInfo(path).Length > 1024,
+                $"Rendered {capture.Name} reference screenshot was generated.", failures);
+        }
+    }
+
+    private static void CaptureWindow(Window window, string path)
+    {
+        var width = Math.Max(1, (int)Math.Round(window.ActualWidth));
+        var height = Math.Max(1, (int)Math.Round(window.ActualHeight));
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(path);
+        encoder.Save(stream);
     }
 
     private static void Layout(FrameworkElement element, double width, double height)
