@@ -14,6 +14,17 @@ public partial class App : Application
         "Logs",
         "startup.log");
 
+    public App()
+    {
+        // Major views are constructed before they are fully parented into the shell.
+        // Keep the approved AAA theme at application scope so every UserControl can
+        // resolve its StaticResource references during InitializeComponent().
+        Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("Themes/AaaTheme.xaml", UriKind.Relative)
+        });
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
