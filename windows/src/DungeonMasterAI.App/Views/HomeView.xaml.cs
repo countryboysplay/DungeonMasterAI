@@ -10,6 +10,7 @@ public partial class HomeView : UserControl
 {
     private bool _referenceArtApplied;
     private bool _campaignCrestApplied;
+    private bool _vectorHeadersApplied;
 
     public HomeView()
     {
@@ -18,6 +19,7 @@ public partial class HomeView : UserControl
         {
             ApplyApprovedHeroArtwork();
             ApplyApprovedCampaignCrest();
+            ApplyVectorSectionHeaders();
         };
     }
 
@@ -66,6 +68,55 @@ public partial class HomeView : UserControl
             VerticalAlignment = VerticalAlignment.Center
         });
         _campaignCrestApplied = true;
+    }
+
+    private void ApplyVectorSectionHeaders()
+    {
+        if (_vectorHeadersApplied) return;
+
+        ReplaceHeader("♧  AI RUNTIME STATUS", "AI RUNTIME STATUS", AaaIconKind.Spark);
+        ReplaceHeader("▣  NEXT SESSION", "NEXT SESSION", AaaIconKind.Calendar);
+        ReplaceHeader("▤  ACTIVE QUEST", "ACTIVE QUEST", AaaIconKind.Quests);
+        ReplaceHeader("●  CURRENT LOCATION", "CURRENT LOCATION", AaaIconKind.Location);
+        ReplaceHeader("♟  PARTY STATUS", "PARTY STATUS", AaaIconKind.Characters);
+        ReplaceHeader("◇  SAVE & RECOVERY", "SAVE & RECOVERY", AaaIconKind.Shield);
+        ReplaceHeader("▥  RECENT WORLD EVENTS", "RECENT WORLD EVENTS", AaaIconKind.World);
+        ReplaceHeader("✎  RECENT ACTIVITY", "RECENT ACTIVITY", AaaIconKind.Timeline);
+
+        _vectorHeadersApplied = true;
+    }
+
+    private void ReplaceHeader(string currentText, string label, AaaIconKind kind)
+    {
+        var block = FindTextBlock(this, currentText);
+        if (block?.Parent is not Panel parent) return;
+
+        var index = parent.Children.IndexOf(block);
+        if (index < 0) return;
+
+        var iconBrush = block.Foreground;
+        block.Text = label;
+        block.VerticalAlignment = VerticalAlignment.Center;
+
+        var wrapper = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        wrapper.Children.Add(new AaaVectorIcon
+        {
+            Kind = kind,
+            Width = 14,
+            Height = 14,
+            Foreground = iconBrush,
+            StrokeThickness = 1.45,
+            Margin = new Thickness(0, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        wrapper.Children.Add(block);
+
+        parent.Children.RemoveAt(index);
+        parent.Children.Insert(index, wrapper);
     }
 
     private static TextBlock? FindTextBlock(DependencyObject root, string text)
