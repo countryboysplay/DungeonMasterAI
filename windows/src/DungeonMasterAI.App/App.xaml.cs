@@ -19,9 +19,13 @@ public partial class App : Application
         // Major views are constructed before they are fully parented into the shell.
         // Keep the approved AAA theme at application scope so every UserControl can
         // resolve its StaticResource references during InitializeComponent().
+        // Use an assembly-qualified pack URI so this also works when App is hosted
+        // by the external GUI smoke-test executable.
         Resources.MergedDictionaries.Add(new ResourceDictionary
         {
-            Source = new Uri("Themes/AaaTheme.xaml", UriKind.Relative)
+            Source = new Uri(
+                "pack://application:,,,/DungeonMasterAI;component/Themes/AaaTheme.xaml",
+                UriKind.Absolute)
         });
     }
 
