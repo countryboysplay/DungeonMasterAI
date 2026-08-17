@@ -12,7 +12,11 @@ public partial class AaaShellWindow : Window
     private bool _navigationCollapsed;
     private bool _brandMarkApplied;
 
-    public AaaShellWindow()
+    public AaaShellWindow() : this(initializeOnLoad: true)
+    {
+    }
+
+    public AaaShellWindow(bool initializeOnLoad)
     {
         App.LogStartup("AaaShellWindow constructor entered.");
         InitializeComponent();
@@ -20,7 +24,9 @@ public partial class AaaShellWindow : Window
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
 
-        Loaded += OnLoaded;
+        if (initializeOnLoad)
+            Loaded += OnLoaded;
+
         Closed += (_, _) =>
         {
             _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
