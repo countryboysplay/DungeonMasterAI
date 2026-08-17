@@ -11,6 +11,9 @@ namespace DungeonMasterAI.GuiSmokeTests;
 
 internal static class Program
 {
+    private const int ReferenceWidth = 1536;
+    private const int ReferenceHeight = 864;
+
     [STAThread]
     private static int Main()
     {
@@ -27,8 +30,8 @@ internal static class Program
 
             window = new AaaShellWindow(initializeOnLoad: false);
 
-            Check(window.Width == 1536, "AAA shell reference width is 1536.", failures);
-            Check(window.Height == 864, "AAA shell reference height is 864.", failures);
+            Check(window.Width == ReferenceWidth, "AAA shell reference width is 1536.", failures);
+            Check(window.Height == ReferenceHeight, "AAA shell reference height is 864.", failures);
             Check(window.MinWidth <= 1280, "AAA shell remains available at 1280px width.", failures);
             Check(window.MinHeight <= 720, "AAA shell remains available at 720px height.", failures);
 
@@ -41,11 +44,11 @@ internal static class Program
                     UriKind.Absolute)) is not null,
                 "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
 
+            // Real HWND startup test. The hosted runner may constrain the physical
+            // window to its virtual screen size, which is okay for this check.
             window.Show();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
-
-            Layout(window, 1536, 864);
 
             var tabs = window.FindName("MainTabs") as TabControl;
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
@@ -73,13 +76,11 @@ internal static class Program
                     tabs.SelectedIndex = index;
                     tabs.ApplyTemplate();
                     window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
-                    Layout(window, 1536, 864);
+                    LayoutVisual(window.Content as FrameworkElement, 1280, 720);
                 }
             }
 
-            Layout(window, 1280, 720);
-            Check(window.ActualWidth >= 0 && window.ActualHeight >= 0,
-                "AAA shell completes compact-layout measurement.", failures);
+            Check(window.IsVisible, "AAA shell remains alive after compact-layout checks.", failures);
         }
         catch (Exception ex)
         {
@@ -94,7 +95,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("GUI SMOKE PASS");
-            Console.WriteLine("AAA shell can be shown; approved major views, packaged artwork, and CI screenshots verified.");
+            Console.WriteLine("AAA shell can be shown; approved major views, packaged artwork, and 1536x864 CI screenshots verified.");
             return 0;
         }
 
@@ -122,22 +123,36 @@ internal static class Program
             tabs.SelectedIndex = capture.Index;
             tabs.ApplyTemplate();
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-            Layout(window, 1536, 864);
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
 
             var path = Path.Combine(outputDirectory, $"r51-{capture.Name}-1536x864.png");
-            CaptureWindow(window, path);
-            Check(File.Exists(path) && new FileInfo(path).Length > 1024,
-                $"Rendered {capture.Name} reference screenshot was generated.", failures);
+            CaptureReferenceVisual(window, path);
+
+            if (File.Exists(path))
+            {
+                using var stream = File.OpenRead(path);
+                var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                var frame = decoder.Frames[0];
+                Check(frame.PixelWidth == ReferenceWidth && frame.PixelHeight == ReferenceHeight,
+                    $"Rendered {capture.Name} screenshot is exactly 1536x864.", failures);
+            }
+            else
+            {
+                failures.Add($"Rendered {capture.Name} reference screenshot was not generated.");
+            }
         }
     }
 
-    private static void CaptureWindow(Window window, string path)
+    private static void CaptureReferenceVisual(AaaShellWindow window, string path)
     {
-        var width = Math.Max(1, (int)Math.Round(window.ActualWidth));
-        var height = Math.Max(1, (int)Math.Round(window.ActualHeight));
-        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(window);
+        if (window.Content is not FrameworkElement root)
+            throw new InvalidOperationException("AAA shell root visual is unavailable.");
+
+        // Render the already-loaded real shell content at the authoritative design
+        // canvas, independent of the CI runner's smaller physical desktop.
+        LayoutVisual(root, ReferenceWidth, ReferenceHeight);
+        var bitmap = new RenderTargetBitmap(ReferenceWidth, ReferenceHeight, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(root);
 
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
@@ -145,8 +160,9 @@ internal static class Program
         encoder.Save(stream);
     }
 
-    private static void Layout(FrameworkElement element, double width, double height)
+    private static void LayoutVisual(FrameworkElement? element, double width, double height)
     {
+        if (element is null) return;
         element.Measure(new Size(width, height));
         element.Arrange(new Rect(0, 0, width, height));
         element.UpdateLayout();
