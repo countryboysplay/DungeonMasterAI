@@ -94,7 +94,7 @@
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⚔" FontSize="18" Width="30"/><TextBlock Text="Combat" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:LivePlayView/>
+                    <views:CombatView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="♟" FontSize="18" Width="30"/><TextBlock Text="Characters" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
