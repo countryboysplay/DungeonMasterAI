@@ -35,9 +35,12 @@ public partial class HomeView : UserControl
         var index = heroGrid.Children.IndexOf(map);
         if (index < 0) return;
 
+        var source = TryLoadReferenceBitmap("Assets/Reference/home-hero-greenhaven.jpg");
+        if (source is null) return;
+
         var artwork = new Image
         {
-            Source = LoadReferenceBitmap("Assets/Reference/home-hero-greenhaven.jpg"),
+            Source = source,
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
@@ -60,9 +63,12 @@ public partial class HomeView : UserControl
         var index = panelGrid.Children.IndexOf(map);
         if (index < 0) return;
 
+        var source = TryLoadReferenceBitmap("Assets/Reference/home-parchment.jpg");
+        if (source is null) return;
+
         var parchment = new Image
         {
-            Source = LoadReferenceBitmap("Assets/Reference/home-parchment.jpg"),
+            Source = source,
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
@@ -76,16 +82,31 @@ public partial class HomeView : UserControl
         _parchmentArtApplied = true;
     }
 
-    private static BitmapImage LoadReferenceBitmap(string relativePath)
+    private static BitmapImage? TryLoadReferenceBitmap(string relativePath)
     {
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
-        bitmap.UriSource = new Uri($"pack://application:,,,/DungeonMasterAI;component/{relativePath}", UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
-        return bitmap;
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+            bitmap.UriSource = new Uri($"pack://application:,,,/DungeonMasterAI;component/{relativePath}", UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch (System.IO.FileFormatException)
+        {
+            return null;
+        }
+        catch (System.IO.IOException)
+        {
+            return null;
+        }
+        catch (System.NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private void ApplyApprovedCampaignCrest()
