@@ -22,6 +22,7 @@ public partial class AaaShellWindow : Window
     {
         App.LogStartup("AaaShellWindow constructor entered.");
         InitializeComponent();
+        MainTabs.TabStripPlacement = Dock.Left;
         _viewModel = new MainViewModel();
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
@@ -60,7 +61,6 @@ public partial class AaaShellWindow : Window
 
     private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Major screens bind directly to the authoritative MainViewModel.
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -147,7 +147,6 @@ public partial class AaaShellWindow : Window
         for (var i = 0; i < Math.Min(tabItems.Length, navKinds.Length); i++)
         {
             if (tabItems[i].Header is not StackPanel header || header.Children.Count == 0) continue;
-            var old = header.Children[0];
             header.Children.RemoveAt(0);
             header.Children.Insert(0, new AaaVectorIcon
             {
