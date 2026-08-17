@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using DungeonMasterAI.App.Controls;
 
 namespace DungeonMasterAI.App;
@@ -11,6 +12,7 @@ public partial class AaaShellWindow : Window
     private readonly MainViewModel _viewModel;
     private bool _navigationCollapsed;
     private bool _brandMarkApplied;
+    private bool _campaignCrestApplied;
 
     public AaaShellWindow() : this(initializeOnLoad: true)
     {
@@ -27,6 +29,13 @@ public partial class AaaShellWindow : Window
         if (initializeOnLoad)
             Loaded += OnLoaded;
 
+        Loaded += (_, _) =>
+        {
+            ApplyApprovedBrandMark();
+            ApplyApprovedCampaignCrest();
+            ApplyNavigationState();
+        };
+
         Closed += (_, _) =>
         {
             _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
@@ -38,8 +47,6 @@ public partial class AaaShellWindow : Window
     {
         try
         {
-            ApplyApprovedBrandMark();
-            ApplyNavigationState();
             App.LogStartup("AAA shell loaded; initializing application data.");
             await _viewModel.InitializeAsync();
             App.LogStartup("AAA shell initialization completed successfully.");
@@ -92,6 +99,38 @@ public partial class AaaShellWindow : Window
             VerticalAlignment = VerticalAlignment.Center
         });
         _brandMarkApplied = true;
+    }
+
+    private void ApplyApprovedCampaignCrest()
+    {
+        if (_campaignCrestApplied) return;
+        var placeholder = FindTextBlock(this, "♜");
+        if (placeholder?.Parent is not Border border) return;
+
+        var viewbox = new Viewbox { Margin = new Thickness(5) };
+        var grid = new Grid { Width = 30, Height = 34 };
+        grid.Children.Add(new Path
+        {
+            Data = Geometry.Parse("M15,1 L28,6 L26,23 C24,28 20,31 15,33 C10,31 6,28 4,23 L2,6 Z"),
+            Fill = new SolidColorBrush(Color.FromRgb(11, 18, 16)),
+            Stroke = new SolidColorBrush(Color.FromRgb(168, 139, 84)),
+            StrokeThickness = 1.2
+        });
+        grid.Children.Add(new Path
+        {
+            Data = Geometry.Parse("M15,7 C13,11 11,13 8,16 M15,7 C17,11 19,13 22,16 M15,7 L15,25 M10,23 C12,20 13,18 15,15 C17,18 18,20 20,23 M8,16 C10,17 12,17 15,15 C18,17 20,17 22,16"),
+            Stroke = new SolidColorBrush(Color.FromRgb(181, 193, 157)),
+            StrokeThickness = 1.4,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Fill = Brushes.Transparent
+        });
+        viewbox.Child = grid;
+        border.Child = viewbox;
+        border.Width = 40;
+        border.Height = 42;
+        border.BorderBrush = new SolidColorBrush(Color.FromRgb(121, 97, 61));
+        _campaignCrestApplied = true;
     }
 
     private void ApplyNavigationState()
