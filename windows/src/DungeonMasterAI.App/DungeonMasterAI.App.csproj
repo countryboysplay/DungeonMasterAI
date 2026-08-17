@@ -17,6 +17,7 @@
     <Content Include="../../../reference-python/demo/sample_campaign_manifest.json" Link="Assets/Sample/sample_campaign_manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets/Rules/srd_spells.json" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets/Reference/home-hero-greenhaven.jpg" />
+    <Resource Include="Assets/Reference/aeliana-portrait.jpg" />
     <Content Include="Runtime/**/*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Models/**/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
