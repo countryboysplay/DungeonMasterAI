@@ -25,6 +25,15 @@ internal static class Program
             Check(window.MinWidth <= 1280, "AAA shell remains available at 1280px width.", failures);
             Check(window.MinHeight <= 720, "AAA shell remains available at 720px height.", failures);
 
+            Check(Application.GetResourceStream(new Uri(
+                    "pack://application:,,,/DungeonMasterAI;component/Assets/Reference/home-hero-greenhaven.jpg",
+                    UriKind.Absolute)) is not null,
+                "Approved Greenhaven hero artwork is packaged as a WPF resource.", failures);
+            Check(Application.GetResourceStream(new Uri(
+                    "pack://application:,,,/DungeonMasterAI;component/Assets/Reference/aeliana-portrait.jpg",
+                    UriKind.Absolute)) is not null,
+                "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
+
             Layout(window, 1536, 864);
             var tabs = FindVisualDescendant<TabControl>(window);
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
@@ -67,7 +76,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("GUI SMOKE PASS");
-            Console.WriteLine("AAA shell and approved major views constructed at 1536x864 and compact 1280x720 layouts.");
+            Console.WriteLine("AAA shell, approved major views, and packaged reference artwork verified.");
             return 0;
         }
 
