@@ -39,7 +39,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0" Style="{StaticResource AaaTopButton}" Width="42" Height="42" Padding="0" Margin="2,9,10,9" Content="☰" FontSize="18" Click="ToggleNavigation_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <Button Grid.Column="0" Style="{StaticResource AaaTopButton}" Width="42" Height="42" Padding="0" Margin="2,9,10,9" Content="&#xE700;" FontFamily="Segoe Fluent Icons" FontSize="17" Click="ToggleNavigation_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
                         <TextBlock Text="◈" FontSize="33" Foreground="{StaticResource AaaGoldBrush}" VerticalAlignment="Center" Margin="0,0,9,0"/>
@@ -76,52 +76,52 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="—" Click="Minimize_Click"/>
-                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="□" Click="MaximizeRestore_Click"/>
-                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="×" Click="Close_Click"/>
+                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="&#xE921;" FontFamily="Segoe Fluent Icons" Click="Minimize_Click"/>
+                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="&#xE922;" FontFamily="Segoe Fluent Icons" Click="MaximizeRestore_Click"/>
+                        <Button Style="{StaticResource AaaTopButton}" Width="38" Padding="0" Margin="2,0" Content="&#xE8BB;" FontFamily="Segoe Fluent Icons" Click="Close_Click"/>
                     </StackPanel>
                 </Grid>
             </Border>
 
             <TabControl x:Name="MainTabs" Grid.Row="1" Style="{StaticResource AaaTabControl}" SelectedIndex="0">
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⌂" FontSize="20" Width="30"/><TextBlock Text="Home" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Home" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:HomeView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="◉" FontSize="18" Width="30"/><TextBlock Text="Live Play" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Live Play" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:LivePlayView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⚔" FontSize="18" Width="30"/><TextBlock Text="Combat" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Combat" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:LivePlayView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="♟" FontSize="18" Width="30"/><TextBlock Text="Characters" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE716;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Characters" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:CharactersView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="◍" FontSize="18" Width="30"/><TextBlock Text="World" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE774;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="World" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:WorldView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▧" FontSize="18" Width="30"/><TextBlock Text="Maps" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE707;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Maps" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:WorldView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▤" FontSize="18" Width="30"/><TextBlock Text="Quests" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8FD;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Quests" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:WorldView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▥" FontSize="18" Width="30"/><TextBlock Text="Rules" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE736;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Rules" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:UtilityPlaceholderView Title="Rules" Subtitle="The SRD rules library is being restyled into the approved dark-fantasy shell without changing its deterministic search engine."/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⊞" FontSize="18" Width="30"/><TextBlock Text="Import" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Import" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:UtilityPlaceholderView Title="Import" Subtitle="Campaign import and AI compile workflows remain intact while their presentation is rebuilt to match the approved renders."/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
-                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" FontSize="18" Width="30"/><TextBlock Text="Settings" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
+                    <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" FontSize="17" Width="30" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="Settings" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
                     <views:UtilityPlaceholderView Title="Settings" Subtitle="Local AI, model, save, recovery, and application settings will use the same premium panel system."/>
                 </TabItem>
             </TabControl>
