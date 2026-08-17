@@ -25,11 +25,7 @@ internal static class Program
 
         try
         {
-            application = new DungeonMasterAI.App.App
-            {
-                ShutdownMode = ShutdownMode.OnExplicitShutdown
-            };
-
+            application = new DungeonMasterAI.App.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             window = new AaaShellWindow(initializeOnLoad: false);
 
             Check(window.Width == ReferenceWidth, "AAA shell reference width is 1536.", failures);
@@ -47,10 +43,11 @@ internal static class Program
                 "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
 
             window.Show();
-            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            FlushUi(window);
             Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
 
             PopulateGreenhavenPreview(window, failures);
+            FlushUi(window);
 
             var tabs = window.FindName("MainTabs") as TabControl;
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
@@ -59,14 +56,7 @@ internal static class Program
                 Check(tabs.Items.Count == 10, "Main navigation contains the 10 approved destinations.", failures);
 
                 var tabItems = tabs.Items.OfType<TabItem>().ToArray();
-                var requiredTypes = new[]
-                {
-                    typeof(HomeView),
-                    typeof(LivePlayView),
-                    typeof(CharactersView),
-                    typeof(WorldView)
-                };
-
+                var requiredTypes = new[] { typeof(HomeView), typeof(LivePlayView), typeof(CharactersView), typeof(WorldView) };
                 foreach (var requiredType in requiredTypes)
                     Check(tabItems.Any(item => requiredType.IsInstanceOfType(item.Content)),
                         $"Approved view {requiredType.Name} constructs in the shell.", failures);
@@ -77,7 +67,7 @@ internal static class Program
                 {
                     tabs.SelectedIndex = index;
                     tabs.ApplyTemplate();
-                    window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+                    FlushUi(window);
                     LayoutVisual(window.Content as FrameworkElement, 1280, 720);
                 }
             }
@@ -122,14 +112,12 @@ internal static class Program
             return;
         }
 
-        var manifestJson = File.ReadAllText(samplePath);
-        var imported = new CampaignImportService().ImportManifestJson(manifestJson, Path.GetFileName(samplePath));
+        var imported = new CampaignImportService().ImportManifestJson(File.ReadAllText(samplePath), Path.GetFileName(samplePath));
         var campaign = imported.Campaign;
         campaign.Name = "Greenhaven";
         campaign.Day = 2;
         campaign.MinuteOfDay = 19 * 60 + 43;
-        foreach (var location in campaign.Locations.Where(l => !l.DmOnly))
-            location.Discovered = true;
+        foreach (var location in campaign.Locations.Where(l => !l.DmOnly)) location.Discovered = true;
 
         var encounter = campaign.Encounters.FirstOrDefault();
         if (encounter is not null)
@@ -157,26 +145,16 @@ internal static class Program
 
         viewModel.SelectedCampaign = campaign;
         viewModel.ShowDmMap = true;
-        PumpDispatcher(TimeSpan.FromMilliseconds(180));
 
         Check(viewModel.SelectedCampaign is not null, "Direct-import Greenhaven preview selects a campaign.", failures);
         Check(viewModel.SelectedEncounter is not null, "Direct-import Greenhaven preview selects an encounter.", failures);
     }
 
-    private static void PumpDispatcher(TimeSpan duration)
+    private static void FlushUi(DispatcherObject dispatcherOwner)
     {
-        var frame = new DispatcherFrame();
-        var timer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = duration
-        };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            frame.Continue = false;
-        };
-        timer.Start();
-        Dispatcher.PushFrame(frame);
+        dispatcherOwner.Dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+        dispatcherOwner.Dispatcher.Invoke(() => { }, DispatcherPriority.Loaded);
+        dispatcherOwner.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
     }
 
     private static void CaptureApprovedViews(AaaShellWindow window, TabControl tabs, ICollection<string> failures)
@@ -186,17 +164,14 @@ internal static class Program
 
         var captures = new (int Index, string Name)[]
         {
-            (0, "home"),
-            (1, "live-play"),
-            (3, "characters"),
-            (4, "world")
+            (0, "home"), (1, "live-play"), (3, "characters"), (4, "world")
         };
 
         foreach (var capture in captures)
         {
             tabs.SelectedIndex = capture.Index;
             tabs.ApplyTemplate();
-            PumpDispatcher(TimeSpan.FromMilliseconds(120));
+            FlushUi(window);
 
             var path = Path.Combine(outputDirectory, $"r51-{capture.Name}-1536x864.png");
             CaptureReferenceVisual(window, path);
