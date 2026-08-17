@@ -9,6 +9,7 @@ namespace DungeonMasterAI.App.Views;
 public partial class HomeView : UserControl
 {
     private bool _referenceArtApplied;
+    private bool _parchmentArtApplied;
     private bool _campaignCrestApplied;
     private bool _vectorHeadersApplied;
 
@@ -18,6 +19,7 @@ public partial class HomeView : UserControl
         Loaded += (_, _) =>
         {
             ApplyApprovedHeroArtwork();
+            ApplyApprovedParchmentArtwork();
             ApplyApprovedCampaignCrest();
             ApplyVectorSectionHeaders();
         };
@@ -26,7 +28,8 @@ public partial class HomeView : UserControl
     private void ApplyApprovedHeroArtwork()
     {
         if (_referenceArtApplied) return;
-        var map = FindDescendant<CampaignMapControl>(this);
+        var maps = FindDescendants<CampaignMapControl>(this);
+        var map = maps.FirstOrDefault();
         if (map?.Parent is not Grid heroGrid) return;
 
         var index = heroGrid.Children.IndexOf(map);
@@ -34,18 +37,55 @@ public partial class HomeView : UserControl
 
         var artwork = new Image
         {
-            Source = new BitmapImage(new Uri(
-                "pack://application:,,,/DungeonMasterAI;component/Assets/Reference/home-hero-greenhaven.jpg",
-                UriKind.Absolute)),
+            Source = LoadReferenceBitmap("Assets/Reference/home-hero-greenhaven.jpg"),
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
-            SnapsToDevicePixels = true
+            SnapsToDevicePixels = true,
+            IsHitTestVisible = false
         };
 
         map.Visibility = Visibility.Collapsed;
         heroGrid.Children.Insert(index, artwork);
         _referenceArtApplied = true;
+    }
+
+    private void ApplyApprovedParchmentArtwork()
+    {
+        if (_parchmentArtApplied) return;
+        var maps = FindDescendants<CampaignMapControl>(this);
+        var map = maps.Skip(1).FirstOrDefault();
+        if (map?.Parent is not Grid panelGrid) return;
+
+        var index = panelGrid.Children.IndexOf(map);
+        if (index < 0) return;
+
+        var parchment = new Image
+        {
+            Source = LoadReferenceBitmap("Assets/Reference/home-parchment.jpg"),
+            Stretch = Stretch.UniformToFill,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            SnapsToDevicePixels = true,
+            IsHitTestVisible = false,
+            Opacity = 0.93
+        };
+
+        map.Visibility = Visibility.Collapsed;
+        panelGrid.Children.Insert(index, parchment);
+        _parchmentArtApplied = true;
+    }
+
+    private static BitmapImage LoadReferenceBitmap(string relativePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        bitmap.UriSource = new Uri($"pack://application:,,,/DungeonMasterAI;component/{relativePath}", UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
     }
 
     private void ApplyApprovedCampaignCrest()
@@ -130,14 +170,17 @@ public partial class HomeView : UserControl
         return null;
     }
 
-    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    private static List<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
     {
-        if (root is T match) return match;
+        var results = new List<T>();
+        CollectDescendants(root, results);
+        return results;
+    }
+
+    private static void CollectDescendants<T>(DependencyObject root, ICollection<T> destination) where T : DependencyObject
+    {
+        if (root is T match) destination.Add(match);
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var found = FindDescendant<T>(VisualTreeHelper.GetChild(root, i));
-            if (found is not null) return found;
-        }
-        return null;
+            CollectDescendants(VisualTreeHelper.GetChild(root, i), destination);
     }
 }
