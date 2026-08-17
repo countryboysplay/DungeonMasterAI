@@ -50,6 +50,8 @@ internal static class Program
             window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
 
+            PopulateGreenhavenPreview(window, failures);
+
             var tabs = window.FindName("MainTabs") as TabControl;
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
             if (tabs is not null)
@@ -95,7 +97,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("GUI SMOKE PASS");
-            Console.WriteLine("AAA shell can be shown; approved major views, packaged artwork, and 1536x864 CI screenshots verified.");
+            Console.WriteLine("AAA shell can be shown; populated Greenhaven views, packaged artwork, and 1536x864 CI screenshots verified.");
             return 0;
         }
 
@@ -103,6 +105,49 @@ internal static class Program
         foreach (var failure in failures)
             Console.Error.WriteLine($" - {failure}");
         return 1;
+    }
+
+    private static void PopulateGreenhavenPreview(AaaShellWindow window, ICollection<string> failures)
+    {
+        if (window.DataContext is not MainViewModel viewModel)
+        {
+            failures.Add("AAA shell exposes the authoritative MainViewModel for populated preview rendering.");
+            return;
+        }
+
+        if (viewModel.Campaigns.Count == 0 && viewModel.LoadSampleCommand.CanExecute(null))
+            viewModel.LoadSampleCommand.Execute(null);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(12);
+        while (viewModel.Campaigns.Count == 0 && DateTime.UtcNow < deadline)
+            PumpDispatcher(TimeSpan.FromMilliseconds(75));
+
+        Check(viewModel.Campaigns.Count > 0,
+            $"Included Greenhaven sample loads for populated GUI screenshots. Status: {viewModel.StatusMessage}", failures);
+        if (viewModel.Campaigns.Count == 0) return;
+
+        // Allow the command's save/status continuation and all ItemsControl templates
+        // to settle before the reference captures are taken.
+        var settleDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (!viewModel.LoadSampleCommand.CanExecute(null) && DateTime.UtcNow < settleDeadline)
+            PumpDispatcher(TimeSpan.FromMilliseconds(50));
+        PumpDispatcher(TimeSpan.FromMilliseconds(150));
+    }
+
+    private static void PumpDispatcher(TimeSpan duration)
+    {
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = duration
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            frame.Continue = false;
+        };
+        timer.Start();
+        Dispatcher.PushFrame(frame);
     }
 
     private static void CaptureApprovedViews(AaaShellWindow window, TabControl tabs, ICollection<string> failures)
@@ -122,8 +167,7 @@ internal static class Program
         {
             tabs.SelectedIndex = capture.Index;
             tabs.ApplyTemplate();
-            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
-            window.Dispatcher.Invoke(() => { }, DispatcherPriority.Render);
+            PumpDispatcher(TimeSpan.FromMilliseconds(120));
 
             var path = Path.Combine(outputDirectory, $"r51-{capture.Name}-1536x864.png");
             CaptureReferenceVisual(window, path);
