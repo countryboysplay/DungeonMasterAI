@@ -122,13 +122,9 @@ internal static class Program
             return;
         }
 
-        var importer = new CampaignImportService();
-        var imported = importer.ImportManifestAsync(samplePath).GetAwaiter().GetResult();
+        var manifestJson = File.ReadAllText(samplePath);
+        var imported = new CampaignImportService().ImportManifestJson(manifestJson, Path.GetFileName(samplePath));
         var campaign = imported.Campaign;
-
-        // Preview-only setup uses real domain objects and the real importer. It does
-        // not persist anything or alter production defaults; it simply places the
-        // sample in a representative playable state for visual regression captures.
         campaign.Name = "Greenhaven";
         campaign.Day = 2;
         campaign.MinuteOfDay = 19 * 60 + 43;
