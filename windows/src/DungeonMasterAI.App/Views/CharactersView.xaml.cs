@@ -29,7 +29,6 @@ public partial class CharactersView : UserControl
         if (_referenceArtApplied) return;
         var placeholder = FindText(this, "♛");
         if (placeholder?.Parent is not Grid portraitGrid) return;
-
         portraitGrid.Children.Clear();
         portraitGrid.Children.Add(new Image
         {
@@ -44,8 +43,7 @@ public partial class CharactersView : UserControl
             IsHitTestVisible = false,
             Fill = new LinearGradientBrush
             {
-                StartPoint = new Point(0, 0),
-                EndPoint = new Point(0, 1),
+                StartPoint = new Point(0, 0), EndPoint = new Point(0, 1),
                 GradientStops =
                 {
                     new GradientStop(Color.FromArgb(0, 0, 0, 0), .48),
@@ -55,22 +53,17 @@ public partial class CharactersView : UserControl
         });
         portraitGrid.Children.Add(new Border
         {
-            Width = 58,
-            Height = 58,
+            Width = 58, Height = 58,
             Background = new SolidColorBrush(Color.FromRgb(21, 19, 15)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(162, 129, 73)),
-            BorderThickness = new Thickness(2),
-            CornerRadius = new CornerRadius(29),
+            BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(29),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 0, 15),
             Child = new AaaVectorIcon
             {
-                Kind = AaaIconKind.Shield,
-                Width = 28,
-                Height = 28,
-                Foreground = new SolidColorBrush(Color.FromRgb(199, 162, 92)),
-                StrokeThickness = 1.5
+                Kind = AaaIconKind.Shield, Width = 28, Height = 28,
+                Foreground = new SolidColorBrush(Color.FromRgb(199, 162, 92)), StrokeThickness = 1.5
             }
         });
         _referenceArtApplied = true;
@@ -108,14 +101,12 @@ public partial class CharactersView : UserControl
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
         if (_dynamicVectorTreatmentApplied) return;
-        var replacedParty = ReplaceAllIconOnly("♟", AaaIconKind.Characters, 25);
+        if (FindText(this, "♟") is null && FindText(this, "◆") is null && FindText(this, "✦") is null) return;
+        _dynamicVectorTreatmentApplied = true;
+        LayoutUpdated -= OnLayoutUpdated;
+        ReplaceAllIconOnly("♟", AaaIconKind.Characters, 25);
         ReplaceAllIconOnly("◆", AaaIconKind.Inventory, 18);
         ReplaceAllIconOnly("✦", AaaIconKind.Spark, 23);
-        if (replacedParty > 0)
-        {
-            _dynamicVectorTreatmentApplied = true;
-            LayoutUpdated -= OnLayoutUpdated;
-        }
     }
 
     private void ReplaceLabeledGlyph(string currentText, string label, AaaIconKind kind, double iconSize)
@@ -132,19 +123,12 @@ public partial class CharactersView : UserControl
             case ContentControl contentControl: contentControl.Content = null; break;
             default: return;
         }
-        block.Margin = new Thickness(0);
-        block.Text = label;
-        block.VerticalAlignment = VerticalAlignment.Center;
+        block.Margin = new Thickness(0); block.Text = label; block.VerticalAlignment = VerticalAlignment.Center;
         var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = margin, VerticalAlignment = VerticalAlignment.Center };
         wrapper.Children.Add(new AaaVectorIcon
         {
-            Kind = kind,
-            Width = iconSize,
-            Height = iconSize,
-            Foreground = block.Foreground,
-            StrokeThickness = 1.4,
-            Margin = new Thickness(0, 0, 6, 0),
-            VerticalAlignment = VerticalAlignment.Center
+            Kind = kind, Width = iconSize, Height = iconSize, Foreground = block.Foreground,
+            StrokeThickness = 1.4, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center
         });
         wrapper.Children.Add(block);
         switch (parent)
@@ -173,14 +157,8 @@ public partial class CharactersView : UserControl
     {
         ReplaceChild(block, new AaaVectorIcon
         {
-            Kind = kind,
-            Width = size,
-            Height = size,
-            Foreground = block.Foreground,
-            StrokeThickness = 1.35,
-            HorizontalAlignment = block.HorizontalAlignment,
-            VerticalAlignment = block.VerticalAlignment,
-            Margin = block.Margin
+            Kind = kind, Width = size, Height = size, Foreground = block.Foreground, StrokeThickness = 1.35,
+            HorizontalAlignment = block.HorizontalAlignment, VerticalAlignment = block.VerticalAlignment, Margin = block.Margin
         });
     }
 
