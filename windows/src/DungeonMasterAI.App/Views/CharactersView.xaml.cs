@@ -28,13 +28,10 @@ public partial class CharactersView : UserControl
         if (_referenceArtApplied) return;
         var placeholder = FindText(this, "♛");
         if (placeholder?.Parent is not Grid portraitGrid) return;
-
         portraitGrid.Children.Clear();
         portraitGrid.Children.Add(new Image
         {
-            Source = new BitmapImage(new Uri(
-                "pack://application:,,,/DungeonMasterAI;component/Assets/Reference/aeliana-portrait.jpg",
-                UriKind.Absolute)),
+            Source = new BitmapImage(new Uri("pack://application:,,,/DungeonMasterAI;component/Assets/Reference/aeliana-portrait.jpg", UriKind.Absolute)),
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
@@ -46,33 +43,26 @@ public partial class CharactersView : UserControl
     private void ApplyStaticVectorTreatment()
     {
         if (_staticVectorTreatmentApplied) return;
-
         ReplaceLabeledGlyph("▣ Overview", "Overview", AaaIconKind.Home, 14);
         ReplaceLabeledGlyph("♟ Inventory", "Inventory", AaaIconKind.Inventory, 14);
         ReplaceLabeledGlyph("✣ Spells", "Spells", AaaIconKind.Spark, 14);
         ReplaceLabeledGlyph("✥ Conditions", "Conditions", AaaIconKind.Condition, 14);
         ReplaceLabeledGlyph("▥ Journal", "Journal", AaaIconKind.Rules, 14);
         ReplaceLabeledGlyph("♜ Progression", "Progression", AaaIconKind.Progress, 14);
-
         ReplaceIconOnly("♡", AaaIconKind.Heart, 19);
         ReplaceIconOnly("◇", AaaIconKind.Shield, 19);
         ReplaceIconOnly("♞", AaaIconKind.Speed, 19);
         ReplaceIconOnly("⚔", AaaIconKind.Combat, 18);
         ReplaceIconOnly("✣", AaaIconKind.Spark, 18);
-
         _staticVectorTreatmentApplied = true;
     }
 
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
         if (_dynamicVectorTreatmentApplied) return;
-
         var replacedParty = ReplaceAllIconOnly("♟", AaaIconKind.Characters, 25);
-        var replacedInventory = ReplaceAllIconOnly("◆", AaaIconKind.Inventory, 18);
-        var replacedSpells = ReplaceAllIconOnly("✦", AaaIconKind.Spark, 23);
-
-        // Party cards only exist after campaign data arrives. Once at least one has
-        // materialized, the major dynamic templates have been exercised.
+        ReplaceAllIconOnly("◆", AaaIconKind.Inventory, 18);
+        ReplaceAllIconOnly("✦", AaaIconKind.Spark, 23);
         if (replacedParty > 0)
         {
             _dynamicVectorTreatmentApplied = true;
@@ -84,18 +74,20 @@ public partial class CharactersView : UserControl
     {
         var block = FindText(this, currentText);
         if (block is null) return;
-
+        var parent = block.Parent;
         var margin = block.Margin;
+        var index = parent is Panel panel ? panel.Children.IndexOf(block) : -1;
+        switch (parent)
+        {
+            case Panel panel when index >= 0: panel.Children.RemoveAt(index); break;
+            case Border border: border.Child = null; break;
+            case ContentControl contentControl: contentControl.Content = null; break;
+            default: return;
+        }
         block.Margin = new Thickness(0);
         block.Text = label;
         block.VerticalAlignment = VerticalAlignment.Center;
-
-        var wrapper = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = margin,
-            VerticalAlignment = block.VerticalAlignment
-        };
+        var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = margin, VerticalAlignment = VerticalAlignment.Center };
         wrapper.Children.Add(new AaaVectorIcon
         {
             Kind = kind,
@@ -107,28 +99,31 @@ public partial class CharactersView : UserControl
             VerticalAlignment = VerticalAlignment.Center
         });
         wrapper.Children.Add(block);
-        ReplaceChild(block, wrapper);
+        switch (parent)
+        {
+            case Panel panel when index >= 0: panel.Children.Insert(index, wrapper); break;
+            case Border border: border.Child = wrapper; break;
+            case ContentControl contentControl: contentControl.Content = wrapper; break;
+        }
     }
 
     private void ReplaceIconOnly(string text, AaaIconKind kind, double size)
     {
         var block = FindText(this, text);
-        if (block is null) return;
-        ReplaceTextBlockWithIcon(block, kind, size);
+        if (block is not null) ReplaceTextBlockWithIcon(block, kind, size);
     }
 
     private int ReplaceAllIconOnly(string text, AaaIconKind kind, double size)
     {
         var blocks = new List<TextBlock>();
         CollectTextBlocks(this, text, blocks);
-        foreach (var block in blocks)
-            ReplaceTextBlockWithIcon(block, kind, size);
+        foreach (var block in blocks) ReplaceTextBlockWithIcon(block, kind, size);
         return blocks.Count;
     }
 
     private static void ReplaceTextBlockWithIcon(TextBlock block, AaaIconKind kind, double size)
     {
-        var icon = new AaaVectorIcon
+        ReplaceChild(block, new AaaVectorIcon
         {
             Kind = kind,
             Width = size,
@@ -138,8 +133,7 @@ public partial class CharactersView : UserControl
             HorizontalAlignment = block.HorizontalAlignment,
             VerticalAlignment = block.VerticalAlignment,
             Margin = block.Margin
-        };
-        ReplaceChild(block, icon);
+        });
     }
 
     private static void ReplaceChild(FrameworkElement oldChild, FrameworkElement newChild)
@@ -147,29 +141,18 @@ public partial class CharactersView : UserControl
         switch (oldChild.Parent)
         {
             case Panel panel:
-            {
                 var index = panel.Children.IndexOf(oldChild);
-                if (index < 0) return;
-                panel.Children.RemoveAt(index);
-                panel.Children.Insert(index, newChild);
+                if (index >= 0) { panel.Children.RemoveAt(index); panel.Children.Insert(index, newChild); }
                 break;
-            }
-            case Border border:
-                border.Child = newChild;
-                break;
-            case ContentControl contentControl:
-                contentControl.Content = newChild;
-                break;
+            case Border border: border.Child = newChild; break;
+            case ContentControl contentControl: contentControl.Content = newChild; break;
         }
     }
 
     private static void CollectTextBlocks(DependencyObject root, string text, ICollection<TextBlock> destination)
     {
-        if (root is TextBlock block && block.Text == text)
-            destination.Add(block);
-
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-            CollectTextBlocks(VisualTreeHelper.GetChild(root, i), text, destination);
+        if (root is TextBlock block && block.Text == text) destination.Add(block);
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++) CollectTextBlocks(VisualTreeHelper.GetChild(root, i), text, destination);
     }
 
     private static TextBlock? FindText(DependencyObject root, string text)
