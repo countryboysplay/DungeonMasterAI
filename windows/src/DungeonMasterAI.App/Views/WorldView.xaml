@@ -25,11 +25,11 @@
                     </Border>
                     <Border Grid.Column="2" Background="#D8070B0E" BorderBrush="#3B3B34" BorderThickness="1" CornerRadius="3" Padding="8,6">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="● Ping" Margin="0,0,13,0" FontSize="10"/>
-                            <TextBlock Text="◉ Reveal" Margin="0,0,13,0" FontSize="10"/>
-                            <TextBlock Text="⊘ Hide" Margin="0,0,13,0" FontSize="10"/>
-                            <TextBlock Text="▽ Filter" Margin="0,0,13,0" FontSize="10"/>
-                            <TextBlock Text="▣ Add Note" FontSize="10"/>
+                            <TextBlock Text="&#xE707;  Ping" FontFamily="Segoe Fluent Icons, Segoe UI" Margin="0,0,13,0" FontSize="10"/>
+                            <TextBlock Text="&#xE890;  Reveal" FontFamily="Segoe Fluent Icons, Segoe UI" Margin="0,0,13,0" FontSize="10"/>
+                            <TextBlock Text="&#xED1A;  Hide" FontFamily="Segoe Fluent Icons, Segoe UI" Margin="0,0,13,0" FontSize="10"/>
+                            <TextBlock Text="&#xE71C;  Filter" FontFamily="Segoe Fluent Icons, Segoe UI" Margin="0,0,13,0" FontSize="10"/>
+                            <TextBlock Text="&#xE70B;  Add Note" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="10"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -38,17 +38,17 @@
                     <StackPanel>
                         <TextBlock Text="◇ LEGEND" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
                         <Border Height="1" Background="#4C402E" Margin="0,8"/>
-                        <TextBlock Text="⊙  You Are Here" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="♜  City / Town" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="⌂  Settlement" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="?  Point of Interest" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="♟  Dungeon" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="▥  Ruins" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="—  Road" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="···  Path" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="≈  River" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="◌  Hidden Area" FontSize="9" Margin="0,3"/>
-                        <TextBlock Text="?  Undiscovered" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE81D;  You Are Here" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE80F;  City / Town" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE707;  Settlement" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE946;  Point of Interest" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE7FC;  Dungeon" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE81E;  Ruins" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE8A5;  Road" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE8A5;  Path" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE753;  River" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xED1A;  Hidden Area" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
+                        <TextBlock Text="&#xE9CE;  Undiscovered" FontFamily="Segoe Fluent Icons, Segoe UI" FontSize="9" Margin="0,3"/>
                     </StackPanel>
                 </Border>
 
@@ -59,7 +59,23 @@
                     <StackPanel>
                         <DockPanel><TextBlock Text="{Binding SelectedLocation.Name, TargetNullValue=GREENHAVEN}" FontFamily="Georgia" FontSize="17" Foreground="#E1C27B"/><TextBlock DockPanel.Dock="Right" Text="×" Foreground="#B9B1A2"/></DockPanel>
                         <TextBlock Text="{Binding SelectedLocation.Type, TargetNullValue=Peaceful Riverside Town}" FontFamily="Georgia" FontSize="10" Foreground="#C9C0AD"/>
-                        <Border Height="86" Background="#1D262A" BorderBrush="#3D3B34" BorderThickness="1" Margin="0,8,0,8"><TextBlock Text="♜" FontSize="49" Foreground="#73684F" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                        <Border x:Name="AaaLocationVignette" Height="86" Background="#121A1D" BorderBrush="#4A4235" BorderThickness="1" Margin="0,8,0,8" ClipToBounds="True">
+                  <Grid>
+                      <Rectangle>
+                          <Rectangle.Fill>
+                              <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                  <GradientStop Color="#2C3D46" Offset="0"/>
+                                  <GradientStop Color="#192426" Offset="0.52"/>
+                                  <GradientStop Color="#0E1515" Offset="1"/>
+                              </LinearGradientBrush>
+                          </Rectangle.Fill>
+                      </Rectangle>
+                      <Path Data="M0,57 L28,33 L49,48 L78,22 L104,44 L135,26 L167,51 L205,18 L250,53 L250,86 L0,86 Z" Fill="#26302C" Stroke="#56604D" StrokeThickness="0.7" Stretch="Fill" Opacity="0.9"/>
+                      <Path Data="M18,75 L18,58 L31,58 L31,47 L39,47 L39,70 L53,70 L53,55 L65,55 L65,42 L72,42 L72,68 L84,68 L84,51 L94,51 L94,61 L105,61 L105,72 L119,72 L119,52 L127,52 L127,36 L134,36 L134,70 L148,70 L148,58 L158,58 L158,49 L166,49 L166,72 L184,72 L184,54 L194,54 L194,64 L209,64 L209,47 L218,47 L218,74 Z" Fill="#101617" Stroke="#8A7650" StrokeThickness="0.55" Opacity="0.95"/>
+                      <Rectangle VerticalAlignment="Bottom" Height="18" Fill="#0B1112" Opacity="0.92"/>
+                      <Ellipse Width="26" Height="7" Fill="#233C48" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,8" Opacity="0.8"/>
+                  </Grid>
+              </Border>
                         <TextBlock Text="{Binding SelectedLocation.Description}" TextWrapping="Wrap" FontSize="9.5" Foreground="#D0C7B6" LineHeight="14"/>
                         <TextBlock Text="DISCOVERED CONNECTIONS" Style="{StaticResource AaaMuted}" Foreground="#CBA75B" FontSize="8" Margin="0,8,0,4"/>
                         <WrapPanel><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3" Margin="0,0,4,0"><TextBlock Text="Elderwood" FontSize="8"/></Border><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3" Margin="0,0,4,0"><TextBlock Text="The Old Road" FontSize="8"/></Border><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3"><TextBlock Text="Ravenmere" FontSize="8"/></Border></WrapPanel>
