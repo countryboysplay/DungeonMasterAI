@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Threading;
 using DungeonMasterAI.App;
 using DungeonMasterAI.App.Views;
 
@@ -21,7 +21,11 @@ internal static class Program
             {
                 ShutdownMode = ShutdownMode.OnExplicitShutdown
             };
-            window = new AaaShellWindow();
+
+            // Construct the real shell with data/runtime initialization suppressed,
+            // then actually Show() it. Showing the HWND-backed window forces WPF to
+            // activate bindings exactly as the installed application does at startup.
+            window = new AaaShellWindow(initializeOnLoad: false);
 
             Check(window.Width == 1536, "AAA shell reference width is 1536.", failures);
             Check(window.Height == 864, "AAA shell reference height is 864.", failures);
@@ -37,13 +41,12 @@ internal static class Program
                     UriKind.Absolute)) is not null,
                 "Approved Aeliana portrait artwork is packaged as a WPF resource.", failures);
 
+            window.Show();
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
+
             Layout(window, 1536, 864);
 
-            // The CI smoke host intentionally does not Show() the window because
-            // Show would run the app's asynchronous startup/data initialization.
-            // Named XAML elements are already registered in the window namescope
-            // after InitializeComponent(), so use that stable contract instead of
-            // depending on an HWND-backed visual tree being realized.
             var tabs = window.FindName("MainTabs") as TabControl;
             Check(tabs is not null, "Main navigation TabControl exists.", failures);
             if (tabs is not null)
@@ -67,6 +70,7 @@ internal static class Program
                 {
                     tabs.SelectedIndex = index;
                     tabs.ApplyTemplate();
+                    window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
                     Layout(window, 1536, 864);
                 }
             }
@@ -77,7 +81,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            failures.Add($"Unhandled GUI construction exception: {ex}");
+            failures.Add($"Unhandled GUI construction/show exception: {ex}");
         }
         finally
         {
@@ -88,7 +92,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("GUI SMOKE PASS");
-            Console.WriteLine("AAA shell, approved major views, and packaged reference artwork verified.");
+            Console.WriteLine("AAA shell can be shown; approved major views and packaged reference artwork verified.");
             return 0;
         }
 
