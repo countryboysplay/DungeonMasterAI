@@ -26,7 +26,12 @@ public enum AaaIconKind
     Heart,
     Calendar,
     Save,
-    Timeline
+    Timeline,
+    Speed,
+    Inventory,
+    Condition,
+    Progress,
+    Rest
 }
 
 public sealed class AaaVectorIcon : Control
@@ -54,7 +59,12 @@ public sealed class AaaVectorIcon : Control
             [AaaIconKind.Heart] = Geometry.Parse("M12,21 C4,16 2,11 4.5,7.5 C6.5,4.5 10,5 12,8 C14,5 17.5,4.5 19.5,7.5 C22,11 20,16 12,21 Z"),
             [AaaIconKind.Calendar] = Geometry.Parse("M4,6 L20,6 L20,21 L4,21 Z M7,3 L7,8 M17,3 L17,8 M4,10 L20,10"),
             [AaaIconKind.Save] = Geometry.Parse("M4,3 L18,3 L21,6 L21,21 L3,21 L3,3 Z M7,3 L7,9 L16,9 L16,3 M7,21 L7,14 L17,14 L17,21"),
-            [AaaIconKind.Timeline] = Geometry.Parse("M3,12 L21,12 M6,9 A3,3 0 1 0 6,15 A3,3 0 1 0 6,9 M18,9 A3,3 0 1 0 18,15 A3,3 0 1 0 18,9")
+            [AaaIconKind.Timeline] = Geometry.Parse("M3,12 L21,12 M6,9 A3,3 0 1 0 6,15 A3,3 0 1 0 6,9 M18,9 A3,3 0 1 0 18,15 A3,3 0 1 0 18,9"),
+            [AaaIconKind.Speed] = Geometry.Parse("M4,15 A8,8 0 1 1 20,15 M12,15 L17,9 M5,18 L19,18"),
+            [AaaIconKind.Inventory] = Geometry.Parse("M5,8 L19,8 L20,21 L4,21 Z M8,8 C8,4 10,3 12,3 C14,3 16,4 16,8 M8,13 L16,13"),
+            [AaaIconKind.Condition] = Geometry.Parse("M9,3 L15,3 L15,9 L21,9 L21,15 L15,15 L15,21 L9,21 L9,15 L3,15 L3,9 L9,9 Z"),
+            [AaaIconKind.Progress] = Geometry.Parse("M5,20 L5,14 L10,14 L10,10 L15,10 L15,6 L20,6 M15,6 L20,6 L20,11"),
+            [AaaIconKind.Rest] = Geometry.Parse("M16,3 C9,4 6,10 9,15 C11,19 16,20 21,17 C18,22 10,23 5,18 C0,13 2,5 8,2 C10,1 13,1 16,3")
         };
 
     public static readonly DependencyProperty KindProperty = DependencyProperty.Register(
