@@ -1,0 +1,93 @@
+name: Apply r50 Live Play fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-liveplay-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Tighten Live Play presentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('windows/src/DungeonMasterAI.App/Views/LivePlayView.xaml')
+          text = path.read_text(encoding='utf-8')
+
+          # Add the layer/floor control visible in the approved Live Play render.
+          if 'AaaLayerSelector' not in text:
+              old = '''                    <Button Content="Ⅱ  Pause" Style="{StaticResource AaaTopButton}"/>
+                    <Button Content="⊗  End Session" Style="{StaticResource AaaDangerButton}"/>'''
+              new = '''                    <Button Content="&#xE769;  Pause" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaTopButton}"/>
+                    <Button Content="&#xE711;  End Session" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaDangerButton}"/>
+                    <Button x:Name="AaaLayerSelector" Content="&#xE81E;  Layer  ▾" FontFamily="Segoe Fluent Icons, Georgia" Style="{StaticResource AaaTopButton}" Margin="10,0,0,0"/>'''
+              if old not in text:
+                  raise SystemExit('Live Play session-control anchor not found.')
+              text = text.replace(old, new, 1)
+
+          # Replace map-tool placeholders with clean native Windows icon glyphs.
+          replacements = {
+              '<Button Content="➤" Style="{StaticResource AaaGoldButton}" Width="40" Height="40" Padding="0"/>': '<Button Content="&#xE8B0;" FontFamily="Segoe Fluent Icons" Style="{StaticResource AaaGoldButton}" Width="40" Height="40" Padding="0" ToolTip="Select"/>',
+              '<Button Content="✥" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>': '<Button Content="&#xE7C2;" FontFamily="Segoe Fluent Icons" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0" ToolTip="Move"/>',
+              '<Button Content="▦" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>': '<Button Content="&#xECA5;" FontFamily="Segoe Fluent Icons" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0" ToolTip="Grid"/>',
+              '<Button Content="⌖" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>': '<Button Content="&#xE707;" FontFamily="Segoe Fluent Icons" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0" ToolTip="Center Map"/>',
+          }
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+
+          # Action strip: retain the exact commands, only improve presentation.
+          action_replacements = {
+              'Text="⚔  Attack" FontFamily="Georgia"': 'Text="&#xE7FC;  Attack" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="✺  Cast Spell" FontFamily="Georgia"': 'Text="&#xE945;  Cast Spell" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="◇  Dodge" FontFamily="Georgia"': 'Text="&#xE72E;  Dodge" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="◉  Ready" FontFamily="Georgia"': 'Text="&#xE823;  Ready" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="⇥  End Turn" FontFamily="Georgia"': 'Text="&#xE7FD;  End Turn" FontFamily="Segoe Fluent Icons, Georgia"',
+              'Text="✦  Ask AI" FontFamily="Georgia"': 'Text="&#xE945;  Ask AI" FontFamily="Segoe Fluent Icons, Georgia"',
+          }
+          for old, new in action_replacements.items():
+              text = text.replace(old, new)
+
+          # Give the tactical surface the same subtle vignette/framing seen in the
+          # approved render without obscuring or intercepting the actual map control.
+          if 'AaaBattleVignette' not in text:
+              anchor = '''                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Revision="{Binding MapRevision}" MinHeight="450"/>'''
+              replacement = '''                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Revision="{Binding MapRevision}" MinHeight="450"/>
+                <Border x:Name="AaaBattleVignette" IsHitTestVisible="False" BorderBrush="#5B4930" BorderThickness="1">
+                    <Border.Background>
+                        <RadialGradientBrush Center="0.5,0.48" GradientOrigin="0.5,0.48" RadiusX="0.72" RadiusY="0.78">
+                            <GradientStop Color="#00000000" Offset="0.55"/>
+                            <GradientStop Color="#28000000" Offset="0.82"/>
+                            <GradientStop Color="#68000000" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Border.Background>
+                </Border>'''
+              if anchor not in text:
+                  raise SystemExit('Combat-grid anchor not found.')
+              text = text.replace(anchor, replacement, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit Live Play fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App/Views/LivePlayView.xaml; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App/Views/LivePlayView.xaml
+          git commit -m "r50 ui: tighten Live Play combat fidelity"
+          git push origin HEAD:feature/r50-aaa-gui
