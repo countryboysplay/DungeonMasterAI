@@ -1,0 +1,97 @@
+name: Apply r50 World fidelity
+
+on:
+  push:
+    branches:
+      - feature/r50-aaa-gui
+    paths:
+      - .github/workflows/r50-world-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/r50-aaa-gui
+          fetch-depth: 0
+      - name: Tighten World presentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('windows/src/DungeonMasterAI.App/Views/WorldView.xaml')
+          text = path.read_text(encoding='utf-8')
+
+          # Replace the selected-location chess-piece placeholder with a restrained
+          # native WPF landscape/city vignette. It is presentation only and does not
+          # invent campaign state.
+          old = '''<Border Height="86" Background="#1D262A" BorderBrush="#3D3B34" BorderThickness="1" Margin="0,8,0,8"><TextBlock Text="♜" FontSize="49" Foreground="#73684F" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>'''
+          if 'AaaLocationVignette' not in text:
+              new = '''<Border x:Name="AaaLocationVignette" Height="86" Background="#121A1D" BorderBrush="#4A4235" BorderThickness="1" Margin="0,8,0,8" ClipToBounds="True">
+                            <Grid>
+                                <Rectangle>
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#2C3D46" Offset="0"/>
+                                            <GradientStop Color="#192426" Offset="0.52"/>
+                                            <GradientStop Color="#0E1515" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <Path Data="M0,57 L28,33 L49,48 L78,22 L104,44 L135,26 L167,51 L205,18 L250,53 L250,86 L0,86 Z" Fill="#26302C" Stroke="#56604D" StrokeThickness="0.7" Stretch="Fill" Opacity="0.9"/>
+                                <Path Data="M18,75 L18,58 L31,58 L31,47 L39,47 L39,70 L53,70 L53,55 L65,55 L65,42 L72,42 L72,68 L84,68 L84,51 L94,51 L94,61 L105,61 L105,72 L119,72 L119,52 L127,52 L127,36 L134,36 L134,70 L148,70 L148,58 L158,58 L158,49 L166,49 L166,72 L184,72 L184,54 L194,54 L194,64 L209,64 L209,47 L218,47 L218,74 Z" Fill="#101617" Stroke="#8A7650" StrokeThickness="0.55" Opacity="0.95"/>
+                                <Rectangle VerticalAlignment="Bottom" Height="18" Fill="#0B1112" Opacity="0.92"/>
+                                <Ellipse Width="26" Height="7" Fill="#233C48" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,17,8" Opacity="0.8"/>
+                            </Grid>
+                        </Border>'''
+              if old not in text:
+                  raise SystemExit('World location-art anchor not found.')
+              text = text.replace(old, new, 1)
+
+          # Map tool strip: clean icon font while preserving the non-command status of
+          # tools that are not yet wired to authoritative state.
+          tools = {
+              '● Ping': '&#xE707;  Ping',
+              '◉ Reveal': '&#xE890;  Reveal',
+              '⊘ Hide': '&#xED1A;  Hide',
+              '▽ Filter': '&#xE71C;  Filter',
+              '▣ Add Note': '&#xE70B;  Add Note',
+          }
+          for old_text, new_text in tools.items():
+              text = text.replace(f'Text="{old_text}"', f'Text="{new_text}" FontFamily="Segoe Fluent Icons, Segoe UI"')
+
+          # Legend symbols become crisp native icon glyphs rather than chess/ASCII.
+          legends = {
+              '⊙  You Are Here': '&#xE81D;  You Are Here',
+              '♜  City / Town': '&#xE80F;  City / Town',
+              '⌂  Settlement': '&#xE707;  Settlement',
+              '?  Point of Interest': '&#xE946;  Point of Interest',
+              '♟  Dungeon': '&#xE7FC;  Dungeon',
+              '▥  Ruins': '&#xE81E;  Ruins',
+              '—  Road': '&#xE8A5;  Road',
+              '···  Path': '&#xE8A5;  Path',
+              '≈  River': '&#xE753;  River',
+              '◌  Hidden Area': '&#xED1A;  Hidden Area',
+              '?  Undiscovered': '&#xE9CE;  Undiscovered',
+          }
+          for old_text, new_text in legends.items():
+              text = text.replace(f'Text="{old_text}"', f'Text="{new_text}" FontFamily="Segoe Fluent Icons, Segoe UI"')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit World fidelity pass
+        shell: bash
+        run: |
+          if git diff --quiet -- windows/src/DungeonMasterAI.App/Views/WorldView.xaml; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "DungeonMasterAI CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add windows/src/DungeonMasterAI.App/Views/WorldView.xaml
+          git commit -m "r50 ui: tighten World visual fidelity"
+          git push origin HEAD:feature/r50-aaa-gui
