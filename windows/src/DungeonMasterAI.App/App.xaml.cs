@@ -24,10 +24,10 @@ public partial class App : Application
         try
         {
             LogStartup($"Application starting. BaseDirectory={AppContext.BaseDirectory}");
-            var window = new DungeonMasterAI.App.MainWindow();
+            var window = new DungeonMasterAI.App.AaaShellWindow();
             MainWindow = window;
             window.Show();
-            LogStartup("Main window shown.");
+            LogStartup("AAA shell window shown.");
         }
         catch (Exception ex)
         {
