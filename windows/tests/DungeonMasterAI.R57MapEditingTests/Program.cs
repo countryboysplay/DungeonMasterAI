@@ -57,6 +57,7 @@ internal static class Program
             vm.ApplyMapEditCommand.Execute(null);
             Check(campaign.TacticalMaps[0].Name == "Reliquary Revised", "Valid draft replaces the saved map only after Apply Edits.", failures);
             Check(campaign.TacticalMaps[0].GenerationSeed == originalSeed, "Saved edit retains generation seed after visual reroll.", failures);
+            WaitFor(() => vm.MapEditorStatus.Contains("saved", StringComparison.OrdinalIgnoreCase), window);
 
             var candidate = BuildMap();
             candidate.Id = Guid.NewGuid().ToString("N");
@@ -67,6 +68,7 @@ internal static class Program
             var savedCount = campaign.TacticalMaps.Count;
             vm.MapEditDraft!.Name = "Candidate Edited";
             vm.ApplyMapEditCommand.Execute(null);
+            WaitFor(() => vm.GeneratedMapCandidate?.Name == "Candidate Edited", window);
             Check(campaign.TacticalMaps.Count == savedCount, "Applying candidate edits does not add or mutate campaign maps.", failures);
             Check(vm.GeneratedMapCandidate?.Name == "Candidate Edited", "Candidate edits return to the review candidate.", failures);
 
@@ -143,6 +145,16 @@ internal static class Program
         var field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingFieldException(name);
         field.SetValue(target, value);
+    }
+
+    private static void WaitFor(Func<bool> condition, DispatcherObject owner)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            Flush(owner);
+            Thread.Sleep(20);
+        }
     }
 
     private static void Flush(DispatcherObject owner)
