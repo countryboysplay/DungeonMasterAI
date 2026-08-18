@@ -1330,4 +1330,87 @@ expansionCampaign.Connections.Add(new LocationConnection { FromLocationId = expa
 var rehearsalAfterRepair = rehearsalService.Run(expansionCampaign);
 Assert(!rehearsalAfterRepair.Findings.Any(f => f.Severity == RehearsalSeverity.Error && f.Scenario == "exploration" && f.EntityKey == "location.unreachable"), "campaign rehearsal recognizes a repaired travel graph");
 
+// ---- Tactical map readiness + rehearsal ----------------------------------------------------
+var mapCampaign = engine.CreateCampaign("Tactical Map Rehearsal");
+var mapArena = mapCampaign.Locations[0];
+var mapHero = new CharacterSheet { Key = "pc.warden", Name = "Warden", CharacterType = "pc", LocationId = mapArena.Id, MaxHp = 20, CurrentHp = 20, ArmorClass = 15 };
+var mapBrute = new CharacterSheet { Key = "npc.mapBrute", Name = "Brute", CharacterType = "monster", LocationId = mapArena.Id, MaxHp = 18, CurrentHp = 18, ArmorClass = 13 };
+mapCampaign.Characters.Add(mapHero);
+mapCampaign.Characters.Add(mapBrute);
+
+var splitEncounter = new EncounterState
+{
+    Key = "encounter.crossing",
+    Name = "Crossing Ambush",
+    LocationId = mapArena.Id,
+    Combatants =
+    {
+        new CombatantState { CharacterId = mapHero.Id, Side = "party", Positioned = true, GridX = 1, GridY = 2 },
+        new CombatantState { CharacterId = mapBrute.Id, Side = "enemy", Positioned = true, GridX = 8, GridY = 2 }
+    }
+};
+mapCampaign.Encounters.Add(splitEncounter);
+
+// A solid floor-to-ceiling wall on the x=5 edge cuts the arena into two sealed halves.
+var arenaMap = new TacticalMap
+{
+    Key = "map.crossing",
+    Name = "Sealed Crossing",
+    WidthSquares = 10,
+    HeightSquares = 6,
+    Rooms = { new TacticalMapRoom { Name = "Arena", X = 0, Y = 0, WidthSquares = 10, HeightSquares = 6 } },
+    Walls = { new TacticalMapWall { FromX = 5, FromY = 0, ToX = 5, ToY = 6 } },
+    SpawnPoints =
+    {
+        new TacticalMapSpawnPoint { Name = "Party Start", Side = "party", X = 1, Y = 2 },
+        new TacticalMapSpawnPoint { Name = "Brute Start", Side = "enemy", X = 8, Y = 2 }
+    }
+};
+mapCampaign.TacticalMaps.Add(arenaMap);
+mapCampaign.EncounterMapBindings[splitEncounter.Id] = arenaMap.Id;
+
+var mapValidator = new CampaignReadinessValidator();
+var sealedRehearsal = rehearsalService.Run(mapCampaign);
+Assert(sealedRehearsal.Findings.Any(f => f.Severity == RehearsalSeverity.Error && f.Scenario == "tactical-combat" && f.Message.Contains("cannot reach", StringComparison.OrdinalIgnoreCase)),
+    "campaign rehearsal detects combatants sealed apart by tactical map walls");
+Assert(mapValidator.Validate(mapCampaign).All(i => i.Severity != ReadinessSeverity.Error),
+    "a geometrically sealed but structurally valid map raises no readiness errors");
+
+// Punching a door through the wall restores a route; rehearsal treats even a locked door as forceable.
+arenaMap.Doors.Add(new TacticalMapDoor { Name = "Iron Door", X = 5, Y = 3, Orientation = "vertical", State = "locked" });
+var doorRehearsal = rehearsalService.Run(mapCampaign);
+Assert(!doorRehearsal.Findings.Any(f => f.Severity == RehearsalSeverity.Error && f.Scenario == "tactical-combat"),
+    "campaign rehearsal accepts a locked door as a forceable route between map halves");
+
+// Stacked starting squares break initiative placement.
+splitEncounter.Combatants[1].GridX = 1;
+splitEncounter.Combatants[1].GridY = 2;
+Assert(rehearsalService.Run(mapCampaign).Findings.Any(f => f.Severity == RehearsalSeverity.Error && f.Message.Contains("same square", StringComparison.OrdinalIgnoreCase)),
+    "campaign rehearsal detects two combatants starting on the same map square");
+splitEncounter.Combatants[1].GridX = 8;
+
+// Readiness catches structural map faults that the rehearsal pass deliberately ignores.
+arenaMap.Rooms.Add(new TacticalMapRoom { Name = "Overhang", X = 8, Y = 4, WidthSquares = 6, HeightSquares = 4 });
+arenaMap.Doors.Add(new TacticalMapDoor { Name = "Ghost Door", X = 40, Y = 40, Orientation = "sideways", State = "ajar" });
+arenaMap.SpawnPoints.Add(new TacticalMapSpawnPoint { Name = "Phantom", Side = "enemy", X = 2, Y = 2, CharacterKey = "npc.missing" });
+mapCampaign.EncounterMapBindings["encounter-that-does-not-exist"] = arenaMap.Id;
+
+var mapIssues = mapValidator.Validate(mapCampaign);
+Assert(mapIssues.Any(i => i.Severity == ReadinessSeverity.Error && i.Category == "map_room" && i.Message.Contains("outside", StringComparison.OrdinalIgnoreCase)),
+    "readiness validation rejects a room that extends past the tactical grid");
+Assert(mapIssues.Count(i => i.Severity == ReadinessSeverity.Error && i.Category == "map_door") >= 2,
+    "readiness validation rejects out-of-bounds doors and unsupported door orientation or state");
+Assert(mapIssues.Any(i => i.Severity == ReadinessSeverity.Error && i.Category == "map_spawn" && i.Message.Contains("npc.missing", StringComparison.OrdinalIgnoreCase)),
+    "readiness validation rejects a spawn point reserved for a missing character");
+Assert(mapIssues.Any(i => i.Severity == ReadinessSeverity.Error && i.Category == "map_binding" && i.Message.Contains("missing encounter", StringComparison.OrdinalIgnoreCase)),
+    "readiness validation rejects a tactical map bound to a missing encounter");
+
+var futureMap = new TacticalMap { Key = "map.future", Name = "Future Map", SchemaVersion = TacticalMapSchema.CurrentMapSchemaVersion + 1 };
+mapCampaign.TacticalMaps.Add(futureMap);
+Assert(mapValidator.Validate(mapCampaign).Any(i => i.Severity == ReadinessSeverity.Error && i.EntityKey == "map.future" && i.Message.Contains("schema version", StringComparison.OrdinalIgnoreCase)),
+    "readiness validation rejects a tactical map written by a newer schema version");
+Assert(rehearsalService.Run(mapCampaign).Findings.Any(f => f.Scenario == "tactical-map" && f.EntityKey == "map.future" && f.Message.Contains("not bound", StringComparison.OrdinalIgnoreCase)),
+    "campaign rehearsal reports tactical maps that no encounter will ever display");
+
 Console.WriteLine("ALL NATIVE CORE SMOKE TESTS PASSED");
+

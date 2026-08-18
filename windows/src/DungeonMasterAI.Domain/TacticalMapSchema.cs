@@ -104,28 +104,11 @@ public static class TacticalMapSchema
     /// <summary>
     /// Rebuilds the encounter binding dictionary with a case-insensitive comparer.
     /// <para>
-    /// The declared initializer uses <see cref="StringComparer.OrdinalIgnoreCase"/>, but the
-    /// property has a setter, so <c>System.Text.Json</c> constructs a fresh dictionary with the
-    /// default comparer during deserialization and the case-insensitive behavior is lost on every
-    /// save/load round trip. Rebuilding on load restores the documented contract.
+    /// Encounter bindings are one of four dictionaries that lose their declared comparer during
+    /// deserialization; see <see cref="CaseInsensitiveMap"/> for why. This wrapper is retained
+    /// because encounter-to-map binding is a map-schema concern and callers reference it as such.
     /// </para>
     /// </summary>
     public static Dictionary<string, string> NormalizeBindings(Dictionary<string, string>? bindings)
-    {
-        if (bindings is not null && ReferenceEquals(bindings.Comparer, StringComparer.OrdinalIgnoreCase))
-            return bindings;
-
-        var rebuilt = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (bindings is null) return rebuilt;
-
-        foreach (var pair in bindings)
-        {
-            if (string.IsNullOrWhiteSpace(pair.Key)) continue;
-            // Indexer assignment rather than Add: a case-sensitive source dictionary can legally
-            // hold keys that collide once compared case-insensitively.
-            rebuilt[pair.Key.Trim()] = pair.Value ?? "";
-        }
-
-        return rebuilt;
-    }
+        => CaseInsensitiveMap.Normalize(bindings);
 }

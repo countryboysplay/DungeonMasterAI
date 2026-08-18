@@ -546,6 +546,13 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "No encounter selected"
         : $"{SelectedEncounter.Status} • Round {SelectedEncounter.Round} • Turn {Math.Min(SelectedEncounter.TurnIndex + 1, Math.Max(1, SelectedEncounter.Combatants.Count))}/{Math.Max(1, SelectedEncounter.Combatants.Count)}";
     public IEnumerable<OpportunityAttackWindow> PendingOpportunityAttacks => SelectedEncounter?.PendingMove?.OpportunityAttacks.Where(x => !x.Resolved) ?? [];
+
+    /// <summary>
+    /// True while the engine is blocked waiting for Opportunity Attack reactions to be resolved
+    /// or declined. Drives the reaction prompt in the combat shell.
+    /// </summary>
+    public bool HasPendingOpportunityAttacks => PendingOpportunityAttacks.Any();
+
     public string PendingMoveSummary => SelectedEncounter?.PendingMove is null
         ? "No pending reaction window."
         : $"Pending move: ({SelectedEncounter.PendingMove.FromX},{SelectedEncounter.PendingMove.FromY}) → ({SelectedEncounter.PendingMove.ToX},{SelectedEncounter.PendingMove.ToY}), cost {SelectedEncounter.PendingMove.MovementCostFeet} ft. Resolve or decline all Opportunity Attacks.";
@@ -2263,6 +2270,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         SelectedOpportunityAttack = pending.FirstOrDefault(x => SelectedOpportunityAttack is not null && x.ReactorCombatantId == SelectedOpportunityAttack.ReactorCombatantId)
             ?? pending.FirstOrDefault();
         OnPropertyChanged(nameof(PendingOpportunityAttacks));
+        OnPropertyChanged(nameof(HasPendingOpportunityAttacks));
         OnPropertyChanged(nameof(PendingMoveSummary));
     }
 
@@ -2324,6 +2332,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(Combatants));
         OnPropertyChanged(nameof(CombatStatus));
         OnPropertyChanged(nameof(PendingOpportunityAttacks));
+        OnPropertyChanged(nameof(HasPendingOpportunityAttacks));
         OnPropertyChanged(nameof(PendingMoveSummary));
         OnPropertyChanged(nameof(PreparedSpells));
         OnPropertyChanged(nameof(SpellTargets));

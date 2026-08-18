@@ -53,7 +53,16 @@
                 <ListBox Grid.Row="1" ItemsSource="{Binding Characters}" SelectedItem="{Binding SelectedCharacter}" Style="{StaticResource AaaListBox}" Margin="0,10,0,8">
                     <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#3B352A" BorderThickness="1" Background="#0C1216" CornerRadius="3" Padding="7" Margin="0,0,0,7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="68" Height="82" Background="#171E20" BorderBrush="#6A5637" BorderThickness="1"><TextBlock Text="♟" FontSize="44" Foreground="#817665" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="10,1,0,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="13" TextWrapping="Wrap"/><TextBlock FontFamily="Georgia" FontSize="10" Foreground="#B6AF9F" Margin="0,3,0,5"><Run Text="Level "/><Run Text="{Binding Level}"/></TextBlock><TextBlock FontSize="10" Foreground="#C7CFBD"><Run Text="{Binding CurrentHp}"/><Run Text=" / "/><Run Text="{Binding MaxHp}"/><Run Text=" HP"/></TextBlock><ProgressBar Value="{Binding CurrentHp}" Maximum="{Binding MaxHp}" Style="{StaticResource AaaProgress}" Margin="0,2,0,7"/><TextBlock Text="Frontline • Support • Utility" Style="{StaticResource AaaMuted}" FontSize="9"/></StackPanel></Grid></Border></DataTemplate></ListBox.ItemTemplate>
                 </ListBox>
-                <StackPanel Grid.Row="2"><Button Content="♙  Short Rest" Style="{StaticResource AaaGoldButton}" Margin="0"/><TextBlock Text="View Party Resources  ›" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center" Margin="0,8,0,0"/></StackPanel>
+                <!-- Party-scoped recovery. Previously decorative; now bound to the deterministic rest commands. -->
+                <StackPanel Grid.Row="2">
+                    <Button Command="{Binding ShortRestCommand}" Content="♙  Short Rest" Style="{StaticResource AaaGoldButton}" Margin="0"/>
+                    <Grid Margin="0,5,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="5"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Command="{Binding LongRestCommand}" Content="☾  Long Rest" Style="{StaticResource AaaTopButton}" Margin="0"/>
+                        <Button Grid.Column="2" Command="{Binding SpendHitDieCommand}" Content="⬡  Hit Die" Style="{StaticResource AaaTopButton}" Margin="0"/>
+                    </Grid>
+                    <Button Command="{Binding AddQuickCharacterCommand}" Content="＋  Add Test Character" Style="{StaticResource AaaTopButton}" Margin="0,5,0,0"/>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -79,9 +88,51 @@
                     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><DockPanel><TextBlock Text="SPELLS" Style="{StaticResource AaaSectionTitle}"/><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><TextBlock Text="CONCENTRATION  " Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedCharacter.ConcentrationEffect, TargetNullValue=None}" FontFamily="Georgia" Foreground="#D5C290"/></StackPanel></DockPanel><StackPanel Grid.Row="1" Margin="0,10,0,8"><TextBlock Text="SPELL SLOTS" Style="{StaticResource AaaMuted}" Foreground="#D7C48D"/><TextBlock Text="{Binding SpellSlotsSummary}" Foreground="#69A9E3" FontSize="11" Margin="0,4,0,0"/></StackPanel><ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding PreparedSpells}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="88" Height="74" Background="#11191D" BorderBrush="#5A4930" BorderThickness="1" CornerRadius="3" Margin="0,0,7,7"><StackPanel VerticalAlignment="Center"><TextBlock Text="✦" FontSize="27" Foreground="#E4BC53" HorizontalAlignment="Center"/><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="9" TextAlignment="Center" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer></Grid>
                 </Border>
                 <StackPanel Grid.Column="2">
-                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,0,6"><StackPanel><TextBlock Text="ACTIVE EFFECTS" Style="{StaticResource AaaSectionTitle}"/><ItemsControl ItemsSource="{Binding SelectedCharacter.Conditions}" Margin="0,8,0,0"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" FontFamily="Georgia" FontSize="10" Margin="0,3" Foreground="#C9D3C0"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><TextBlock Text="View All Effects  ›" Style="{StaticResource AaaMuted}" HorizontalAlignment="Right" Margin="0,8,0,0"/></StackPanel></Border>
-                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,0,6"><StackPanel><TextBlock Text="DEATH SAVES" Style="{StaticResource AaaSectionTitle}"/><DockPanel Margin="0,8,0,3"><TextBlock Text="Successes" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Foreground="{StaticResource AaaGreenBrush}" Text="●  ●  ●  ○"/></DockPanel><DockPanel><TextBlock Text="Failures" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Foreground="{StaticResource AaaRedBrush}" Text="●  ●  ○  ○"/></DockPanel></StackPanel></Border>
-                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11"><StackPanel><TextBlock Text="FEATURE &amp; LEVEL-UP NOTES" Style="{StaticResource AaaSectionTitle}"/><TextBlock Text="✦  Extra Attack" FontFamily="Georgia" FontSize="10" Margin="0,9,0,4"/><TextBlock Text="✦  New spell slots" FontFamily="Georgia" FontSize="10" Margin="0,4"/><TextBlock Text="✦  New class feature" FontFamily="Georgia" FontSize="10" Margin="0,4"/></StackPanel></Border>
+                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,0,6">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Text="ACTIVE EFFECTS" Style="{StaticResource AaaSectionTitle}"/>
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" FontSize="9">
+                                    <Run Text="Exhaustion "/><Run Text="{Binding SelectedCharacter.ExhaustionLevel, Mode=OneWay}"/>
+                                </TextBlock>
+                            </DockPanel>
+                            <TextBlock Text="{Binding SelectedCharacterConditions}" Style="{StaticResource AaaMuted}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0"/>
+                            <TextBlock Text="{Binding SelectedCharacterOngoingEffects}" FontFamily="Georgia" FontSize="9.5" Foreground="#C9D3C0" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <Border Height="1" Background="#342F28" Margin="0,9,0,7"/>
+                            <TextBlock Text="CONCENTRATION" Style="{StaticResource AaaMuted}" Foreground="#D7C48D" FontSize="9"/>
+                            <TextBlock Text="{Binding SelectedCharacterConcentration}" FontFamily="Georgia" FontSize="10" Foreground="#D5C290" TextWrapping="Wrap" Margin="0,4,0,6"/>
+                            <TextBox Text="{Binding ConcentrationEffectInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" FontSize="10" ToolTip="Effect to concentrate on"/>
+                            <Grid Margin="0,5,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="5"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Command="{Binding BeginConcentrationCommand}" Content="Begin" Style="{StaticResource AaaTopButton}" Margin="0" FontSize="10"/>
+                                <Button Grid.Column="2" Command="{Binding EndConcentrationCommand}" Content="End" Style="{StaticResource AaaTopButton}" Margin="0" FontSize="10" MinWidth="56"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="DEATH SAVES" Style="{StaticResource AaaSectionTitle}"/>
+                            <TextBlock Text="{Binding SelectedCharacterDeathSaves}" FontFamily="Georgia" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <Button Command="{Binding DeathSaveCommand}" Content="☠  Roll Death Save" Style="{StaticResource AaaDangerButton}" Margin="0,8,0,0" FontSize="10"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Vitals adjustment. Fixed-step deterministic probes, matching the reference surface. -->
+                    <Border Style="{StaticResource AaaPanelBorder}" Padding="11">
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Text="VITALS" Style="{StaticResource AaaSectionTitle}"/>
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" FontSize="9">
+                                    <Run Text="Temp "/><Run Foreground="#7DBE87" Text="{Binding SelectedCharacter.TempHp, Mode=OneWay}"/>
+                                </TextBlock>
+                            </DockPanel>
+                            <TextBlock Style="{StaticResource AaaMuted}" FontSize="9" Margin="0,6,0,7">
+                                <Run Text="Effective speed "/><Run Text="{Binding SelectedCharacterEffectiveSpeed, Mode=OneWay}"/>
+                            </TextBlock>
+                            <Button Command="{Binding DamageCharacterCommand}" Content="▼  Take 1 Damage" Style="{StaticResource AaaTopButton}" Margin="0,0,0,5" FontSize="10"/>
+                            <Button Command="{Binding HealCharacterCommand}" Content="▲  Heal 1" Style="{StaticResource AaaTopButton}" Margin="0,0,0,5" FontSize="10"/>
+                            <Button Command="{Binding GrantTempHpCommand}" Content="✚  Grant 5 Temp HP" Style="{StaticResource AaaTopButton}" Margin="0" FontSize="10"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
         </Grid>

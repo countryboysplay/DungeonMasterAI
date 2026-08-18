@@ -112,16 +112,30 @@ def strip_csharp_noncode(text: str) -> tuple[str, str]:
     return "".join(out), state
 
 
+# Build output is generated, not authored. Including it made every reported metric depend on
+# whether the tree had been built, and fed machine-generated files to the delimiter checker.
+GENERATED_DIRS = {"bin", "obj", "artifacts", ".vs"}
+
+
+def sources(pattern: str) -> list[Path]:
+    """All authored files matching pattern, excluding build output."""
+    return sorted(
+        path
+        for path in ROOT.rglob(pattern)
+        if not GENERATED_DIRS.intersection(path.relative_to(ROOT).parts)
+    )
+
+
 def main() -> int:
     errors: list[str] = []
-    xml_files = list(ROOT.rglob("*.xaml")) + list(ROOT.rglob("*.csproj")) + [ROOT / "Directory.Build.props"]
+    xml_files = sources("*.xaml") + sources("*.csproj") + [ROOT / "Directory.Build.props"]
     for path in xml_files:
         try:
             ET.parse(path)
         except Exception as exc:  # noqa: BLE001 - diagnostic tool
             errors.append(f"XML {path.relative_to(ROOT)}: {exc}")
 
-    csharp_files = list(ROOT.rglob("*.cs"))
+    csharp_files = sources("*.cs")
     pairs = {")": "(", "]": "[", "}": "{"}
     for path in csharp_files:
         stripped, state = strip_csharp_noncode(path.read_text(encoding="utf-8", errors="replace"))
@@ -145,13 +159,25 @@ def main() -> int:
     if duplicates:
         errors.append("Duplicate DM tools: " + ", ".join(duplicates))
 
-    vm = (ROOT / "src/DungeonMasterAI.App/MainViewModel.cs").read_text(encoding="utf-8")
-    commands = set(re.findall(r"public\s+ICommand\s+(\w+)\s*\{", vm))
-    xaml = "\n".join(path.read_text(encoding="utf-8") for path in ROOT.rglob("*.xaml"))
-    bindings = set(re.findall(r'Command="\{Binding\s+(\w+)', xaml))
+    # MainViewModel is a partial class split across MainViewModel.cs and MainViewModel.*.cs.
+    # Reading only the root file reported every command declared in a partial as missing.
+    vm = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((ROOT / "src/DungeonMasterAI.App").glob("MainViewModel*.cs"))
+    )
+    # Accept both block-bodied ("public ICommand X { get; }") and expression-bodied
+    # ("public ICommand X => ...") declarations. Requiring a brace missed every "=>" command.
+    commands = set(re.findall(r"public\s+ICommand\s+(\w+)\s*(?:\{|=>)", vm))
+    xaml = "\n".join(path.read_text(encoding="utf-8") for path in sources("*.xaml"))
+    bindings = set(re.findall(r'Command="\{Binding\s+(?:Path=)?(\w+)', xaml))
     missing_commands = sorted(bindings - commands)
     if missing_commands:
         errors.append("Missing ICommand properties: " + ", ".join(missing_commands))
+
+    # The inverse direction is the r57 shell regression: commands the view model exposes that no
+    # XAML binds, i.e. features the user cannot reach. Reported as a metric here and enforced as a
+    # hard gate by GuiSmokeTests, which can also see code-behind wiring that a text scan cannot.
+    unreachable_commands = sorted(commands - bindings)
 
     spell_catalog_path = ROOT / "src/DungeonMasterAI.App/Assets/Rules/srd_spells.json"
     implemented_spells = 0
@@ -193,7 +219,11 @@ def main() -> int:
         errors.append(f"SRD spell catalog validation failed: {exc}")
 
     print(f"C# files: {len(csharp_files)}")
+    print(f"View model commands: {len(commands)}")
     print(f"XAML command bindings: {len(bindings)}")
+    print(f"Commands not bound in XAML: {len(unreachable_commands)}")
+    if unreachable_commands:
+        print("  " + ", ".join(unreachable_commands))
     print(f"DM tools: {len(tool_names)} unique: {len(set(tool_names))}")
     print(f"Deterministic SRD spells: {implemented_spells}")
     print(f"Errors: {len(errors)}")

@@ -177,7 +177,9 @@ public sealed class AppDataStore
 
             foreach (var character in campaign.Characters)
             {
-                character.Abilities ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                // Rebuilt rather than null-coalesced: a deserialized dictionary is non-null but
+                // case-sensitive, so ??= leaves Abilities["strength"] unable to find "Strength".
+                character.Abilities = CaseInsensitiveMap.Normalize(character.Abilities);
                 character.SavingThrowProficiencies ??= [];
                 character.SkillProficiencies ??= [];
                 character.Conditions ??= [];
@@ -190,8 +192,18 @@ public sealed class AppDataStore
                 character.Inventory ??= [];
             }
 
+            if (campaign.PendingPlayerRoll is not null)
+                campaign.PendingPlayerRoll.Context = CaseInsensitiveMap.Normalize(campaign.PendingPlayerRoll.Context);
+
             foreach (var merchant in campaign.Merchants) merchant.Stock ??= [];
-            foreach (var encounter in campaign.Encounters) encounter.Combatants ??= [];
+            foreach (var encounter in campaign.Encounters)
+            {
+                encounter.Combatants ??= [];
+                encounter.BattlefieldEffects ??= [];
+                foreach (var effect in encounter.BattlefieldEffects)
+                    effect.LastTriggeredTurnByCharacter =
+                        CaseInsensitiveMap.Normalize(effect.LastTriggeredTurnByCharacter);
+            }
             foreach (var quest in campaign.Quests) quest.Objectives ??= [];
             foreach (var secret in campaign.Secrets)
             {

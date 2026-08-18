@@ -1,0 +1,100 @@
+<UserControl x:Class="DungeonMasterAI.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <!--
+        Local AI runtime control. Before r58 this destination was a UtilityPlaceholderView, which
+        left the llama.cpp start/stop/test controls unreachable from the shipping shell and broke
+        the ALPHA_ACCEPTANCE criterion covering local model startup. Ported from the reference
+        MainWindow surface with resource keys translated to the Aaa* theme.
+    -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="16,12,16,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="720"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                <TextBlock Text="CONFIGURATION" Style="{StaticResource AaaEyebrow}"/>
+                <TextBlock Text="Settings" Style="{StaticResource AaaTitle}" FontSize="26" Margin="0,3,0,12"/>
+
+                <Border Style="{StaticResource AaaPanelBorder}" Padding="16" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="LOCAL AI RUNTIME" Style="{StaticResource AaaSectionTitle}"/>
+                        <TextBlock Style="{StaticResource AaaMuted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Text="The app installs and runs llama.cpp locally. On first start the selected GGUF model must download before it can be loaded into memory and the GPU. Startup progress and raw runtime output appear below."/>
+
+                        <TextBlock Text="llama-server URL" Style="{StaticResource AaaMuted}" Margin="0,14,0,4"/>
+                        <TextBox Text="{Binding Settings.LlamaServerUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+
+                        <TextBlock Text="Model name sent to the local API" Style="{StaticResource AaaMuted}" Margin="0,10,0,4"/>
+                        <TextBox Text="{Binding Settings.ModelName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+
+                        <TextBlock Text="Hugging Face GGUF model" Style="{StaticResource AaaMuted}" Margin="0,10,0,4"/>
+                        <TextBox Text="{Binding Settings.HuggingFaceModel, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+
+                        <TextBlock Text="Local GGUF model path (overrides Hugging Face)" Style="{StaticResource AaaMuted}" Margin="0,10,0,4"/>
+                        <TextBox Text="{Binding Settings.ModelPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Context size" Style="{StaticResource AaaMuted}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding Settings.ContextSize, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="GPU layers" Style="{StaticResource AaaMuted}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding Settings.GpuLayers, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <CheckBox Margin="0,14,0,0" IsChecked="{Binding Settings.PlayerSafeMode}"
+                                  Foreground="{StaticResource AaaTextBrush}" Content="Strict player-safe secret boundaries"/>
+
+                        <WrapPanel Margin="0,14,0,0">
+                            <Button Command="{Binding SetupLocalAiCommand}" Content="▶  Start Local AI" Style="{StaticResource AaaPrimaryButton}"/>
+                            <Button Command="{Binding TestAiCommand}" Content="✦  Test AI Reply" Style="{StaticResource AaaTopButton}"/>
+                            <Button Command="{Binding StopLocalAiCommand}" Content="⊗  Stop Local AI" Style="{StaticResource AaaDangerButton}"/>
+                        </WrapPanel>
+
+                        <TextBlock Text="{Binding LocalAiStatus}" FontFamily="Georgia" Foreground="{StaticResource AaaGoldBrightBrush}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"/>
+                        <TextBlock Text="{Binding LocalAiSetupProgress}" Style="{StaticResource AaaMuted}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                        <Border Margin="0,12,0,0" Background="#090D13" BorderBrush="{StaticResource AaaBorderSoftBrush}"
+                                BorderThickness="1" CornerRadius="3" Padding="10">
+                            <StackPanel>
+                                <TextBlock Text="RUNTIME OUTPUT" Style="{StaticResource AaaEyebrow}" Margin="0,0,0,6"/>
+                                <TextBox IsReadOnly="True" Text="{Binding LocalAiRuntimeLog, Mode=OneWay}" FontFamily="Consolas"
+                                         FontSize="11" Foreground="{StaticResource AaaMutedBrush}" Background="Transparent"
+                                         BorderThickness="0" TextWrapping="Wrap" AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" MaxHeight="180"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
+                <TextBlock Text="&#160;" Style="{StaticResource AaaEyebrow}"/>
+                <TextBlock Text="&#160;" Style="{StaticResource AaaTitle}" FontSize="26" Margin="0,3,0,12"/>
+
+                <Border Style="{StaticResource AaaPanelBorder}" Padding="16" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="LOCAL DATA" Style="{StaticResource AaaSectionTitle}"/>
+                        <TextBlock Text="{Binding DataPath}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock Style="{StaticResource AaaMuted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Text="Campaign state is stored locally. The first alpha uses an atomic JSON persistence layer while the final schema migrates to SQLite."/>
+                        <Button Command="{Binding SaveCommand}" Content="◆  Save Settings" Style="{StaticResource AaaGoldButton}" Margin="0,14,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource AaaPanelBorder}" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="RULE OF PLAY" Style="{StaticResource AaaSectionTitle}"/>
+                        <TextBlock Style="{StaticResource AaaMuted}" TextWrapping="Wrap" Margin="0,8,0,0" LineHeight="18"
+                                   Text="The language model narrates. It never mutates campaign state directly; every change passes through an allow-listed deterministic tool so dice, damage, and resources stay reproducible."/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
