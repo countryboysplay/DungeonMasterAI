@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DungeonMasterAI.Domain;
@@ -19,8 +20,8 @@ public sealed record ResolvedTacticalMapAsset(
 
 /// <summary>
 /// Loads renderer-neutral map-asset manifests and resolves stable asset keys to deterministic image
-/// variants. Missing, invalid, or undecodable assets return false so the renderer can use its
-/// procedural fallback without changing gameplay geometry.
+/// variants. User-local packs are searched before application fallbacks so upgraded first-party or
+/// user-installed artwork can replace bundled placeholders without changing campaign geometry.
 /// </summary>
 public sealed class TacticalMapAssetCatalog
 {
@@ -130,12 +131,9 @@ public sealed class TacticalMapAssetCatalog
                         continue;
                     }
 
-                    if (_packs.ContainsKey(manifest.PackId))
-                    {
-                        _loadWarnings.Add($"Duplicate map asset pack id '{manifest.PackId}' ignored at '{manifestPath}'.");
-                        continue;
-                    }
-
+                    // Root order is priority order. A user-local production pack intentionally
+                    // shadows the same semantic pack id shipped as a procedural fallback.
+                    if (_packs.ContainsKey(manifest.PackId)) continue;
                     _packs[manifest.PackId] = new LoadedPack(manifest, Path.GetDirectoryName(manifestPath)!);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -192,8 +190,8 @@ public sealed class TacticalMapAssetCatalog
 
     private static IEnumerable<string> DefaultRoots()
     {
-        yield return Path.Combine(AppContext.BaseDirectory, "Assets", "MapPacks");
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (!string.IsNullOrWhiteSpace(local)) yield return Path.Combine(local, "DungeonMasterAI", "MapPacks");
+        yield return Path.Combine(AppContext.BaseDirectory, "Assets", "MapPacks");
     }
 }

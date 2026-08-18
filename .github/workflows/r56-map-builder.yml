@@ -1,0 +1,33 @@
+name: R56 Map Builder
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  map-builder:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run r56 production asset and Map Builder tests
+        run: dotnet run --project tests/DungeonMasterAI.R56MapBuilderTests/DungeonMasterAI.R56MapBuilderTests.csproj --configuration Release
+
+      - name: Upload r56 Map Builder reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: DungeonMasterAI-map-builder-r56
+          path: windows/artifacts/r56-map-builder/*.png

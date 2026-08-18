@@ -27,7 +27,6 @@
                 <RowDefinition Height="26"/>
             </Grid.RowDefinitions>
 
-            <!-- Premium top bar from approved renders -->
             <Border Grid.Row="0" Background="#070B0E" BorderBrush="#272A2B" BorderThickness="0,0,0,1">
                 <Grid Margin="8,0,8,0">
                     <Grid.ColumnDefinitions>
@@ -106,7 +105,7 @@
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▧" FontSize="18" Width="30"/><TextBlock Text="Maps" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:WorldView/>
+                    <views:MapsView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▤" FontSize="18" Width="30"/><TextBlock Text="Quests" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
