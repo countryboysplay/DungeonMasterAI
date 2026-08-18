@@ -54,7 +54,6 @@
                 <ColumnDefinition Width="310"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Local AI generator -->
             <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,7,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
@@ -102,7 +101,6 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- Live DM preview -->
             <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="0" Margin="0,0,7,0" ClipToBounds="True" BorderBrush="#55452F">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="58"/></Grid.RowDefinitions>
@@ -136,7 +134,6 @@
                 </Grid>
             </Border>
 
-            <!-- Saved maps + working-copy editor -->
             <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="9">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
@@ -174,12 +171,12 @@
                                 <TextBlock Text="DOOR" Style="{StaticResource MapFieldLabel}"/>
                                 <ComboBox ItemsSource="{Binding MapEditDoors}" SelectedItem="{Binding SelectedEditDoor, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
                                 <Grid Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditDoor.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Door X"/><TextBox Grid.Column="1" Text="{Binding SelectedEditDoor.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Door Y"/><TextBox Grid.Column="2" Text="{Binding SelectedEditDoor.State, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0" ToolTip="open/closed/locked/barred"/></Grid>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,7"><CheckBox IsChecked="{Binding SelectedEditDoor.Secret}" Content="Secret" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3" Margin="0,0,10,0"/><CheckBox IsChecked="{Binding SelectedEditDoor.Discovered}" Content="Discovered" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/><Button Command="{Binding RemoveMapDoorCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="Auto,0,0,0" Content="Remove"/></StackPanel>
+                                <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal"><CheckBox IsChecked="{Binding SelectedEditDoor.Secret}" Content="Secret" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3" Margin="0,0,10,0"/><CheckBox IsChecked="{Binding SelectedEditDoor.Discovered}" Content="Discovered" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/></StackPanel><Button Grid.Column="1" Command="{Binding RemoveMapDoorCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="8,0,0,0" Content="Remove"/></Grid>
 
                                 <TextBlock Text="TERRAIN" Style="{StaticResource MapFieldLabel}"/>
                                 <ComboBox ItemsSource="{Binding MapEditTerrain}" SelectedItem="{Binding SelectedEditTerrain, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
                                 <Grid Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditTerrain.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="1" Text="{Binding SelectedEditTerrain.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="2" Text="{Binding SelectedEditTerrain.WidthSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="3" Text="{Binding SelectedEditTerrain.HeightSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0"/></Grid>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,7"><CheckBox IsChecked="{Binding SelectedEditTerrain.DifficultTerrain}" Content="Difficult" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/><Button Command="{Binding AddMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="Auto,0,4,0" Content="Add"/><Button Command="{Binding RemoveMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0" Content="Remove"/></StackPanel>
+                                <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><CheckBox IsChecked="{Binding SelectedEditTerrain.DifficultTerrain}" Content="Difficult" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/><StackPanel Grid.Column="1" Orientation="Horizontal"><Button Command="{Binding AddMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0,0,4,0" Content="Add"/><Button Command="{Binding RemoveMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0" Content="Remove"/></StackPanel></Grid>
 
                                 <TextBlock Text="PROP" Style="{StaticResource MapFieldLabel}"/>
                                 <ComboBox ItemsSource="{Binding MapEditProps}" SelectedItem="{Binding SelectedEditProp, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
