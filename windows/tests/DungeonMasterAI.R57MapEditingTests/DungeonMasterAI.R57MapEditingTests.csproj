@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/DungeonMasterAI.App/DungeonMasterAI.App.csproj" />
     <Using Include="System.IO" />
+    <Using Include="System.Threading" />
   </ItemGroup>
 </Project>
