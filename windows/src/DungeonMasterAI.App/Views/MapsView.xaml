@@ -7,11 +7,17 @@
     <UserControl.Resources>
         <SolidColorBrush x:Key="MapGold" Color="#D9B36B"/>
         <SolidColorBrush x:Key="MapGreen" Color="#71B477"/>
+        <SolidColorBrush x:Key="MapBlue" Color="#68A6C9"/>
         <Style x:Key="MapFieldLabel" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="Georgia"/>
             <Setter Property="FontSize" Value="9"/>
             <Setter Property="Foreground" Value="{StaticResource AaaMutedBrush}"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="MapCompactBox" TargetType="TextBox" BasedOn="{StaticResource AaaTextBox}">
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="MinWidth" Value="42"/>
         </Style>
     </UserControl.Resources>
 
@@ -29,13 +35,13 @@
                     <controls:AaaVectorIcon Kind="Maps" Width="28" Height="28" Foreground="{StaticResource MapGold}" Margin="0,0,11,0"/>
                     <StackPanel>
                         <TextBlock Text="MAP BUILDER" FontFamily="Georgia" FontSize="21" Foreground="#EEE1C7"/>
-                        <TextBlock Text="Local AI designs structured geometry. The asset renderer turns it into a playable tactical map." Style="{StaticResource AaaMuted}" FontSize="9.5"/>
+                        <TextBlock Text="Generate, review, edit, reroll visuals, and save deterministic tactical maps." Style="{StaticResource AaaMuted}" FontSize="9.5"/>
                     </StackPanel>
                 </StackPanel>
                 <Border Grid.Column="1" Background="#11140F" BorderBrush="#3B5638" BorderThickness="1" CornerRadius="3" Padding="12,6" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="7" Height="7" Fill="{StaticResource MapGreen}" VerticalAlignment="Center" Margin="0,0,7,0"/>
-                        <TextBlock Text="{Binding MapAssetStatus}" FontFamily="Georgia" FontSize="9" Foreground="#C7D8C2" MaxWidth="430" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding MapAssetStatus}" FontFamily="Georgia" FontSize="9" Foreground="#C7D8C2" MaxWidth="410" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -43,116 +49,84 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="330"/>
-                <ColumnDefinition Width="*" MinWidth="480"/>
-                <ColumnDefinition Width="252"/>
+                <ColumnDefinition Width="286"/>
+                <ColumnDefinition Width="*" MinWidth="390"/>
+                <ColumnDefinition Width="310"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,7,0">
+            <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,7,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
                         <TextBlock Text="GENERATE TACTICAL MAP" Style="{StaticResource AaaSectionTitle}" FontSize="11"/>
-                        <TextBlock Text="Describe the location normally. Llama creates game-readable geometry, not an image." Style="{StaticResource AaaMuted}" FontSize="9" TextWrapping="Wrap" Margin="0,4,0,11"/>
+                        <TextBlock Text="Llama creates structured geometry. Nothing is saved until you approve it." Style="{StaticResource AaaMuted}" FontSize="8.7" TextWrapping="Wrap" Margin="0,4,0,9"/>
 
                         <TextBlock Text="MAP DESCRIPTION" Style="{StaticResource MapFieldLabel}"/>
-                        <TextBox Text="{Binding MapDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" AcceptsReturn="True" TextWrapping="Wrap" Height="118" VerticalScrollBarVisibility="Auto" Padding="8" Margin="0,0,0,10"/>
+                        <TextBox Text="{Binding MapDescription, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" AcceptsReturn="True" TextWrapping="Wrap" Height="110" VerticalScrollBarVisibility="Auto" Padding="7" Margin="0,0,0,9"/>
 
-                        <Grid Margin="0,0,0,9">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="TYPE" Style="{StaticResource MapFieldLabel}"/>
-                                <TextBox Text="{Binding MapTypeInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="7,5"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="THEME" Style="{StaticResource MapFieldLabel}"/>
-                                <TextBox Text="{Binding MapThemeInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="7,5"/>
-                            </StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="6"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel><TextBlock Text="TYPE" Style="{StaticResource MapFieldLabel}"/><TextBox Text="{Binding MapTypeInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4"/></StackPanel>
+                            <StackPanel Grid.Column="2"><TextBlock Text="THEME" Style="{StaticResource MapFieldLabel}"/><TextBox Text="{Binding MapThemeInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4"/></StackPanel>
                         </Grid>
 
                         <TextBlock Text="MAP SIZE" Style="{StaticResource MapFieldLabel}"/>
-                        <Grid Margin="0,0,0,9">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="7"/><ColumnDefinition Width="*"/><ColumnDefinition Width="7"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <StackPanel><TextBlock Text="Width" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapWidthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4"/></StackPanel>
-                            <StackPanel Grid.Column="2"><TextBlock Text="Height" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapHeightInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4"/></StackPanel>
-                            <StackPanel Grid.Column="4"><TextBlock Text="Ft / grid" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapFeetPerSquareInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4"/></StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="DETERMINISTIC SEED" Style="{StaticResource MapFieldLabel}"/>
                         <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBox Text="{Binding MapSeedInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="7,5" Margin="0,0,6,0"/>
-                            <Button Grid.Column="1" Command="{Binding RandomizeMapSeedCommand}" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0" ToolTip="Choose a new deterministic seed">
-                                <controls:AaaVectorIcon Kind="Dice" Width="14" Height="14" Foreground="{StaticResource MapGold}"/>
-                            </Button>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel><TextBlock Text="Width" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapWidthInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="5,3"/></StackPanel>
+                            <StackPanel Grid.Column="2"><TextBlock Text="Height" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapHeightInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="5,3"/></StackPanel>
+                            <StackPanel Grid.Column="4"><TextBlock Text="Ft/grid" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBox Text="{Binding MapFeetPerSquareInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="5,3"/></StackPanel>
                         </Grid>
 
-                        <CheckBox IsChecked="{Binding MapFogEnabled}" Content="Enable fog of war when accepted" FontFamily="Georgia" FontSize="10" Foreground="#D8CFBD" Margin="1,2,0,10"/>
+                        <TextBlock Text="GENERATION SEED" Style="{StaticResource MapFieldLabel}"/>
+                        <Grid Margin="0,0,0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding MapSeedInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4" Margin="0,0,5,0"/>
+                            <Button Grid.Column="1" Command="{Binding RandomizeMapSeedCommand}" Style="{StaticResource AaaTopButton}" Padding="7,4" Margin="0" ToolTip="Choose a new generation seed"><controls:AaaVectorIcon Kind="Dice" Width="14" Height="14" Foreground="{StaticResource MapGold}"/></Button>
+                        </Grid>
 
-                        <Border Background="#0E1518" BorderBrush="#29383D" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,9">
-                            <StackPanel>
-                                <TextBlock Text="ASSET PACK" Style="{StaticResource MapFieldLabel}" Margin="0,0,0,2"/>
-                                <TextBlock Text="DungeonMasterAI Core Crypt HD" FontFamily="Georgia" FontSize="11" Foreground="#E2D3B6"/>
-                                <TextBlock Text="{Binding MapAssetSetId}" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
-                            </StackPanel>
+                        <CheckBox IsChecked="{Binding MapFogEnabled}" Content="Enable fog of war" FontFamily="Georgia" FontSize="9.5" Foreground="#D8CFBD" Margin="1,2,0,8"/>
+
+                        <Border Background="#0E1518" BorderBrush="#29383D" BorderThickness="1" CornerRadius="3" Padding="7" Margin="0,0,0,8">
+                            <StackPanel><TextBlock Text="ASSET PACK" Style="{StaticResource MapFieldLabel}" Margin="0,0,0,1"/><TextBlock Text="Core Crypt HD" FontFamily="Georgia" FontSize="10.5" Foreground="#E2D3B6"/><TextBlock Text="{Binding MapAssetSetId}" Style="{StaticResource AaaMuted}" FontSize="8"/></StackPanel>
                         </Border>
 
-                        <Button Command="{Binding GenerateMapCommand}" Style="{StaticResource AaaGoldButton}" Padding="12,9" Margin="0">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <controls:AaaVectorIcon Kind="Spark" Width="16" Height="16" Foreground="#17130C" Margin="0,0,7,0"/>
-                                <TextBlock Text="{Binding MapGeneratorButtonText}" FontFamily="Georgia" FontSize="11"/>
-                            </StackPanel>
+                        <Button Command="{Binding GenerateMapCommand}" Style="{StaticResource AaaGoldButton}" Padding="10,8" Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><controls:AaaVectorIcon Kind="Spark" Width="15" Height="15" Foreground="#17130C" Margin="0,0,6,0"/><TextBlock Text="{Binding MapGeneratorButtonText}" FontFamily="Georgia" FontSize="10.5"/></StackPanel>
                         </Button>
+
+                        <Border Background="#101414" BorderBrush="#344038" BorderThickness="1" CornerRadius="3" Padding="7">
+                            <StackPanel><TextBlock Text="GENERATION STATUS" Style="{StaticResource MapFieldLabel}" Margin="0,0,0,2"/><TextBlock Text="{Binding MapGenerationStatus}" FontFamily="Georgia" FontSize="8.8" Foreground="#C8D3C5" TextWrapping="Wrap"/><TextBlock Text="{Binding MapGenerationWarnings}" Style="{StaticResource AaaMuted}" FontSize="8" TextWrapping="Wrap" Margin="0,4,0,0"/></StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
 
             <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="0" Margin="0,0,7,0" ClipToBounds="True" BorderBrush="#55452F">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="54"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="58"/></Grid.RowDefinitions>
                     <Border Background="#0B1013" BorderBrush="#34332D" BorderThickness="0,0,0,1" Padding="10,6">
                         <Grid>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <controls:AaaVectorIcon Kind="Location" Width="16" Height="16" Foreground="{StaticResource MapGold}" Margin="0,0,7,0"/>
-                                <TextBlock Text="TACTICAL PREVIEW" FontFamily="Georgia" FontSize="11" Foreground="#E2D6BE"/>
-                            </StackPanel>
-                            <TextBlock Text="DM PREVIEW • FOG REVEALED FOR REVIEW" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource AaaMuted}" FontSize="8"/>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><controls:AaaVectorIcon Kind="Location" Width="16" Height="16" Foreground="{StaticResource MapGold}" Margin="0,0,7,0"/><TextBlock Text="TACTICAL PREVIEW" FontFamily="Georgia" FontSize="11" Foreground="#E2D6BE"/></StackPanel>
+                            <TextBlock Text="DM REVIEW • FOG REVEALED" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource AaaMuted}" FontSize="8"/>
                         </Grid>
                     </Border>
                     <Grid Grid.Row="1" Background="#06090B">
                         <controls:TacticalMapControl Map="{Binding MapPreview}" Campaign="{Binding SelectedCampaign}" ShowDmView="True" Revision="{Binding MapRevision}"/>
                         <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#D90A0E11" BorderBrush="#493C29" BorderThickness="1" CornerRadius="4" Padding="18,12">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers><DataTrigger Binding="{Binding MapPreview}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel HorizontalAlignment="Center">
-                                <controls:AaaVectorIcon Kind="Maps" Width="34" Height="34" Foreground="#7E6B48" HorizontalAlignment="Center"/>
-                                <TextBlock Text="No map selected" FontFamily="Georgia" FontSize="14" Foreground="#D7CAB1" HorizontalAlignment="Center" Margin="0,6,0,2"/>
-                                <TextBlock Text="Generate a candidate or select a saved map." Style="{StaticResource AaaMuted}" FontSize="9"/>
-                            </StackPanel>
+                            <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding MapPreview}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
+                            <StackPanel HorizontalAlignment="Center"><controls:AaaVectorIcon Kind="Maps" Width="34" Height="34" Foreground="#7E6B48" HorizontalAlignment="Center"/><TextBlock Text="No map selected" FontFamily="Georgia" FontSize="14" Foreground="#D7CAB1" HorizontalAlignment="Center" Margin="0,6,0,2"/><TextBlock Text="Generate a candidate or select a saved map." Style="{StaticResource AaaMuted}" FontSize="9"/></StackPanel>
                         </Border>
                     </Grid>
-                    <Border Grid.Row="2" Background="#090D10" BorderBrush="#34332D" BorderThickness="0,1,0,0" Padding="10,7">
+                    <Border Grid.Row="2" Background="#090D10" BorderBrush="#34332D" BorderThickness="0,1,0,0" Padding="9,7">
                         <Grid>
-                            <TextBlock Text="{Binding MapPreviewSummary}" FontFamily="Georgia" FontSize="9.5" Foreground="#CFC3AE" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,215,0"/>
+                            <TextBlock Text="{Binding MapPreviewSummary}" FontFamily="Georgia" FontSize="9" Foreground="#CFC3AE" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,270,0"/>
                             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                                <Button Command="{Binding RejectGeneratedMapCommand}" Padding="10,5" Margin="0,0,6,0" Content="Discard Candidate">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource AaaTopButton}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers><DataTrigger Binding="{Binding HasGeneratedMapCandidate}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
+                                <Button Command="{Binding BeginMapEditCommand}" Style="{StaticResource AaaTopButton}" Padding="9,5" Margin="0,0,5,0" Content="Edit Map"/>
+                                <Button Command="{Binding RejectGeneratedMapCommand}" Padding="9,5" Margin="0,0,5,0" Content="Discard">
+                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource AaaTopButton}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasGeneratedMapCandidate}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Button.Style>
                                 </Button>
-                                <Button Command="{Binding AcceptGeneratedMapCommand}" Padding="11,5" Margin="0" Content="Add to Campaign">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource AaaGoldButton}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers><DataTrigger Binding="{Binding HasGeneratedMapCandidate}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
+                                <Button Command="{Binding AcceptGeneratedMapCommand}" Padding="10,5" Margin="0" Content="Add to Campaign">
+                                    <Button.Style><Style TargetType="Button" BasedOn="{StaticResource AaaGoldButton}"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasGeneratedMapCandidate}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Button.Style>
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -160,49 +134,67 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="190"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <DockPanel Margin="1,0,1,7">
-                        <TextBlock Text="CAMPAIGN MAPS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedCampaign.TacticalMaps.Count, StringFormat={}{0} SAVED}" Style="{StaticResource AaaMuted}" FontSize="8"/>
-                    </DockPanel>
-                    <ListBox Grid.Row="1" ItemsSource="{Binding SelectedCampaign.TacticalMaps}" SelectedItem="{Binding SelectedCampaignMap, Mode=TwoWay}" Style="{StaticResource AaaListBox}" ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#2C302E" BorderThickness="0,0,0,1" Padding="4,7">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5" Foreground="#E1D5BE" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock FontFamily="Georgia" FontSize="8" Foreground="#8F9A96"><Run Text="{Binding WidthSquares}"/><Run Text="×"/><Run Text="{Binding HeightSquares}"/><Run Text="  •  "/><Run Text="{Binding Theme}"/></TextBlock>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+            <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="9">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <DockPanel Margin="1,0,1,6">
+                            <TextBlock Text="CAMPAIGN MAPS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedCampaign.TacticalMaps.Count, StringFormat={}{0} SAVED}" Style="{StaticResource AaaMuted}" FontSize="8"/>
+                        </DockPanel>
+                        <ListBox Height="126" ItemsSource="{Binding SelectedCampaign.TacticalMaps}" SelectedItem="{Binding SelectedCampaignMap, Mode=TwoWay}" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.Style><Style TargetType="ListBox" BasedOn="{StaticResource AaaListBox}"><Style.Triggers><DataTrigger Binding="{Binding HasMapEditDraft}" Value="True"><Setter Property="IsEnabled" Value="False"/><Setter Property="Opacity" Value="0.55"/></DataTrigger></Style.Triggers></Style></ListBox.Style>
+                            <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#2C302E" BorderThickness="0,0,0,1" Padding="4,6"><StackPanel><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10" Foreground="#E1D5BE" TextTrimming="CharacterEllipsis"/><TextBlock FontFamily="Georgia" FontSize="8" Foreground="#8F9A96"><Run Text="{Binding WidthSquares}"/><Run Text="×"/><Run Text="{Binding HeightSquares}"/><Run Text="  •  "/><Run Text="{Binding Theme}"/></TextBlock></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
 
-                    <TextBlock Grid.Row="2" Text="GENERATION REVIEW" Style="{StaticResource AaaSectionTitle}" FontSize="10" Margin="1,11,0,7"/>
-                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <Border Background="#101414" BorderBrush="#344038" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,7">
-                                <StackPanel><TextBlock Text="STATUS" Style="{StaticResource MapFieldLabel}" Margin="0,0,0,2"/><TextBlock Text="{Binding MapGenerationStatus}" FontFamily="Georgia" FontSize="9.5" Foreground="#C8D3C5" TextWrapping="Wrap"/></StackPanel>
-                            </Border>
-                            <Border Background="#13110D" BorderBrush="#4D422F" BorderThickness="1" CornerRadius="3" Padding="8">
-                                <StackPanel><TextBlock Text="VALIDATION" Style="{StaticResource MapFieldLabel}" Margin="0,0,0,2"/><TextBlock Text="{Binding MapGenerationWarnings}" FontFamily="Georgia" FontSize="9" Foreground="#CFC0A4" TextWrapping="Wrap"/></StackPanel>
-                            </Border>
-                            <TextBlock Text="Model output never becomes campaign state until Add to Campaign is chosen." Style="{StaticResource AaaMuted}" FontSize="8.5" TextWrapping="Wrap" Margin="2,9,2,0"/>
+                        <Border Height="1" Background="#3D3528" Margin="0,9,0,8"/>
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock Text="WORKING-COPY EDITOR" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding MapEditSourceLabel}" Style="{StaticResource AaaMuted}" FontSize="7.5"/>
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                            <Button Command="{Binding BeginMapEditCommand}" Style="{StaticResource AaaTopButton}" Padding="8,4" Margin="0,0,5,0" Content="Edit Selected"/>
+                            <Button Command="{Binding RerollMapVisualsCommand}" Style="{StaticResource AaaTopButton}" Padding="8,4" Margin="0" Content="Reroll Visuals"/>
                         </StackPanel>
-                    </ScrollViewer>
-                </Grid>
+                        <TextBlock Text="{Binding MapEditorStatus}" Style="{StaticResource AaaMuted}" FontSize="8.3" TextWrapping="Wrap" Margin="1,0,1,7"/>
+
+                        <Border Background="#0B1013" BorderBrush="#3B3529" BorderThickness="1" CornerRadius="3" Padding="8">
+                            <Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasMapEditDraft}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></Border.Style>
+                            <StackPanel>
+                                <TextBlock Text="MAP" Style="{StaticResource MapFieldLabel}"/>
+                                <TextBox Text="{Binding MapEditDraft.Name, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding MapEditDraft.Theme, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Padding="6,4" Margin="0,0,0,7" ToolTip="Theme"/>
+
+                                <TextBlock Text="ROOM" Style="{StaticResource MapFieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding MapEditRooms}" SelectedItem="{Binding SelectedEditRoom, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditRoom.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Room X"/><TextBox Grid.Column="1" Text="{Binding SelectedEditRoom.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Room Y"/><TextBox Grid.Column="2" Text="{Binding SelectedEditRoom.WidthSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Width"/><TextBox Grid.Column="3" Text="{Binding SelectedEditRoom.HeightSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0" ToolTip="Height"/></Grid>
+
+                                <TextBlock Text="DOOR" Style="{StaticResource MapFieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding MapEditDoors}" SelectedItem="{Binding SelectedEditDoor, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditDoor.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Door X"/><TextBox Grid.Column="1" Text="{Binding SelectedEditDoor.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Door Y"/><TextBox Grid.Column="2" Text="{Binding SelectedEditDoor.State, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0" ToolTip="open/closed/locked/barred"/></Grid>
+                                <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal"><CheckBox IsChecked="{Binding SelectedEditDoor.Secret}" Content="Secret" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3" Margin="0,0,10,0"/><CheckBox IsChecked="{Binding SelectedEditDoor.Discovered}" Content="Discovered" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/></StackPanel><Button Grid.Column="1" Command="{Binding RemoveMapDoorCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="8,0,0,0" Content="Remove"/></Grid>
+
+                                <TextBlock Text="TERRAIN" Style="{StaticResource MapFieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding MapEditTerrain}" SelectedItem="{Binding SelectedEditTerrain, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditTerrain.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="1" Text="{Binding SelectedEditTerrain.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="2" Text="{Binding SelectedEditTerrain.WidthSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}"/><TextBox Grid.Column="3" Text="{Binding SelectedEditTerrain.HeightSquares, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0"/></Grid>
+                                <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><CheckBox IsChecked="{Binding SelectedEditTerrain.DifficultTerrain}" Content="Difficult" FontFamily="Georgia" FontSize="8.5" Foreground="#CFC5B3"/><StackPanel Grid.Column="1" Orientation="Horizontal"><Button Command="{Binding AddMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0,0,4,0" Content="Add"/><Button Command="{Binding RemoveMapTerrainCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0" Content="Remove"/></StackPanel></Grid>
+
+                                <TextBlock Text="PROP" Style="{StaticResource MapFieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding MapEditProps}" SelectedItem="{Binding SelectedEditProp, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox Grid.Column="0" Text="{Binding SelectedEditProp.X, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Prop X"/><TextBox Grid.Column="1" Text="{Binding SelectedEditProp.Y, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" ToolTip="Prop Y"/><TextBox Grid.Column="2" Text="{Binding SelectedEditProp.RotationDegrees, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource MapCompactBox}" Margin="0" ToolTip="Rotation"/></Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8"><Button Command="{Binding AddMapPropCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0,0,4,0" Content="Add Pillar"/><Button Command="{Binding RemoveMapPropCommand}" Style="{StaticResource AaaTopButton}" Padding="6,2" Margin="0" Content="Remove Prop"/></StackPanel>
+
+                                <Button Command="{Binding RefreshMapEditPreviewCommand}" Style="{StaticResource AaaTopButton}" Padding="8,5" Margin="0,0,0,5" Content="Update Preview"/>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Button Command="{Binding CancelMapEditCommand}" Style="{StaticResource AaaTopButton}" Padding="8,5" Content="Cancel"/><Button Grid.Column="2" Command="{Binding ApplyMapEditCommand}" Style="{StaticResource AaaGoldButton}" Padding="8,5" Content="Apply Edits"/></Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 
         <Border Grid.Row="2" Background="#080C0F" BorderBrush="#2C302F" BorderThickness="1,0,1,1" CornerRadius="0,0,3,3" Padding="11,6">
             <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="{StaticResource MapGreen}" Margin="0,0,7,0"/>
-                    <TextBlock Text="STRUCTURED MAP PIPELINE" FontFamily="Georgia" FontSize="8.5" Foreground="#B7C7B5"/>
-                    <TextBlock Text="  Llama plans  •  deterministic validator approves  •  HD asset renderer draws" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
-                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Ellipse Width="7" Height="7" Fill="{StaticResource MapGreen}" Margin="0,0,7,0"/><TextBlock Text="NON-DESTRUCTIVE MAP PIPELINE" FontFamily="Georgia" FontSize="8.5" Foreground="#B7C7B5"/><TextBlock Text="  Llama plans  •  editor works on a clone  •  validator gates persistence  •  renderer draws" Style="{StaticResource AaaMuted}" FontSize="8.5"/></StackPanel>
                 <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding MapAssetSetId}" Style="{StaticResource AaaMuted}" FontSize="8"/>
             </Grid>
         </Border>

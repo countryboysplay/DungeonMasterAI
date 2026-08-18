@@ -234,6 +234,32 @@
         <Setter Property="CaretBrush" Value="{StaticResource AaaGoldBrightBrush}"/>
     </Style>
 
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
+        <Setter Property="Background" Value="#0B1116"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="ItemRoot" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="ItemRoot" Property="Background" Value="#211A10"/>
+                            <Setter TargetName="ItemRoot" Property="BorderBrush" Value="#735A32"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ItemRoot" Property="Background" Value="#171E22"/>
+                            <Setter TargetName="ItemRoot" Property="BorderBrush" Value="#4C4639"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="AaaComboBox" TargetType="ComboBox">
         <Setter Property="Background" Value="#0B1116"/>
         <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
@@ -242,12 +268,81 @@
         <Setter Property="Padding" Value="8,4"/>
         <Setter Property="FontFamily" Value="Georgia"/>
         <Setter Property="FontSize" Value="10"/>
+        <Setter Property="MinHeight" Value="27"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="ComboRoot" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="25"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" Text="{Binding SelectedItem.Name, RelativeSource={RelativeSource TemplatedParent}}" TextTrimming="CharacterEllipsis"/>
+                                <Border Grid.Column="1" BorderBrush="#343630" BorderThickness="1,0,0,0">
+                                    <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{StaticResource AaaGoldBrightBrush}" StrokeThickness="1.4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ToggleButton Focusable="False" Background="Transparent" BorderThickness="0" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
+                        <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                            <Border Background="#080D11" BorderBrush="#5A4B34" BorderThickness="1" CornerRadius="3" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="260">
+                                <ScrollViewer Margin="2" CanContentScroll="True" VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboRoot" Property="BorderBrush" Value="#75603B"/></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ComboRoot" Property="BorderBrush" Value="{StaticResource AaaGoldBrush}"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ComboRoot" Property="Opacity" Value="0.5"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="AaaListBox" TargetType="ListBox">
-        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Background" Value="#080D11"/>
         <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="#343730"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="2"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBox">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3">
+                        <ScrollViewer Padding="{TemplateBinding Padding}" Focusable="False" CanContentScroll="True" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}">
+                            <ItemsPresenter/>
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Foreground" Value="{StaticResource AaaTextBrush}"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0,1"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="ListItemRoot" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ListItemRoot" Property="Background" Value="#11191D"/><Setter TargetName="ListItemRoot" Property="BorderBrush" Value="#323A3B"/></Trigger>
+                                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ListItemRoot" Property="Background" Value="#211A10"/><Setter TargetName="ListItemRoot" Property="BorderBrush" Value="#80643A"/></Trigger>
+                                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ListItemRoot" Property="Opacity" Value="0.55"/></Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="AaaProgress" TargetType="ProgressBar">
