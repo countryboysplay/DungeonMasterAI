@@ -32,6 +32,15 @@ jobs:
       - name: Build app
         run: dotnet build src/DungeonMasterAI.App/DungeonMasterAI.App.csproj --configuration Release --no-restore
 
+      - name: Run AAA GUI construction smoke tests
+        run: dotnet run --project tests/DungeonMasterAI.GuiSmokeTests/DungeonMasterAI.GuiSmokeTests.csproj --configuration Release
+
+      - name: Upload real WPF GUI snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: DungeonMasterAI-gui-snapshots
+          path: windows/artifacts/gui-snapshots/*.png
+
       - name: Run focused roll-state tests
         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
 

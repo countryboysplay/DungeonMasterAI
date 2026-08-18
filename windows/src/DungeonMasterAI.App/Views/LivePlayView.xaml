@@ -1,0 +1,126 @@
+<UserControl x:Class="DungeonMasterAI.App.Views.LivePlayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:DungeonMasterAI.App.Controls"
+             Background="Transparent">
+    <Grid Margin="12,10,12,10">
+        <Grid.RowDefinitions><RowDefinition Height="72"/><RowDefinition Height="*"/><RowDefinition Height="62"/></Grid.RowDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="380"/><ColumnDefinition Width="*"/><ColumnDefinition Width="258"/></Grid.ColumnDefinitions>
+
+        <!-- Scene header -->
+        <Border Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource AaaPanelBorder}" Padding="15,9" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="✣" FontSize="29" Foreground="{StaticResource AaaGoldBrush}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding SelectedEncounter.Name, TargetNullValue=The Old Watchtower}" FontFamily="Georgia" FontSize="19"/>
+                        <TextBlock Text="{Binding SelectedEncounter.Summary, TargetNullValue=Third Floor • Crumbling Chamber}" Style="{StaticResource AaaMuted}"/>
+                    </StackPanel>
+                    <Border Width="1" Height="38" Background="#38352E" Margin="24,0"/>
+                    <StackPanel Width="80"><TextBlock Text="Day" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedCampaign.Day, StringFormat=Day {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
+                    <StackPanel Width="105"><TextBlock Text="Campaign Time" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding CampaignTime}" FontFamily="Georgia" FontSize="12"/></StackPanel>
+                    <StackPanel Width="95"><TextBlock Text="Round" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedEncounter.Round, StringFormat=Round {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Ⅱ  Pause" Style="{StaticResource AaaTopButton}"/>
+                    <Button Content="⊗  End Session" Style="{StaticResource AaaDangerButton}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Narration / player agency -->
+        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Margin="0,0,8,0" Padding="13">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <DockPanel>
+                    <TextBlock Text="▣  DM NARRATION" Style="{StaticResource AaaSectionTitle}"/>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CampaignTime}" Style="{StaticResource AaaMuted}"/>
+                </DockPanel>
+                <ListBox Grid.Row="1" ItemsSource="{Binding SessionChat}" Style="{StaticResource AaaListBox}" Margin="0,9,0,8" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#252C30" BorderThickness="0,0,0,1" Padding="3,7">
+                                <TextBlock Text="{Binding Content}" FontFamily="Georgia" FontSize="11" LineHeight="17" TextWrapping="Wrap" Foreground="#D8D1C2"/>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Required roll block is intentionally visually dominant, matching the approved render. -->
+                <Border Grid.Row="2" Background="#241313" BorderBrush="#8C3D37" BorderThickness="1" CornerRadius="4" Padding="13" Margin="0,3,0,8">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource AaaPanelBorder}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="Background" Value="#241313"/>
+                            <Setter Property="BorderBrush" Value="#8C3D37"/>
+                            <Setter Property="Padding" Value="13"/>
+                            <Style.Triggers><DataTrigger Binding="{Binding PlayerRollRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <TextBlock Text="☠  PLAYER ROLL REQUIRED" Foreground="#E17B70" FontFamily="Georgia" FontWeight="Bold" FontSize="11"/>
+                        <TextBlock Text="{Binding PendingPlayerRoll.RollType, TargetNullValue=Required Roll}" FontFamily="Georgia" FontSize="21" Margin="0,5,0,2"/>
+                        <DockPanel><TextBlock Text="{Binding PendingPlayerRoll.Purpose}" Style="{StaticResource AaaMuted}" TextWrapping="Wrap"/><TextBlock DockPanel.Dock="Right" Text="{Binding PendingPlayerRoll.TargetNumber, StringFormat=DC {0}}" FontFamily="Georgia" FontSize="13"/></DockPanel>
+                        <Border Height="1" Background="#62302D" Margin="0,10"/>
+                        <Button Command="{Binding RollD20Command}" Style="{StaticResource AaaDangerButton}" Padding="14,11" Margin="0" BorderBrush="#A84940">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="⬡" FontSize="31" Foreground="#FF756A" Margin="0,0,14,0"/>
+                                <StackPanel><TextBlock Text="{Binding RollD20ButtonText}" FontFamily="Georgia" FontSize="20"/><TextBlock Text="Click to resolve the required player roll" Style="{StaticResource AaaMuted}"/></StackPanel>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding PlayerInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" MinHeight="42" TextWrapping="Wrap" ToolTip="Describe your action or ask the DM"/>
+                    <Button Grid.Column="1" Command="{Binding SendPlayerInputCommand}" Style="{StaticResource AaaGoldButton}" Content="➤" Padding="0" Margin="6,0,0,0"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Tactical battlefield -->
+        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="0" Margin="0,0,8,0" ClipToBounds="True">
+            <Grid>
+                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Revision="{Binding MapRevision}" MinHeight="450"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Background="#C8070B0E">
+                    <Button Content="➤" Style="{StaticResource AaaGoldButton}" Width="40" Height="40" Padding="0"/>
+                    <Button Content="✥" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>
+                    <Button Content="▦" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>
+                    <Button Content="⌖" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Combat tracker -->
+        <StackPanel Grid.Row="1" Grid.Column="2">
+            <Border Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,0,7" MaxHeight="420">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel><TextBlock Text="«  COMBAT TRACKER" Style="{StaticResource AaaSectionTitle}"/><TextBlock DockPanel.Dock="Right" Text="⚙" Foreground="{StaticResource AaaGoldBrush}"/></DockPanel>
+                    <TextBlock Grid.Row="1" Text="{Binding SelectedEncounter.Round, StringFormat=ROUND {0}}" FontFamily="Georgia" FontSize="11" Margin="0,10,0,5"/>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding Combatants}" Style="{StaticResource AaaListBox}" SelectedItem="{Binding SelectedTarget}">
+                        <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#252A2D" BorderThickness="0,0,0,1" Padding="3,7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Initiative}" FontFamily="Georgia" FontSize="13" VerticalAlignment="Center"/><Border Grid.Column="1" Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Left" Background="#171D20" BorderBrush="#79613D" BorderThickness="1"><TextBlock Text="♟" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="41,0,0,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="{Binding Side}" Style="{StaticResource AaaMuted}" FontSize="9"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding CharacterType}" Foreground="{StaticResource AaaMutedBrush}" FontSize="9" VerticalAlignment="Center"/></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+            <Border Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,0,7">
+                <StackPanel><TextBlock Text="♙  REACTIONS" Style="{StaticResource AaaSectionTitle}"/><TextBlock Text="Player reactions remain explicit decisions and never auto-fire." Foreground="#99B8D2" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"/></StackPanel>
+            </Border>
+            <Border Style="{StaticResource AaaPanelBorder}" Padding="12">
+                <StackPanel><TextBlock Text="STATUS EFFECTS" Style="{StaticResource AaaSectionTitle}"/><TextBlock Text="{Binding SelectedCharacter.Conditions.Count, StringFormat={}{0} active conditions}" Style="{StaticResource AaaMuted}" Margin="0,8,0,0"/></StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Bottom action strip -->
+        <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,7,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Command="{Binding QuickAttackCommand}" Style="{StaticResource AaaGoldButton}" Margin="0,0,5,0"><StackPanel><TextBlock Text="⚔  Attack" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Melee Strike" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="1" Style="{StaticResource AaaGoldButton}" Margin="0,0,5,0"><StackPanel><TextBlock Text="✺  Cast Spell" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Use Magic" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="2" Style="{StaticResource AaaGoldButton}" Margin="0,0,5,0"><StackPanel><TextBlock Text="◇  Dodge" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Avoid Attack" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="3" Style="{StaticResource AaaGoldButton}" Margin="0,0,5,0"><StackPanel><TextBlock Text="◉  Ready" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Hold Action" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="4" Command="{Binding QuickEndTurnCommand}" Style="{StaticResource AaaGoldButton}" Margin="0,0,5,0"><StackPanel><TextBlock Text="⇥  End Turn" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Pass Initiative" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="5" Style="{StaticResource AaaPrimaryButton}"><StackPanel><TextBlock Text="✦  Ask AI" FontFamily="Georgia" FontSize="13"/><TextBlock Text="Get Guidance" Style="{StaticResource AaaMuted}" HorizontalAlignment="Center"/></StackPanel></Button>
+        </Grid>
+    </Grid>
+</UserControl>

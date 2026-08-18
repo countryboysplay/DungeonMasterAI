@@ -14,6 +14,21 @@ public partial class App : Application
         "Logs",
         "startup.log");
 
+    public App()
+    {
+        // Major views are constructed before they are fully parented into the shell.
+        // Keep the approved AAA theme at application scope so every UserControl can
+        // resolve its StaticResource references during InitializeComponent().
+        // Use an assembly-qualified pack URI so this also works when App is hosted
+        // by the external GUI smoke-test executable.
+        Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri(
+                "pack://application:,,,/DungeonMasterAI;component/Themes/AaaTheme.xaml",
+                UriKind.Absolute)
+        });
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -24,10 +39,10 @@ public partial class App : Application
         try
         {
             LogStartup($"Application starting. BaseDirectory={AppContext.BaseDirectory}");
-            var window = new DungeonMasterAI.App.MainWindow();
+            var window = new DungeonMasterAI.App.AaaShellWindow();
             MainWindow = window;
             window.Show();
-            LogStartup("Main window shown.");
+            LogStartup("AAA shell window shown.");
         }
         catch (Exception ex)
         {
