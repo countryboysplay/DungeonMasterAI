@@ -1,0 +1,27 @@
+name: R55 AI Map Generation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ai-map-generation:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run local AI tactical map generation contract tests
+        run: dotnet run --project tests/DungeonMasterAI.AiMapGenerationTests/DungeonMasterAI.AiMapGenerationTests.csproj --configuration Release
