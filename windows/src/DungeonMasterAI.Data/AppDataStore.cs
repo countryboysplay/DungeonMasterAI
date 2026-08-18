@@ -5,7 +5,7 @@ namespace DungeonMasterAI.Data;
 
 public sealed class AppDataStore
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -128,6 +128,19 @@ public sealed class AppDataStore
                     // from authoritative combat state when the campaign is opened.
                     state.SchemaVersion = 2;
                     break;
+                case 2:
+                    // v3 introduces persisted tactical map state (CampaignState.TacticalMaps and
+                    // CampaignState.EncounterMapBindings). New collections deserialize to their
+                    // initializer defaults, so no data is recovered here, but giving map state a
+                    // versioned home means every later map-geometry change has a migration slot
+                    // instead of being applied lazily during an editor interaction. This pass also
+                    // collapses the interim "ai_generated" provenance value onto "ai_expanded".
+                    foreach (var campaign in state.Campaigns ?? [])
+                    {
+                        TacticalMapSchema.NormalizeCampaign(campaign);
+                    }
+                    state.SchemaVersion = 3;
+                    break;
                 default:
                     throw new InvalidDataException($"No migration is defined from state schema version {state.SchemaVersion}.");
             }
@@ -156,6 +169,11 @@ public sealed class AppDataStore
             campaign.Encounters ??= [];
             campaign.Events ??= [];
             campaign.Chat ??= [];
+
+            // Tactical map shape is normalized on every load and before every save. Deserialization
+            // discards the case-insensitive comparer declared on EncounterMapBindings, so this also
+            // restores that lookup contract rather than leaving it silently case-sensitive.
+            TacticalMapSchema.NormalizeCampaign(campaign);
 
             foreach (var character in campaign.Characters)
             {

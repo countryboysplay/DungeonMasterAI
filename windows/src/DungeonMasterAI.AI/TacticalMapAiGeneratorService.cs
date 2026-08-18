@@ -157,7 +157,7 @@ public sealed class TacticalMapAiGeneratorService(HttpClient? httpClient = null)
 
     private static void NormalizeCandidate(TacticalMap map, TacticalMapGenerationRequest request, int seed)
     {
-        map.SchemaVersion = 1;
+        map.SchemaVersion = TacticalMapSchema.CurrentMapSchemaVersion;
         if (string.IsNullOrWhiteSpace(map.Id)) map.Id = Guid.NewGuid().ToString("N");
         if (string.IsNullOrWhiteSpace(map.Name)) map.Name = "Generated Tactical Map";
         if (string.IsNullOrWhiteSpace(map.Key)) map.Key = Slug(map.Name);
@@ -168,8 +168,14 @@ public sealed class TacticalMapAiGeneratorService(HttpClient? httpClient = null)
         map.HeightSquares = request.HeightSquares;
         map.FeetPerSquare = request.FeetPerSquare;
         map.Seed = seed;
+        // Record the geometry seed at generation time. Art variants are selected from Seed and may
+        // be rerolled in the editor, so the reproducible geometry seed needs its own durable field
+        // rather than being recovered from Seed later.
+        map.GenerationSeed = seed;
         map.FogOfWarEnabled = request.FogOfWarEnabled;
-        map.SourceKind = "ai_generated";
+        // A generated map is AI-invented content exactly like a generated NPC or quest, so it uses
+        // the shared ai_expanded provenance value and shows up in generated-content filters.
+        map.SourceKind = CampaignProvenance.AiExpanded;
         map.Visibility ??= new TacticalMapVisibility();
         map.Visibility.RevealAll = !request.FogOfWarEnabled;
 

@@ -97,11 +97,17 @@ internal static class Program
             var result = await generator.GenerateAsync(request, settings);
             Check(result.Attempts == 2, "Invalid first candidate triggers exactly one repair attempt.", failures);
             Check(handler.RequestBodies.Count == 2, "Generator made exactly two local chat-completion requests.", failures);
-            Check(result.Map.SourceKind == "ai_generated", "Accepted map is marked ai_generated rather than source canon.", failures);
+            Check(CampaignProvenance.IsAiGenerated(result.Map.SourceKind), "Accepted map is marked AI-generated rather than source canon.", failures);
+            Check(result.Map.SourceKind == CampaignProvenance.AiExpanded,
+                "Accepted map uses the canonical AI provenance value shared with every other expanded record.", failures);
+            Check(result.Map.SchemaVersion == TacticalMapSchema.CurrentMapSchemaVersion,
+                "Accepted map is stamped with the current map schema version.", failures);
             Check(result.Map.WidthSquares == request.WidthSquares && result.Map.HeightSquares == request.HeightSquares,
                 "Application-owned map dimensions override model output.", failures);
             Check(result.Map.FeetPerSquare == request.FeetPerSquare && result.Map.Seed == request.Seed,
                 "Application-owned grid scale and deterministic seed are preserved.", failures);
+            Check(result.Map.GenerationSeed == request.Seed,
+                "Geometry seed is recorded at generation time so later art rerolls stay auditable.", failures);
             Check(result.Map.AssetSetId == request.AssetSetId && result.Map.Theme == request.Theme && result.Map.MapType == request.MapType,
                 "Application-owned asset set, theme, and map type are preserved.", failures);
             Check(result.Map.FogOfWarEnabled && !result.Map.Visibility.RevealAll,
@@ -140,7 +146,7 @@ internal static class Program
                 Check(second.Contains("Broken Crypt", StringComparison.Ordinal), "Repair prompt includes the rejected candidate for correction.", failures);
             }
 
-            Check(result.RawJson.Contains("\"sourceKind\": \"ai_generated\"", StringComparison.Ordinal),
+            Check(result.RawJson.Contains($"\"sourceKind\": \"{CampaignProvenance.AiExpanded}\"", StringComparison.Ordinal),
                 "Result exposes normalized JSON suitable for preview/export.", failures);
 
             if (failures.Count == 0)

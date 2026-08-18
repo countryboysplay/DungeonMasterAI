@@ -8,6 +8,11 @@ public sealed partial class CampaignState
     /// <summary>
     /// Encounter ID -> tactical map ID. Keeping this association on CampaignState preserves
     /// compatibility with older serialized EncounterState objects.
+    /// <para>
+    /// The case-insensitive comparer declared here does not survive deserialization, because
+    /// System.Text.Json builds a fresh dictionary for settable properties. Persistence restores it
+    /// via <see cref="TacticalMapSchema.NormalizeBindings"/>; do not rely on the initializer alone.
+    /// </para>
     /// </summary>
     public Dictionary<string, string> EncounterMapBindings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
@@ -37,13 +42,15 @@ public sealed class TacticalMap
     public int Seed { get; set; }
 
     /// <summary>
-    /// Original seed supplied to the structured map generator. Zero on legacy maps that predate
-    /// r57. Before a legacy map is visually rerolled the editor snapshots Seed into this field.
+    /// Original seed supplied to the structured map generator, recorded at generation time so the
+    /// authoritative geometry stays reproducible after <see cref="Seed"/> is rerolled for art.
+    /// Zero only on maps serialized before the two seeds were separated; those are backfilled from
+    /// <see cref="Seed"/> by <see cref="TacticalMapSchema"/> during state migration.
     /// </summary>
     public int GenerationSeed { get; set; }
 
     public bool FogOfWarEnabled { get; set; }
-    public string SourceKind { get; set; } = "source_canon";
+    public string SourceKind { get; set; } = CampaignProvenance.SourceCanon;
     public List<TacticalMapRoom> Rooms { get; set; } = [];
     public List<TacticalMapWall> Walls { get; set; } = [];
     public List<TacticalMapDoor> Doors { get; set; } = [];

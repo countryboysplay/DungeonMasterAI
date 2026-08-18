@@ -117,7 +117,9 @@ internal static class Program
         {
             Name = "Reliquary", Key = "r57.reliquary", MapType = "dungeon", Theme = "ancient crypt",
             AssetSetId = "core.fantasy.crypt", WidthSquares = 24, HeightSquares = 15, FeetPerSquare = 5,
-            Seed = 784211, FogOfWarEnabled = true, SourceKind = "ai_generated",
+            // Deliberately uses the legacy provenance alias and omits GenerationSeed so this
+            // fixture keeps exercising the pre-unification map shape through the editor.
+            Seed = 784211, FogOfWarEnabled = true, SourceKind = CampaignProvenance.LegacyAiGenerated,
             Visibility = new TacticalMapVisibility { RevealAll = false }
         };
         map.Rooms.Add(new TacticalMapRoom { Name = "Entry", X = 2, Y = 3, WidthSquares = 7, HeightSquares = 8, FloorAssetKey = "floor.stone.crypt_flagstone", WallAssetKey = "wall.stone.crypt_block" });

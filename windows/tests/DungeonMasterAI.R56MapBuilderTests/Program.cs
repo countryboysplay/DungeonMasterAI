@@ -151,7 +151,7 @@ internal static class Program
             FeetPerSquare = 5,
             Seed = 784211,
             FogOfWarEnabled = true,
-            SourceKind = "ai_generated",
+            SourceKind = CampaignProvenance.AiExpanded,
             Visibility = new TacticalMapVisibility { RevealAll = false }
         };
 

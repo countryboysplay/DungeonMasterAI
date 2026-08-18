@@ -41,6 +41,9 @@ jobs:
           name: DungeonMasterAI-gui-snapshots
           path: windows/artifacts/gui-snapshots/*.png
 
+      - name: Run map schema migration and provenance tests
+        run: dotnet run --project tests/DungeonMasterAI.MapSchemaProvenanceTests/DungeonMasterAI.MapSchemaProvenanceTests.csproj --configuration Release
+
       - name: Run focused roll-state tests
         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
 

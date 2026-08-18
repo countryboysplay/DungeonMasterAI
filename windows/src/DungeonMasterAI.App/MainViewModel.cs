@@ -318,19 +318,22 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (SelectedCampaign is null) return "No campaign selected.";
             var campaign = SelectedCampaign;
-            var count = campaign.Locations.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Connections.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Characters.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Items.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Merchants.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Merchants.Sum(m => m.Stock.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase)))
-                + campaign.Quests.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Factions.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Relationships.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Secrets.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Timeline.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Encounters.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Supplements.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase));
+            // Every provenance test routes through CampaignProvenance so a new or aliased
+            // SourceKind value cannot silently drop out of this count while still looking correct.
+            var count = campaign.Locations.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Connections.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Characters.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Items.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Merchants.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Merchants.Sum(m => m.Stock.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind)))
+                + campaign.Quests.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Factions.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Relationships.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Secrets.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Timeline.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Encounters.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Supplements.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.TacticalMaps.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind));
             return count == 0 ? "No AI-expanded world details yet." : $"{count} generated detail(s) are marked ai_expanded and kept separate from source canon.";
         }
     }
