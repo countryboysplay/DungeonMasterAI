@@ -6,6 +6,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Source-level gate. Runs on Linux in well under a minute and fails fast on structural
+  # problems (malformed XAML/csproj, unbalanced C# delimiters, duplicate DM tool names,
+  # XAML command bindings with no backing view model property) before any Windows runner
+  # is provisioned. Previously this script existed but was never executed by CI.
+  source-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate source structure
+        run: python3 tools/validate_source.py
+
   build-test-package:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -40,6 +58,9 @@ jobs:
         with:
           name: DungeonMasterAI-gui-snapshots
           path: windows/artifacts/gui-snapshots/*.png
+
+      - name: Run map schema migration and provenance tests
+        run: dotnet run --project tests/DungeonMasterAI.MapSchemaProvenanceTests/DungeonMasterAI.MapSchemaProvenanceTests.csproj --configuration Release
 
       - name: Run focused roll-state tests
         run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
@@ -134,3 +155,53 @@ jobs:
         with:
           name: DungeonMasterAI-installer
           path: windows/artifacts/installer/*.exe
+
+  # The tactical map pipeline, r53 through r57. These were five separate workflow files, each
+  # provisioning its own windows-latest runner and each performing a full restore and build of
+  # the shared project graph to run a single test project. They are one job here because they
+  # share that graph: one runner, one build, five suites, one combined artifact. Kept separate
+  # from build-test-package so map failures stay legible and the two jobs run concurrently.
+  map-pipeline:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run map schema and renderer prototype tests (r53)
+        run: dotnet run --project tests/DungeonMasterAI.MapRendererTests/DungeonMasterAI.MapRendererTests.csproj --configuration Release
+
+      - name: Run high-quality map asset pack tests (r54)
+        run: dotnet run --project tests/DungeonMasterAI.MapAssetTests/DungeonMasterAI.MapAssetTests.csproj --configuration Release
+
+      - name: Run local AI tactical map generation contract tests (r55)
+        run: dotnet run --project tests/DungeonMasterAI.AiMapGenerationTests/DungeonMasterAI.AiMapGenerationTests.csproj --configuration Release
+
+      - name: Run production asset and Map Builder tests (r56)
+        run: dotnet run --project tests/DungeonMasterAI.R56MapBuilderTests/DungeonMasterAI.R56MapBuilderTests.csproj --configuration Release
+
+      - name: Run non-destructive map editing tests (r57)
+        run: dotnet run --project tests/DungeonMasterAI.R57MapEditingTests/DungeonMasterAI.R57MapEditingTests.csproj --configuration Release
+
+      # One artifact instead of four. Rendered references from every revision are retained,
+      # each under its own subdirectory, so visual regressions stay reviewable.
+      - name: Upload rendered map references
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DungeonMasterAI-map-pipeline
+          path: |
+            windows/artifacts/map-prototype/*.png
+            windows/artifacts/map-assets/*.png
+            windows/artifacts/r56-map-builder/*.png
+            windows/artifacts/r57-map-editing/*.png

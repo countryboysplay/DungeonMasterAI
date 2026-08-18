@@ -318,19 +318,22 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (SelectedCampaign is null) return "No campaign selected.";
             var campaign = SelectedCampaign;
-            var count = campaign.Locations.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Connections.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Characters.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Items.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Merchants.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Merchants.Sum(m => m.Stock.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase)))
-                + campaign.Quests.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Factions.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Relationships.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Secrets.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Timeline.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Encounters.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase))
-                + campaign.Supplements.Count(x => x.SourceKind.Equals("ai_expanded", StringComparison.OrdinalIgnoreCase));
+            // Every provenance test routes through CampaignProvenance so a new or aliased
+            // SourceKind value cannot silently drop out of this count while still looking correct.
+            var count = campaign.Locations.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Connections.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Characters.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Items.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Merchants.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Merchants.Sum(m => m.Stock.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind)))
+                + campaign.Quests.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Factions.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Relationships.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Secrets.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Timeline.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Encounters.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.Supplements.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind))
+                + campaign.TacticalMaps.Count(x => CampaignProvenance.IsAiGenerated(x.SourceKind));
             return count == 0 ? "No AI-expanded world details yet." : $"{count} generated detail(s) are marked ai_expanded and kept separate from source canon.";
         }
     }
@@ -543,6 +546,13 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "No encounter selected"
         : $"{SelectedEncounter.Status} • Round {SelectedEncounter.Round} • Turn {Math.Min(SelectedEncounter.TurnIndex + 1, Math.Max(1, SelectedEncounter.Combatants.Count))}/{Math.Max(1, SelectedEncounter.Combatants.Count)}";
     public IEnumerable<OpportunityAttackWindow> PendingOpportunityAttacks => SelectedEncounter?.PendingMove?.OpportunityAttacks.Where(x => !x.Resolved) ?? [];
+
+    /// <summary>
+    /// True while the engine is blocked waiting for Opportunity Attack reactions to be resolved
+    /// or declined. Drives the reaction prompt in the combat shell.
+    /// </summary>
+    public bool HasPendingOpportunityAttacks => PendingOpportunityAttacks.Any();
+
     public string PendingMoveSummary => SelectedEncounter?.PendingMove is null
         ? "No pending reaction window."
         : $"Pending move: ({SelectedEncounter.PendingMove.FromX},{SelectedEncounter.PendingMove.FromY}) → ({SelectedEncounter.PendingMove.ToX},{SelectedEncounter.PendingMove.ToY}), cost {SelectedEncounter.PendingMove.MovementCostFeet} ft. Resolve or decline all Opportunity Attacks.";
@@ -2260,6 +2270,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         SelectedOpportunityAttack = pending.FirstOrDefault(x => SelectedOpportunityAttack is not null && x.ReactorCombatantId == SelectedOpportunityAttack.ReactorCombatantId)
             ?? pending.FirstOrDefault();
         OnPropertyChanged(nameof(PendingOpportunityAttacks));
+        OnPropertyChanged(nameof(HasPendingOpportunityAttacks));
         OnPropertyChanged(nameof(PendingMoveSummary));
     }
 
@@ -2321,6 +2332,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(Combatants));
         OnPropertyChanged(nameof(CombatStatus));
         OnPropertyChanged(nameof(PendingOpportunityAttacks));
+        OnPropertyChanged(nameof(HasPendingOpportunityAttacks));
         OnPropertyChanged(nameof(PendingMoveSummary));
         OnPropertyChanged(nameof(PreparedSpells));
         OnPropertyChanged(nameof(SpellTargets));

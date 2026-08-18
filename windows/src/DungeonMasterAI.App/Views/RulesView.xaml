@@ -1,0 +1,101 @@
+<UserControl x:Class="DungeonMasterAI.App.Views.RulesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <!--
+        SRD rules lookup and spell library. Replaces the UtilityPlaceholderView that left
+        SearchRulesCommand unreachable, which broke the ALPHA_ACCEPTANCE criterion covering
+        in-app SRD rules search.
+    -->
+    <Grid Margin="12,10,12,10">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="360"/><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,10">
+            <TextBlock Text="REFERENCE" Style="{StaticResource AaaEyebrow}"/>
+            <TextBlock Text="Rules Library" Style="{StaticResource AaaTitle}" FontSize="26" Margin="0,3,0,8"/>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding RuleQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource AaaTextBox}" ToolTip="Search the SRD 5.2.1 corpus"/>
+                <Button Grid.Column="1" Command="{Binding SearchRulesCommand}" Content="◈  Search"
+                        Style="{StaticResource AaaGoldButton}" Margin="7,0,0,0" MinWidth="110"/>
+            </Grid>
+        </StackPanel>
+
+        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,7,0">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <DockPanel>
+                    <TextBlock Text="RESULTS" Style="{StaticResource AaaSectionTitle}"/>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding RuleResults.Count, StringFormat={}{0} passages}" Style="{StaticResource AaaMuted}"/>
+                </DockPanel>
+                <ListBox Grid.Row="1" ItemsSource="{Binding RuleResults}" SelectedItem="{Binding SelectedRuleResult}"
+                         Style="{StaticResource AaaListBox}" Margin="0,8,0,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#272D30" BorderThickness="0,0,0,1" Padding="2,7">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Heading}" FontFamily="Georgia" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBlock Style="{StaticResource AaaMuted}" FontSize="9" Margin="0,3,0,0">
+                                        <Run Text="Page "/><Run Text="{Binding Page, Mode=OneWay}"/><Run Text="  •  "/><Run Text="{Binding Section, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="18" Margin="0,0,7,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="{Binding SelectedRuleResult.Heading, TargetNullValue=Select a passage}"
+                               Style="{StaticResource AaaSectionTitle}" FontSize="14" TextWrapping="Wrap"/>
+                    <TextBlock Style="{StaticResource AaaMuted}" Margin="0,5,0,0">
+                        <Run Text="SRD page "/><Run Text="{Binding SelectedRuleResult.Page, Mode=OneWay}"/>
+                    </TextBlock>
+                    <Border Height="1" Background="#342F28" Margin="0,12,0,12"/>
+                    <TextBlock Text="{Binding SelectedRuleResult.Text}" TextWrapping="Wrap" FontFamily="Georgia"
+                               FontSize="13" LineHeight="21" Foreground="#D8D1C2"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="11">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <DockPanel>
+                    <TextBlock Text="SPELL LIBRARY" Style="{StaticResource AaaSectionTitle}"/>
+                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" FontSize="9"
+                               ToolTip="Spells resolved by the deterministic engine, out of the full SRD catalog">
+                        <Run Foreground="#7DBE87" Text="{Binding SpellImplementedCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding SpellCatalogCount, Mode=OneWay}"/>
+                    </TextBlock>
+                </DockPanel>
+                <TextBox Grid.Row="1" Text="{Binding SpellLibraryQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource AaaTextBox}" Margin="0,8,0,8" ToolTip="Filter the SRD spell catalog"/>
+                <ListBox Grid.Row="2" ItemsSource="{Binding SpellLibrary}" SelectedItem="{Binding SelectedLibrarySpell}"
+                         Style="{StaticResource AaaListBox}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#272D30" BorderThickness="0,0,0,1" Padding="2,6">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level}" Foreground="{StaticResource AaaGoldBrush}" FontSize="9" Margin="6,0,0,0"/>
+                                    </DockPanel>
+                                    <DockPanel Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding School}" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Resolution}" Style="{StaticResource AaaMuted}" FontSize="8.5"
+                                                   ToolTip="Deterministic engine resolution, or narration-only"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

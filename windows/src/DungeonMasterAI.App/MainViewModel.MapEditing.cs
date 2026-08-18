@@ -208,7 +208,11 @@ public sealed partial class MainViewModel
             if (MapEditDraft is null) return;
         }
 
-        if (MapEditDraft.GenerationSeed == 0) MapEditDraft.GenerationSeed = MapEditDraft.Seed;
+        // Bring a legacy draft up to the current map schema before rerolling art, so the geometry
+        // seed is snapshotted by the same normalizer the persistence migration uses instead of by a
+        // rule that only ever ran inside this one interaction.
+        TacticalMapSchema.NormalizeMap(MapEditDraft);
+
         var previous = MapEditDraft.Seed;
         var next = previous;
         while (next == previous) next = Random.Shared.Next(1, int.MaxValue);

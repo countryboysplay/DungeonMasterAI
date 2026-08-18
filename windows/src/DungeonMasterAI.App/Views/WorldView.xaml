@@ -65,6 +65,19 @@
                         <WrapPanel><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3" Margin="0,0,4,0"><TextBlock Text="Elderwood" FontSize="8"/></Border><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3" Margin="0,0,4,0"><TextBlock Text="The Old Road" FontSize="8"/></Border><Border Background="#12191D" BorderBrush="#393832" BorderThickness="1" CornerRadius="8" Padding="8,3"><TextBlock Text="Ravenmere" FontSize="8"/></Border></WrapPanel>
                         <TextBlock Text="READINESS &amp; ENCOUNTERS" Style="{StaticResource AaaMuted}" Foreground="#CBA75B" FontSize="8" Margin="0,8,0,4"/>
                         <DockPanel><TextBlock Text="Settlement Readiness" FontSize="8"/><TextBlock DockPanel.Dock="Right" Text="Prepared  ▮▮▮▮▮" Foreground="{StaticResource AaaGreenBrush}" FontSize="8"/></DockPanel>
+
+                        <!--
+                            Location actions. Both commands act on SelectedLocation, which the map
+                            control sets. The picker gives a keyboard-reachable alternative to
+                            clicking a pin, and keeps both commands reachable when no pin is chosen.
+                        -->
+                        <Border Height="1" Background="#4C402E" Margin="0,9,0,7"/>
+                        <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation, Mode=TwoWay}" DisplayMemberPath="Name" Style="{StaticResource AaaComboBox}" Height="26" FontSize="9" ToolTip="Jump to a known location"/>
+                        <Grid Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="5"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Command="{Binding RevealLocationCommand}" Content="Reveal Location" Style="{StaticResource AaaTopButton}" Padding="6,4" Margin="0" FontSize="9" ToolTip="Reveal this location to the players"/>
+                            <Button Grid.Column="2" Command="{Binding MovePartyCommand}" Content="Move Party Here" Style="{StaticResource AaaPrimaryButton}" Padding="6,4" Margin="0" FontSize="9" ToolTip="Travel the party to this location"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </Grid>

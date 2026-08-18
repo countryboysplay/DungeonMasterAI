@@ -21,6 +21,7 @@
                     <StackPanel Width="80"><TextBlock Text="Day" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedCampaign.Day, StringFormat=Day {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
                     <StackPanel Width="105"><TextBlock Text="Campaign Time" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding CampaignTime}" FontFamily="Georgia" FontSize="12"/></StackPanel>
                     <StackPanel Width="95"><TextBlock Text="Round" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedEncounter.Round, StringFormat=Round {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
+                    <StackPanel Width="150"><TextBlock Text="{Binding PlaySceneModeTitle}" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding DmActivityText}" FontFamily="Georgia" FontSize="12" TextTrimming="CharacterEllipsis"/></StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Ⅱ  Pause" Style="{StaticResource AaaTopButton}"/>
@@ -105,12 +106,71 @@
                 </Grid>
             </Border>
             <Border Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,0,7">
-                <StackPanel><TextBlock Text="♙  REACTIONS" Style="{StaticResource AaaSectionTitle}"/><TextBlock Text="Player reactions remain explicit decisions and never auto-fire." Foreground="#99B8D2" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"/></StackPanel>
+                <!--
+                    Reactions panel. Previously static copy; now hosts the two blocking prompts
+                    (death save and required decision) that the engine raises during play. Both
+                    stay collapsed until the engine is actually waiting on the player.
+                -->
+                <StackPanel>
+                    <TextBlock Text="♙  REACTIONS" Style="{StaticResource AaaSectionTitle}"/>
+                    <TextBlock Text="Player reactions remain explicit decisions and never auto-fire." Foreground="#99B8D2" FontSize="10" Margin="0,8,0,0" TextWrapping="Wrap"/>
+
+                    <Border Background="#241313" BorderBrush="#8C3D37" BorderThickness="1" CornerRadius="4" Padding="9,7" Margin="0,10,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding PlayerDeathSaveRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel>
+                            <TextBlock Text="☠  DEATH SAVE" Foreground="#E17B70" FontFamily="Georgia" FontWeight="Bold" FontSize="10"/>
+                            <TextBlock Text="{Binding ActiveDeathSavePrompt}" Style="{StaticResource AaaMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding ActiveDeathSaveStatus}" Style="{StaticResource AaaMuted}" FontSize="10" TextWrapping="Wrap"/>
+                            <Button Command="{Binding RollActiveDeathSaveCommand}" Content="Roll Death Save" Style="{StaticResource AaaDangerButton}" Padding="9,5" Margin="0,7,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#18120B" BorderBrush="#6B542E" BorderThickness="1" CornerRadius="4" Padding="9,7" Margin="0,8,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel>
+                            <TextBlock Text="◈  DECISION REQUIRED" Foreground="{StaticResource AaaGoldBrush}" FontFamily="Georgia" FontWeight="Bold" FontSize="10"/>
+                            <TextBlock Text="{Binding PendingPlayerDecisionPrompt}" Style="{StaticResource AaaMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,7"/>
+                            <Button Command="{Binding ResolvePrimaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionPrimaryLabel}" Style="{StaticResource AaaPrimaryButton}" Padding="9,5" Margin="0,0,0,5"/>
+                            <Button Command="{Binding ResolveSecondaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionSecondaryLabel}" Style="{StaticResource AaaTopButton}" Padding="9,5" Margin="0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="This character is at 0 HP and cannot take actions." Foreground="#E17B70" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding ActivePlayerUnableToActAtZero}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
             </Border>
             <Border Style="{StaticResource AaaPanelBorder}" Padding="12">
                 <StackPanel><TextBlock Text="STATUS EFFECTS" Style="{StaticResource AaaSectionTitle}"/><TextBlock Text="{Binding SelectedCharacter.Conditions.Count, StringFormat={}{0} active conditions}" Style="{StaticResource AaaMuted}" Margin="0,8,0,0"/></StackPanel>
             </Border>
         </StackPanel>
+
+        <!--
+            Scene actions. Exploration verbs are distinct from the combat strip to the right and
+            occupy the previously empty cell beneath the narration column.
+        -->
+        <Grid Grid.Row="2" Grid.Column="0" Margin="0,7,8,0">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Command="{Binding ContinueSceneCommand}" Style="{StaticResource AaaPrimaryButton}" Margin="0,0,4,0" ToolTip="Advance the narration"><StackPanel><TextBlock Text="▸  Continue" FontFamily="Georgia" FontSize="11" HorizontalAlignment="Center"/><TextBlock Text="Next Beat" Style="{StaticResource AaaMuted}" FontSize="9" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="1" Command="{Binding LookAroundCommand}" Style="{StaticResource AaaTopButton}" Margin="0,0,4,0" ToolTip="Observe the surroundings"><StackPanel><TextBlock Text="◎  Look" FontFamily="Georgia" FontSize="11" HorizontalAlignment="Center"/><TextBlock Text="Observe" Style="{StaticResource AaaMuted}" FontSize="9" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="2" Command="{Binding TalkNearbyCommand}" Style="{StaticResource AaaTopButton}" Margin="0,0,4,0" ToolTip="Speak to a nearby NPC"><StackPanel><TextBlock Text="❝  Talk" FontFamily="Georgia" FontSize="11" HorizontalAlignment="Center"/><TextBlock Text="Nearby" Style="{StaticResource AaaMuted}" FontSize="9" HorizontalAlignment="Center"/></StackPanel></Button>
+            <Button Grid.Column="3" Command="{Binding AdvanceTenMinutesCommand}" Style="{StaticResource AaaTopButton}" Margin="0" ToolTip="Advance campaign time by ten minutes"><StackPanel><TextBlock Text="⏱  +10 Min" FontFamily="Georgia" FontSize="11" HorizontalAlignment="Center"/><TextBlock Text="Pass Time" Style="{StaticResource AaaMuted}" FontSize="9" HorizontalAlignment="Center"/></StackPanel></Button>
+        </Grid>
 
         <!-- Bottom action strip -->
         <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,7,0,0">

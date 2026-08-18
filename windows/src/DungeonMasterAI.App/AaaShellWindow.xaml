@@ -109,19 +109,19 @@
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▤" FontSize="18" Width="30"/><TextBlock Text="Quests" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:WorldView/>
+                    <views:QuestsView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▥" FontSize="18" Width="30"/><TextBlock Text="Rules" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:UtilityPlaceholderView Title="Rules" Subtitle="The SRD rules library is being restyled into the approved dark-fantasy shell without changing its deterministic search engine."/>
+                    <views:RulesView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⊞" FontSize="18" Width="30"/><TextBlock Text="Import" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:UtilityPlaceholderView Title="Import" Subtitle="Campaign import and AI compile workflows remain intact while their presentation is rebuilt to match the approved renders."/>
+                    <views:CampaignLibraryView/>
                 </TabItem>
                 <TabItem Style="{StaticResource AaaNavTab}">
                     <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" FontSize="18" Width="30"/><TextBlock Text="Settings" VerticalAlignment="Center"/></StackPanel></TabItem.Header>
-                    <views:UtilityPlaceholderView Title="Settings" Subtitle="Local AI, model, save, recovery, and application settings will use the same premium panel system."/>
+                    <views:SettingsView/>
                 </TabItem>
             </TabControl>
 

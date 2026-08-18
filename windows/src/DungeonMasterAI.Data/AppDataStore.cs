@@ -5,7 +5,7 @@ namespace DungeonMasterAI.Data;
 
 public sealed class AppDataStore
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -128,6 +128,19 @@ public sealed class AppDataStore
                     // from authoritative combat state when the campaign is opened.
                     state.SchemaVersion = 2;
                     break;
+                case 2:
+                    // v3 introduces persisted tactical map state (CampaignState.TacticalMaps and
+                    // CampaignState.EncounterMapBindings). New collections deserialize to their
+                    // initializer defaults, so no data is recovered here, but giving map state a
+                    // versioned home means every later map-geometry change has a migration slot
+                    // instead of being applied lazily during an editor interaction. This pass also
+                    // collapses the interim "ai_generated" provenance value onto "ai_expanded".
+                    foreach (var campaign in state.Campaigns ?? [])
+                    {
+                        TacticalMapSchema.NormalizeCampaign(campaign);
+                    }
+                    state.SchemaVersion = 3;
+                    break;
                 default:
                     throw new InvalidDataException($"No migration is defined from state schema version {state.SchemaVersion}.");
             }
@@ -157,9 +170,16 @@ public sealed class AppDataStore
             campaign.Events ??= [];
             campaign.Chat ??= [];
 
+            // Tactical map shape is normalized on every load and before every save. Deserialization
+            // discards the case-insensitive comparer declared on EncounterMapBindings, so this also
+            // restores that lookup contract rather than leaving it silently case-sensitive.
+            TacticalMapSchema.NormalizeCampaign(campaign);
+
             foreach (var character in campaign.Characters)
             {
-                character.Abilities ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                // Rebuilt rather than null-coalesced: a deserialized dictionary is non-null but
+                // case-sensitive, so ??= leaves Abilities["strength"] unable to find "Strength".
+                character.Abilities = CaseInsensitiveMap.Normalize(character.Abilities);
                 character.SavingThrowProficiencies ??= [];
                 character.SkillProficiencies ??= [];
                 character.Conditions ??= [];
@@ -172,8 +192,18 @@ public sealed class AppDataStore
                 character.Inventory ??= [];
             }
 
+            if (campaign.PendingPlayerRoll is not null)
+                campaign.PendingPlayerRoll.Context = CaseInsensitiveMap.Normalize(campaign.PendingPlayerRoll.Context);
+
             foreach (var merchant in campaign.Merchants) merchant.Stock ??= [];
-            foreach (var encounter in campaign.Encounters) encounter.Combatants ??= [];
+            foreach (var encounter in campaign.Encounters)
+            {
+                encounter.Combatants ??= [];
+                encounter.BattlefieldEffects ??= [];
+                foreach (var effect in encounter.BattlefieldEffects)
+                    effect.LastTriggeredTurnByCharacter =
+                        CaseInsensitiveMap.Normalize(effect.LastTriggeredTurnByCharacter);
+            }
             foreach (var quest in campaign.Quests) quest.Objectives ??= [];
             foreach (var secret in campaign.Secrets)
             {

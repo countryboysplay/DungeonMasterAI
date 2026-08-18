@@ -220,6 +220,8 @@ public sealed class CampaignReadinessValidator
                 Add(issues, ReadinessSeverity.Info, "secret", secret.Key, $"Secret '{secret.Title}' has no structured reveal condition.");
         }
 
+        ValidateTacticalMaps(campaign, characterIds, issues);
+
         foreach (var evt in campaign.Timeline)
         {
             if (evt.CampaignDay < 1 || evt.MinuteOfDay is < 0 or > 1439)
@@ -233,6 +235,190 @@ public sealed class CampaignReadinessValidator
             .ThenBy(i => i.Category, StringComparer.OrdinalIgnoreCase)
             .ThenBy(i => i.EntityKey, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static readonly string[] DoorOrientations = ["vertical", "horizontal"];
+    private static readonly string[] DoorStates = ["open", "closed", "locked", "barred"];
+    private static readonly string[] RoomKinds = ["room", "corridor", "cave", "exterior"];
+    private static readonly string[] ZoneTypes = ["encounter", "trap", "loot", "quest", "trigger"];
+    private static readonly string[] CoverKinds = ["none", "half", "three_quarters", "total"];
+    private static readonly string[] SpawnSides = ["party", "enemy", "ally", "neutral"];
+
+    /// <summary>
+    /// Validates authored tactical maps and their encounter bindings. Grid cells are zero-based, so
+    /// a cell rectangle must fit inside [0, WidthSquares) x [0, HeightSquares). Walls sit on cell
+    /// edges, so their endpoints are vertices and may legally touch the inclusive upper bound.
+    /// </summary>
+    private static void ValidateTacticalMaps(CampaignState campaign, HashSet<string> characterIds, ICollection<CampaignReadinessIssue> issues)
+    {
+        var mapIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mapKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var characterKeys = campaign.Characters.Select(c => c.Key).Where(k => !string.IsNullOrWhiteSpace(k)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var encounterIds = campaign.Encounters.Select(e => e.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var questKeys = campaign.Quests.Select(q => q.Key).Where(k => !string.IsNullOrWhiteSpace(k)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var map in campaign.TacticalMaps)
+        {
+            var key = string.IsNullOrWhiteSpace(map.Key) ? map.Id : map.Key;
+
+            if (string.IsNullOrWhiteSpace(map.Id))
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' has no stable id.");
+            else if (!mapIds.Add(map.Id))
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' reuses map id '{map.Id}'. Encounter bindings would resolve ambiguously.");
+
+            if (string.IsNullOrWhiteSpace(map.Key))
+                Add(issues, ReadinessSeverity.Warning, "map", key, $"Tactical map '{map.Name}' has no stable key. Tool and import round-trips will fall back to the generated id.");
+            else if (!mapKeys.Add(map.Key))
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' reuses map key '{map.Key}'.");
+
+            if (map.SchemaVersion > TacticalMapSchema.CurrentMapSchemaVersion)
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' declares schema version {map.SchemaVersion}, newer than the supported version {TacticalMapSchema.CurrentMapSchemaVersion}. This build cannot interpret it safely.");
+            else if (map.SchemaVersion < 1)
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' has an invalid schema version {map.SchemaVersion}.");
+
+            if (!CampaignProvenance.IsRecognized(map.SourceKind))
+                Add(issues, ReadinessSeverity.Warning, "map", key, $"Tactical map '{map.Name}' has unrecognized provenance '{map.SourceKind}'.");
+
+            if (map.WidthSquares < 1 || map.HeightSquares < 1)
+            {
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' has a non-positive grid size ({map.WidthSquares}x{map.HeightSquares}).");
+                continue;
+            }
+
+            if (map.FeetPerSquare < 1 || map.FeetPerSquare % 5 != 0)
+                Add(issues, ReadinessSeverity.Error, "map", key, $"Tactical map '{map.Name}' must use a positive 5-foot grid scale; found {map.FeetPerSquare} feet per square.");
+
+            var width = map.WidthSquares;
+            var height = map.HeightSquares;
+
+            void Rect(string category, string label, int x, int y, int w, int h)
+            {
+                if (w < 1 || h < 1)
+                    Add(issues, ReadinessSeverity.Error, category, key, $"{label} on '{map.Name}' has a non-positive size ({w}x{h}).");
+                else if (x < 0 || y < 0 || x + w > width || y + h > height)
+                    Add(issues, ReadinessSeverity.Error, category, key, $"{label} on '{map.Name}' extends outside the {width}x{height} grid.");
+            }
+
+            foreach (var room in map.Rooms)
+            {
+                Rect("map_room", $"Room '{room.Name}'", room.X, room.Y, room.WidthSquares, room.HeightSquares);
+                if (!RoomKinds.Contains(room.Kind, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Warning, "map_room", key, $"Room '{room.Name}' on '{map.Name}' has unsupported kind '{room.Kind}'.");
+            }
+
+            if (map.Rooms.Count == 0 && map.Terrain.Count == 0)
+                Add(issues, ReadinessSeverity.Warning, "map", key, $"Tactical map '{map.Name}' has no rooms or terrain and would render as an empty grid.");
+
+            foreach (var wall in map.Walls)
+            {
+                if (wall.FromX < 0 || wall.FromY < 0 || wall.ToX < 0 || wall.ToY < 0
+                    || wall.FromX > width || wall.ToX > width || wall.FromY > height || wall.ToY > height)
+                    Add(issues, ReadinessSeverity.Error, "map_wall", key, $"A wall on '{map.Name}' has an endpoint outside the {width}x{height} grid.");
+                if (wall.FromX == wall.ToX && wall.FromY == wall.ToY)
+                    Add(issues, ReadinessSeverity.Error, "map_wall", key, $"A wall on '{map.Name}' is zero-length and cannot block movement or sight.");
+                if (wall.HeightFeet < 0)
+                    Add(issues, ReadinessSeverity.Error, "map_wall", key, $"A wall on '{map.Name}' has a negative height.");
+            }
+
+            foreach (var door in map.Doors)
+            {
+                if (door.X < 0 || door.Y < 0 || door.X >= width || door.Y >= height)
+                    Add(issues, ReadinessSeverity.Error, "map_door", key, $"Door '{door.Name}' on '{map.Name}' sits outside the {width}x{height} grid.");
+                if (!DoorOrientations.Contains(door.Orientation, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_door", key, $"Door '{door.Name}' on '{map.Name}' has unsupported orientation '{door.Orientation}'.");
+                if (!DoorStates.Contains(door.State, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_door", key, $"Door '{door.Name}' on '{map.Name}' has unsupported state '{door.State}'.");
+                if (door.Secret && door.Discovered)
+                    Add(issues, ReadinessSeverity.Warning, "visibility", key, $"Secret door '{door.Name}' on '{map.Name}' is already marked discovered and will be visible to players at session start.");
+            }
+
+            foreach (var terrain in map.Terrain)
+            {
+                Rect("map_terrain", $"Terrain '{terrain.Name}'", terrain.X, terrain.Y, terrain.WidthSquares, terrain.HeightSquares);
+                if (!CoverKinds.Contains(terrain.Cover, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_terrain", key, $"Terrain '{terrain.Name}' on '{map.Name}' has unsupported cover '{terrain.Cover}'.");
+                if (terrain.ElevationFeet % 5 != 0)
+                    Add(issues, ReadinessSeverity.Warning, "map_terrain", key, $"Terrain '{terrain.Name}' on '{map.Name}' has elevation {terrain.ElevationFeet} ft, which is not a 5-foot increment.");
+            }
+
+            foreach (var prop in map.Props)
+            {
+                Rect("map_prop", $"Prop '{prop.Name}'", prop.X, prop.Y, prop.WidthSquares, prop.HeightSquares);
+                if (!CoverKinds.Contains(prop.Cover, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_prop", key, $"Prop '{prop.Name}' on '{map.Name}' has unsupported cover '{prop.Cover}'.");
+                if (prop.RotationDegrees % 90 != 0)
+                    Add(issues, ReadinessSeverity.Warning, "map_prop", key, $"Prop '{prop.Name}' on '{map.Name}' uses rotation {prop.RotationDegrees}°; the grid renderer only guarantees 90° steps.");
+            }
+
+            foreach (var light in map.Lights)
+            {
+                if (light.X < 0 || light.Y < 0 || light.X > width || light.Y > height)
+                    Add(issues, ReadinessSeverity.Error, "map_light", key, $"Light '{light.Name}' on '{map.Name}' sits outside the {width}x{height} grid.");
+                if (light.BrightRadiusFeet < 0 || light.DimRadiusFeet < 0)
+                    Add(issues, ReadinessSeverity.Error, "map_light", key, $"Light '{light.Name}' on '{map.Name}' has a negative illumination radius.");
+            }
+
+            var sawPartySpawn = false;
+            foreach (var spawn in map.SpawnPoints)
+            {
+                if (spawn.X < 0 || spawn.Y < 0 || spawn.X >= width || spawn.Y >= height)
+                    Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' sits outside the {width}x{height} grid.");
+                if (!SpawnSides.Contains(spawn.Side, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' has unsupported side '{spawn.Side}'.");
+                if (spawn.Side.Equals("party", StringComparison.OrdinalIgnoreCase)) sawPartySpawn = true;
+                if (!string.IsNullOrWhiteSpace(spawn.CharacterKey)
+                    && !characterKeys.Contains(spawn.CharacterKey) && !characterIds.Contains(spawn.CharacterKey))
+                    Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' reserves an unresolved character '{spawn.CharacterKey}'.");
+            }
+
+            if (map.SpawnPoints.Count > 0 && !sawPartySpawn)
+                Add(issues, ReadinessSeverity.Warning, "map_spawn", key, $"Tactical map '{map.Name}' defines spawn points but none is marked for the party.");
+
+            foreach (var zone in map.Zones)
+            {
+                Rect("map_zone", $"Zone '{zone.Name}'", zone.X, zone.Y, zone.WidthSquares, zone.HeightSquares);
+                if (!ZoneTypes.Contains(zone.ZoneType, StringComparer.OrdinalIgnoreCase))
+                    Add(issues, ReadinessSeverity.Error, "map_zone", key, $"Zone '{zone.Name}' on '{map.Name}' has unsupported type '{zone.ZoneType}'.");
+                if (string.IsNullOrWhiteSpace(zone.ReferenceId)) continue;
+                if (zone.ZoneType.Equals("encounter", StringComparison.OrdinalIgnoreCase)
+                    && !encounterIds.Contains(zone.ReferenceId)
+                    && !campaign.Encounters.Any(e => e.Key.Equals(zone.ReferenceId, StringComparison.OrdinalIgnoreCase)))
+                    Add(issues, ReadinessSeverity.Error, "map_zone", key, $"Encounter zone '{zone.Name}' on '{map.Name}' references missing encounter '{zone.ReferenceId}'.");
+                if (zone.ZoneType.Equals("quest", StringComparison.OrdinalIgnoreCase) && !questKeys.Contains(zone.ReferenceId))
+                    Add(issues, ReadinessSeverity.Error, "map_zone", key, $"Quest zone '{zone.Name}' on '{map.Name}' references missing quest '{zone.ReferenceId}'.");
+            }
+
+            var roomIds = map.Rooms.Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var revealed in map.Visibility.RevealedRoomIds.Where(id => !roomIds.Contains(id)))
+                Add(issues, ReadinessSeverity.Warning, "visibility", key, $"Tactical map '{map.Name}' reveals unknown room '{revealed}'.");
+            foreach (var cell in map.Visibility.RevealedCells.Where(c => c.X < 0 || c.Y < 0 || c.X >= width || c.Y >= height))
+                Add(issues, ReadinessSeverity.Warning, "visibility", key, $"Tactical map '{map.Name}' reveals cell ({cell.X},{cell.Y}) outside the {width}x{height} grid.");
+            if (map.FogOfWarEnabled && map.Visibility.RevealAll)
+                Add(issues, ReadinessSeverity.Warning, "visibility", key, $"Tactical map '{map.Name}' enables fog of war but also reveals the whole map, so fog will have no effect.");
+            if (map.Visibility.RevealAll && map.Rooms.Any(r => r.DmOnly))
+                Add(issues, ReadinessSeverity.Warning, "visibility", key, $"Tactical map '{map.Name}' reveals everything while containing DM-only rooms, which would expose them to players.");
+        }
+
+        foreach (var binding in campaign.EncounterMapBindings)
+        {
+            var encounter = campaign.Encounters.FirstOrDefault(e => e.Id.Equals(binding.Key, StringComparison.OrdinalIgnoreCase));
+            if (encounter is null)
+                Add(issues, ReadinessSeverity.Error, "map_binding", binding.Key, $"A tactical map is bound to missing encounter '{binding.Key}'.");
+            if (!mapIds.Contains(binding.Value))
+            {
+                Add(issues, ReadinessSeverity.Error, "map_binding", encounter?.Key ?? binding.Key, $"Encounter '{encounter?.Name ?? binding.Key}' is bound to missing tactical map '{binding.Value}'.");
+                continue;
+            }
+            if (encounter is null) continue;
+
+            var map = campaign.TacticalMaps.First(m => m.Id.Equals(binding.Value, StringComparison.OrdinalIgnoreCase));
+            if (map.WidthSquares < 1 || map.HeightSquares < 1) continue;
+            foreach (var combatant in encounter.Combatants.Where(c => c.Positioned))
+            {
+                if (combatant.GridX < 0 || combatant.GridY < 0 || combatant.GridX >= map.WidthSquares || combatant.GridY >= map.HeightSquares)
+                    Add(issues, ReadinessSeverity.Error, "map_binding", encounter.Key, $"Encounter '{encounter.Name}' places a combatant at ({combatant.GridX},{combatant.GridY}), outside its bound map '{map.Name}' ({map.WidthSquares}x{map.HeightSquares}).");
+            }
+        }
     }
 
     private static HashSet<string> BuildEntityKeys(CampaignState campaign)

@@ -1,6 +1,10 @@
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -60,6 +64,8 @@ internal static class Program
                 foreach (var requiredType in requiredTypes)
                     Check(tabItems.Any(item => requiredType.IsInstanceOfType(item.Content)),
                         $"Approved view {requiredType.Name} constructs in the shell.", failures);
+
+                VerifyCommandReachability(tabs, failures);
 
                 CaptureApprovedViews(window, tabs, failures);
 
@@ -148,6 +154,114 @@ internal static class Program
 
         Check(viewModel.SelectedCampaign is not null, "Direct-import Greenhaven preview selects a campaign.", failures);
         Check(viewModel.SelectedEncounter is not null, "Direct-import Greenhaven preview selects an encounter.", failures);
+    }
+
+    /// <summary>
+    /// Commands the shell deliberately invokes from code-behind instead of binding directly,
+    /// because the click handler must synchronise view-model selection state first. Each entry
+    /// needs a comment naming the handler that executes it.
+    /// </summary>
+    private static readonly string[] CodeBehindInvokedCommands =
+    [
+        // CombatView.CastSpell_Click copies the combat spell/target selection onto the
+        // spellcasting properties, then executes this command.
+        nameof(MainViewModel.CastSelectedSpellCommand)
+    ];
+
+    /// <summary>
+    /// Asserts every public <see cref="ICommand"/> on <see cref="MainViewModel"/> is reachable from
+    /// the live shell.
+    ///
+    /// This gate cannot live in tools/validate_source.py: that script scans every XAML file in the
+    /// repository, including the legacy MainWindow.xaml, which binds all commands but is not hosted
+    /// by the shell. It therefore reports full coverage even when a command is unreachable in the
+    /// shipped UI. Walking the real tab tree is the only reliable check.
+    /// </summary>
+    private static void VerifyCommandReachability(TabControl tabs, ICollection<string> failures)
+    {
+        var expected = typeof(MainViewModel)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => typeof(ICommand).IsAssignableFrom(property.PropertyType))
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Check(expected.Count > 0, "MainViewModel exposes discoverable ICommand properties.", failures);
+
+        var viewModel = tabs.DataContext as MainViewModel;
+        Check(viewModel is not null, "Navigation host inherits the MainViewModel data context.", failures);
+
+        // Map each command instance back to its property name so buttons wired by assignment
+        // (rather than by binding) still count as reachable.
+        var instanceToName = new Dictionary<ICommand, string>(CommandReferenceComparer.Instance);
+        if (viewModel is not null)
+        {
+            foreach (var property in typeof(MainViewModel).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                         .Where(property => typeof(ICommand).IsAssignableFrom(property.PropertyType)))
+            {
+                if (property.GetValue(viewModel) is ICommand command)
+                    instanceToName[command] = property.Name;
+            }
+        }
+
+        var reachable = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tabItem in tabs.Items.OfType<TabItem>())
+        {
+            if (tabItem.Content is not DependencyObject content) continue;
+            CollectReachableCommands(content, instanceToName, reachable);
+        }
+
+        foreach (var allowed in CodeBehindInvokedCommands)
+        {
+            Check(expected.Contains(allowed),
+                $"Code-behind command allowlist entry {allowed} still exists on MainViewModel.", failures);
+            reachable.Add(allowed);
+        }
+
+        var unreachable = expected.Except(reachable, StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+        Check(unreachable.Length == 0,
+            unreachable.Length == 0
+                ? "Every MainViewModel command is reachable from a shell destination."
+                : $"Every MainViewModel command is reachable from a shell destination. Unreachable: {string.Join(", ", unreachable)}",
+            failures);
+    }
+
+    /// <summary>
+    /// Walks the logical tree collecting command names, both from bindings on
+    /// <see cref="ButtonBase.CommandProperty"/> and from directly assigned command instances.
+    /// Buttons inside a DataTemplate are not in the logical tree until items are generated, so
+    /// command buttons must stay outside item templates.
+    /// </summary>
+    private static void CollectReachableCommands(
+        DependencyObject node,
+        IReadOnlyDictionary<ICommand, string> instanceToName,
+        ISet<string> reachable)
+    {
+        if (node is ICommandSource source)
+        {
+            if (BindingOperations.GetBinding(node, ButtonBase.CommandProperty)?.Path?.Path is { Length: > 0 } path)
+                reachable.Add(path.Split('.')[^1]);
+            else if (BindingOperations.GetBinding(node, MenuItem.CommandProperty)?.Path?.Path is { Length: > 0 } menuPath)
+                reachable.Add(menuPath.Split('.')[^1]);
+
+            if (source.Command is { } assigned && instanceToName.TryGetValue(assigned, out var name))
+                reachable.Add(name);
+        }
+
+        foreach (var child in LogicalTreeHelper.GetChildren(node))
+        {
+            if (child is DependencyObject dependencyChild)
+                CollectReachableCommands(dependencyChild, instanceToName, reachable);
+        }
+    }
+
+    /// <summary>Compares commands by reference so a command cannot be matched by value equality.</summary>
+    private sealed class CommandReferenceComparer : IEqualityComparer<ICommand>
+    {
+        internal static readonly CommandReferenceComparer Instance = new();
+
+        public bool Equals(ICommand? left, ICommand? right) => ReferenceEquals(left, right);
+
+        public int GetHashCode(ICommand command) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(command);
     }
 
     private static void FlushUi(DispatcherObject dispatcherOwner)

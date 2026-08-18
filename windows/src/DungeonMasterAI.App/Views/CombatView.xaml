@@ -45,7 +45,7 @@
             <RowDefinition Height="58"/>
             <RowDefinition Height="58"/>
             <RowDefinition Height="*" MinHeight="275"/>
-            <RowDefinition Height="188"/>
+            <RowDefinition Height="240"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="218"/>
@@ -229,7 +229,7 @@
 
         <!-- Bottom action area -->
         <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="430"/><ColumnDefinition Width="390"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="430"/><ColumnDefinition Width="320"/><ColumnDefinition Width="246"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="9" Margin="0,0,6,0">
                 <Grid>
@@ -292,7 +292,116 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="9">
+            <!--
+                Secondary actions and reactions. The r57 shell exposed only the six primary
+                actions, leaving every SRD utility action, grapple/shove interaction, readied
+                action, and blocking reaction prompt unreachable. They live in their own scrolling
+                column so the approved primary-action, targeting, and log panels are untouched.
+            -->
+            <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="9" Margin="0,0,6,0">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel>
+                        <TextBlock Text="MORE ACTIONS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
+                        <Button DockPanel.Dock="Right" Command="{Binding ActivateEncounterCommand}" Content="Activate"
+                                Style="{StaticResource AaaTopButton}" Padding="7,2" Margin="0" FontSize="8.5"
+                                ToolTip="Activate the selected encounter"/>
+                    </DockPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
+                        <StackPanel>
+                            <!-- Blocking prompts. Collapsed unless the engine is waiting on the player. -->
+                            <Border Background="#2A1512" BorderBrush="#9B4C43" BorderThickness="1" CornerRadius="3" Padding="7,5" Margin="0,0,0,5">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding PlayerDeathSaveRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="DEATH SAVE REQUIRED" FontFamily="Georgia" FontSize="8.5" Foreground="#F08A7D"/>
+                                    <TextBlock Text="{Binding ActiveDeathSavePrompt}" Style="{StaticResource AaaMuted}" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                    <TextBlock Text="{Binding ActiveDeathSaveStatus}" Style="{StaticResource AaaMuted}" FontSize="8" TextWrapping="Wrap"/>
+                                    <Button Command="{Binding RollActiveDeathSaveCommand}" Content="Roll Death Save" Style="{StaticResource AaaDangerButton}" Padding="7,3" Margin="0,5,0,0" FontSize="9"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#18120B" BorderBrush="#6B542E" BorderThickness="1" CornerRadius="3" Padding="7,5" Margin="0,0,0,5">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding PlayerDecisionRequired}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="DECISION REQUIRED" FontFamily="Georgia" FontSize="8.5" Foreground="{StaticResource CombatAmber}"/>
+                                    <TextBlock Text="{Binding PendingPlayerDecisionPrompt}" Style="{StaticResource AaaMuted}" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,4"/>
+                                    <Button Command="{Binding ResolvePrimaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionPrimaryLabel}" Style="{StaticResource AaaPrimaryButton}" Padding="7,3" Margin="0,0,0,4" FontSize="9"/>
+                                    <Button Command="{Binding ResolveSecondaryPlayerDecisionCommand}" Content="{Binding PendingPlayerDecisionSecondaryLabel}" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0" FontSize="9"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#091116" BorderBrush="#294B63" BorderThickness="1" CornerRadius="3" Padding="7,5" Margin="0,0,0,5">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding HasPendingOpportunityAttacks}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="OPPORTUNITY ATTACK" FontFamily="Georgia" FontSize="8.5" Foreground="{StaticResource CombatBlue}"/>
+                                    <TextBlock Text="{Binding PendingMoveSummary}" Style="{StaticResource AaaMuted}" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,4"/>
+                                    <ComboBox ItemsSource="{Binding PendingOpportunityAttacks}" SelectedItem="{Binding SelectedOpportunityAttack, Mode=TwoWay}" DisplayMemberPath="ReactorName" Style="{StaticResource AaaComboBox}" Height="26" FontSize="9"/>
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="4"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Command="{Binding ResolveOpportunityAttackCommand}" Content="Resolve" Style="{StaticResource AaaPrimaryButton}" Padding="5,3" Margin="0" FontSize="9"/>
+                                        <Button Grid.Column="2" Command="{Binding DeclineOpportunityAttackCommand}" Content="Decline" Style="{StaticResource AaaTopButton}" Padding="5,3" Margin="0" FontSize="9"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Skill-check inputs shared by the utility actions below. -->
+                            <Grid Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="4"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding CombatSkillInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Height="26" FontSize="9" ToolTip="Skill or ability for the check"/>
+                                <TextBox Grid.Column="2" Text="{Binding CombatDcInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Height="26" FontSize="9" ToolTip="Difficulty class"/>
+                            </Grid>
+
+                            <TextBlock Text="UTILITY" Style="{StaticResource CombatTinyLabel}" Margin="0,2,0,4"/>
+                            <WrapPanel>
+                                <Button Command="{Binding TakeHideCommand}" Content="Hide" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding SearchActionCommand}" Content="Search" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding SearchHiddenCommand}" Content="Find Hidden" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding StudyActionCommand}" Content="Study" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding InfluenceActionCommand}" Content="Influence" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding HelpAbilityCheckCommand}" Content="Help Check" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding FirstAidCommand}" Content="First Aid" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                            </WrapPanel>
+
+                            <TextBlock Text="UNARMED" Style="{StaticResource CombatTinyLabel}" Margin="0,6,0,4"/>
+                            <WrapPanel>
+                                <Button Command="{Binding GrappleCommand}" Content="Grapple" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding EscapeGrappleCommand}" Content="Escape" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding ReleaseGrappleCommand}" Content="Release" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding ShoveProneCommand}" Content="Shove Prone" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding ShovePushCommand}" Content="Shove Push" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding StandFromProneCommand}" Content="Stand" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                            </WrapPanel>
+
+                            <TextBlock Text="READY AN ACTION" Style="{StaticResource CombatTinyLabel}" Margin="0,6,0,4"/>
+                            <TextBox Text="{Binding ReadyTriggerInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" Height="26" FontSize="9" Margin="0,0,0,4" ToolTip="Trigger condition for the readied action"/>
+                            <WrapPanel>
+                                <Button Command="{Binding ReadyAttackCommand}" Content="Ready Attack" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding ReadyMoveCommand}" Content="Ready Move" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding ReadySpellCommand}" Content="Ready Spell" Style="{StaticResource AaaTopButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                                <Button Command="{Binding TriggerReadiedActionCommand}" Content="Trigger" Style="{StaticResource AaaGoldButton}" Padding="7,3" Margin="0,0,4,4" FontSize="9"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="3" Style="{StaticResource AaaPanelBorder}" Padding="9">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <DockPanel><TextBlock Text="COMBAT LOG" Style="{StaticResource AaaSectionTitle}" FontSize="10"/><TextBlock DockPanel.Dock="Right" Text="{Binding CombatStatus}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
