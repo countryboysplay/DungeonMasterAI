@@ -45,6 +45,12 @@
         <GradientStop Color="#0A1014" Offset="1"/>
     </LinearGradientBrush>
 
+    <LinearGradientBrush x:Key="AaaSelectedNavGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#4A3317" Offset="0"/>
+        <GradientStop Color="#241A0E" Offset="0.55"/>
+        <GradientStop Color="#101215" Offset="1"/>
+    </LinearGradientBrush>
+
     <LinearGradientBrush x:Key="AaaBlueButtonGradient" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#103155" Offset="0"/>
         <GradientStop Color="#0C2238" Offset="1"/>
@@ -175,7 +181,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="NavRoot" Property="Background" Value="#211A10"/>
+                            <Setter TargetName="NavRoot" Property="Background" Value="{StaticResource AaaSelectedNavGradient}"/>
                             <Setter TargetName="NavRoot" Property="BorderBrush" Value="#9C7740"/>
                             <Setter TargetName="NavRoot" Property="Effect">
                                 <Setter.Value>

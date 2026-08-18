@@ -41,6 +41,7 @@ public sealed class CampaignMapControl : Canvas
 
         DrawTerrainBase();
         DrawTerrainFeatures();
+        DrawMapFrame();
 
         if (Campaign is null) return;
 
@@ -51,6 +52,28 @@ public sealed class CampaignMapControl : Canvas
         DrawConnections(visible);
         foreach (var location in visible.Values)
             DrawLocationMarker(location);
+    }
+
+    /// <summary>
+    /// Thin inset rule that frames the parchment surface, salvaged from the abandoned
+    /// r50 map experiment. Pinned to the top of the z-order so it reads as the edge of
+    /// the map sheet rather than as terrain, and so it survives the empty-campaign path.
+    /// </summary>
+    private void DrawMapFrame()
+    {
+        var frame = new Border
+        {
+            Width = Math.Max(0, ActualWidth - 18),
+            Height = Math.Max(0, ActualHeight - 18),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(115, 126, 105, 64)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
+            IsHitTestVisible = false
+        };
+        SetLeft(frame, 9);
+        SetTop(frame, 9);
+        SetZIndex(frame, 20);
+        Children.Add(frame);
     }
 
     private void DrawTerrainBase()
