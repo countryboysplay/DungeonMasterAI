@@ -23,6 +23,12 @@ public static class SpellAreaGeometry
         };
     }
 
+    /// <summary>
+    /// Default width, in feet, of a line-shaped area when a spell does not declare one.
+    /// SRD line spells are 5 feet wide unless stated otherwise.
+    /// </summary>
+    public const int DefaultLineWidthFeet = 5;
+
     public static bool ContainsCell(
         string? shape,
         int sizeFeet,
@@ -30,7 +36,8 @@ public static class SpellAreaGeometry
         int originY,
         int targetX,
         int targetY,
-        string? direction = "north")
+        string? direction = "north",
+        int widthFeet = DefaultLineWidthFeet)
     {
         if (sizeFeet <= 0) return false;
         var normalizedShape = (shape ?? "").Trim().ToLowerInvariant();
@@ -48,6 +55,11 @@ public static class SpellAreaGeometry
             // A small half-square allowance keeps the alpha grid representation usable at cell centers.
             "cone" => projectionFeet > 0 && projectionFeet <= sizeFeet + 0.001 && sideFeet <= projectionFeet / 2.0 + 2.5,
             "cube" => projectionFeet > 0 && projectionFeet <= sizeFeet + 0.001 && sideFeet <= sizeFeet / 2.0 + 0.001,
+            // A line runs sizeFeet along the chosen direction with a fixed width, so unlike a cone
+            // its lateral extent does not grow with distance from the origin.
+            "line" => projectionFeet > 0
+                && projectionFeet <= sizeFeet + 0.001
+                && sideFeet <= (widthFeet <= 0 ? DefaultLineWidthFeet : widthFeet) / 2.0 + 0.001,
             _ => throw new InvalidOperationException($"Unsupported area shape '{shape}'.")
         };
     }
@@ -57,14 +69,15 @@ public static class SpellAreaGeometry
         int sizeFeet,
         int originX,
         int originY,
-        string? direction = "north")
+        string? direction = "north",
+        int widthFeet = DefaultLineWidthFeet)
     {
         if (sizeFeet <= 0) return [];
         var radiusSquares = Math.Max(1, (int)Math.Ceiling(sizeFeet / 5.0) + 1);
         var cells = new List<(int X, int Y)>();
         for (var x = originX - radiusSquares; x <= originX + radiusSquares; x++)
         for (var y = originY - radiusSquares; y <= originY + radiusSquares; y++)
-            if (ContainsCell(shape, sizeFeet, originX, originY, x, y, direction))
+            if (ContainsCell(shape, sizeFeet, originX, originY, x, y, direction, widthFeet))
                 cells.Add((x, y));
         return cells;
     }

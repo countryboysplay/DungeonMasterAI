@@ -181,6 +181,9 @@ public sealed partial class GameEngine
                 target ??= caster;
                 healing = ResolveHealingSpell(campaign, caster, target, spell, upcastLevels, dice);
                 effectSummary = $"{target.Name} regained {healing} Hit Points.";
+                var endedConditions = EndSpellConditionsOnTarget(target, spell);
+                if (endedConditions.Count > 0)
+                    effectSummary += $" {spell.Name} ended the {string.Join(", ", endedConditions)} condition{(endedConditions.Count == 1 ? "" : "s")} on {target.Name}.";
                 break;
 
             case "stabilize":
@@ -505,6 +508,118 @@ public sealed partial class GameEngine
             false, null, null, null, 0, concentrationStarted, summary, targetResults);
     }
 
+    /// <summary>
+    /// Resolves a deterministic multi-target healing spell (resolution "multi_heal"), such as Mass Cure Wounds.
+    /// SRD multi-target healing spells are worded "each of them regains Hit Points equal to X", so the healing
+    /// expression is rolled once and the same total is applied to every chosen creature.
+    /// </summary>
+    public SpellCastResult CastMultiTargetHealingSpell(
+        CampaignState campaign,
+        string casterId,
+        string spellId,
+        DiceService dice,
+        IReadOnlyList<string> targetIds,
+        int? slotLevel = null,
+        string? encounterId = null)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        ArgumentNullException.ThrowIfNull(dice);
+        ArgumentNullException.ThrowIfNull(targetIds);
+
+        var caster = RequireCharacter(campaign, casterId);
+        if (caster.Dead || caster.CurrentHp <= 0 || CharacterMechanics.IsIncapacitated(caster))
+            throw new InvalidOperationException($"{caster.Name} cannot cast this spell right now.");
+        var spell = campaign.Spells.FirstOrDefault(s => s.Id.Equals(spellId, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(s.Key) && s.Key.Equals(spellId, StringComparison.OrdinalIgnoreCase)))
+            ?? throw new KeyNotFoundException($"Spell '{spellId}' was not found in the campaign spell catalog.");
+        if (!IsPrepared(caster, spell)) throw new InvalidOperationException($"{caster.Name} does not have {spell.Name} prepared.");
+        ValidateComponents(caster, spell);
+        var resolution = (spell.Resolution ?? "").Trim().ToLowerInvariant();
+        ValidateSpellConfiguration(spell, resolution);
+        if (resolution != "multi_heal") throw new InvalidOperationException($"{spell.Name} is not configured as a deterministic multi-target healing spell.");
+
+        var encounter = ResolveCastingEncounter(campaign, encounterId, caster.Id);
+        ValidateCastingTurn(encounter, caster, spell);
+        ValidateCastingActionEconomy(encounter, caster, spell);
+        ValidateReactionSpellAvailability(encounter, caster, spell);
+
+        var castAtLevel = spell.Level == 0 ? 0 : slotLevel ?? FindLowestAvailableSlot(caster, spell.Level);
+        if (spell.Level > 0)
+        {
+            if (castAtLevel < spell.Level || castAtLevel > 9) throw new InvalidOperationException($"{spell.Name} requires a level {spell.Level} or higher spell slot.");
+            if (!caster.SpellSlots.TryGetValue(castAtLevel, out var pool) || pool.Remaining <= 0) throw new InvalidOperationException($"{caster.Name} has no level {castAtLevel} spell slot available.");
+            if (encounter is not null && encounter.SpellSlotCasterIdsThisTurn.Contains(caster.Id, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"{caster.Name} has already expended a spell slot to cast a spell during the current turn.");
+        }
+
+        var upcastLevels = Math.Max(0, castAtLevel - spell.Level);
+        var maximumTargets = checked(spell.BaseTargets + upcastLevels * spell.ExtraTargetsPerSlot);
+        var distinctIds = targetIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (distinctIds.Length < 1 || distinctIds.Length > maximumTargets)
+            throw new InvalidOperationException($"{spell.Name} can target from 1 to {maximumTargets} creature{(maximumTargets == 1 ? "" : "s")} at this slot level.");
+        var targets = distinctIds.Select(id => RequireCharacter(campaign, id)).ToArray();
+        foreach (var target in targets)
+        {
+            if (target.Dead) throw new InvalidOperationException($"{target.Name} is dead and is not a valid target for {spell.Name}.");
+            ValidateSpellTargetType(target, spell);
+            ValidateSpellRange(campaign, encounter, caster, target, spell);
+            if (!string.IsNullOrWhiteSpace(spell.ExcludedTargetCreatureType)
+                && !string.IsNullOrWhiteSpace(target.CreatureType)
+                && target.CreatureType.Equals(spell.ExcludedTargetCreatureType, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"{spell.Name} has no effect on a {spell.ExcludedTargetCreatureType}; {target.Name} is not a valid target.");
+        }
+
+        // Mutation begins only after every target has passed validation.
+        if (spell.Level > 0)
+        {
+            SpendSpellSlot(campaign, caster.Id, castAtLevel);
+            if (encounter is not null) encounter.SpellSlotCasterIdsThisTurn.Add(caster.Id);
+        }
+        ConsumeCastingActionEconomy(encounter, caster, spell);
+        ConsumeReactionForSpell(encounter, caster, spell);
+        var concentrationStarted = false;
+        if (spell.RequiresConcentration)
+        {
+            BeginConcentration(campaign, caster.Id, spell.Name);
+            concentrationStarted = true;
+        }
+        if (encounter is not null && spell.RequiresVerbal)
+        {
+            var casterCombatant = encounter.Combatants.FirstOrDefault(c => c.CharacterId.Equals(caster.Id, StringComparison.OrdinalIgnoreCase));
+            if (casterCombatant is not null) BreakHidden(campaign, encounter, casterCombatant, "casting a spell with a Verbal component");
+        }
+
+        var healingPool = dice.RollDamage(spell.HealingExpression);
+        for (var i = 0; i < upcastLevels; i++)
+            healingPool += dice.RollDamage(spell.ExtraHealingPerSlotExpression);
+        if (spell.AddSpellcastingAbilityModifierToHealing)
+            healingPool += CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(caster, caster.SpellcastingAbility));
+        healingPool = Math.Max(0, healingPool);
+
+        var results = new List<SpellTargetResolution>(targets.Length);
+        var totalApplied = 0;
+        for (var i = 0; i < targets.Length; i++)
+        {
+            var target = targets[i];
+            var before = target.CurrentHp;
+            if (healingPool > 0) Heal(campaign, target.Id, healingPool);
+            var applied = target.CurrentHp - before;
+            totalApplied += applied;
+            var summaryText = applied > 0
+                ? $"{target.Name} regained {applied} Hit Point{(applied == 1 ? "" : "s")}."
+                : $"{target.Name} was already at full Hit Points and regained none.";
+            results.Add(new SpellTargetResolution(target.Id, target.Name, i + 1, null, null, null, applied, summaryText));
+        }
+
+        var slotText = spell.Level == 0 ? "as a cantrip" : $"using a level {castAtLevel} spell slot";
+        var summary = $"{caster.Name} cast {spell.Name} {slotText}, restoring {healingPool} Hit Points to {string.Join(", ", targets.Select(t => t.Name))}. "
+            + string.Join(" ", results.Select(r => r.Summary));
+        Touch(campaign);
+        Log(campaign, "spell_cast", summary);
+        return new SpellCastResult(spell.Id, spell.Name, caster.Id, targets.Length == 1 ? targets[0].Id : null, castAtLevel,
+            spell.Level > 0, false, null, null, null, totalApplied, concentrationStarted, summary, results);
+    }
+
     public SpellCastResult CastAreaSpell(
         CampaignState campaign,
         string casterId,
@@ -561,7 +676,7 @@ public sealed partial class GameEngine
         }
         _ = SpellAreaGeometry.NormalizeDirection(direction); // Validate the direction even when the selected shape does not use it.
         var affectedCombatants = encounter.Combatants.Where(c => c.Positioned)
-            .Where(c => AreaContains(shape, spell.AreaSizeFeet, origin, casterCombatant, c, pointX, pointY, direction))
+            .Where(c => AreaContains(shape, spell.AreaSizeFeet, origin, casterCombatant, c, pointX, pointY, direction, spell.AreaWidthFeet))
             .Where(c => GetAreaCoverBonus(encounter, pointX, pointY, c.GridX, c.GridY) < 100)
             .ToArray();
         if (affectedCombatants.Length == 0) throw new InvalidOperationException($"No positioned creatures are inside {spell.Name}'s area with an unblocked line of effect from its point of origin.");
@@ -598,10 +713,11 @@ public sealed partial class GameEngine
         CombatantState target,
         int pointX,
         int pointY,
-        string? direction)
+        string? direction,
+        int widthFeet = SpellAreaGeometry.DefaultLineWidthFeet)
     {
         if (origin == "self" && target.Id.Equals(caster.Id, StringComparison.OrdinalIgnoreCase)) return false;
-        return SpellAreaGeometry.ContainsCell(shape, sizeFeet, pointX, pointY, target.GridX, target.GridY, direction);
+        return SpellAreaGeometry.ContainsCell(shape, sizeFeet, pointX, pointY, target.GridX, target.GridY, direction, widthFeet);
     }
 
     private static int GetAreaCoverBonus(EncounterState encounter, int originX, int originY, int targetX, int targetY)
@@ -909,6 +1025,9 @@ public sealed partial class GameEngine
                 target ??= caster;
                 healing = ResolveHealingSpell(campaign, caster, target, spell, upcastLevels, dice);
                 effectSummary = $"{target.Name} regained {healing} Hit Points.";
+                var readiedEndedConditions = EndSpellConditionsOnTarget(target, spell);
+                if (readiedEndedConditions.Count > 0)
+                    effectSummary += $" {spell.Name} ended the {string.Join(", ", readiedEndedConditions)} condition{(readiedEndedConditions.Count == 1 ? "" : "s")} on {target.Name}.";
                 break;
             case "stabilize":
                 if (target is null) throw new InvalidOperationException($"{spell.Name} requires a target.");
@@ -1121,6 +1240,19 @@ public sealed partial class GameEngine
         return target.CurrentHp - before;
     }
 
+    /// <summary>
+    /// Ends the conditions a spell's SRD text explicitly removes from its target and returns the ones actually cleared.
+    /// </summary>
+    private IReadOnlyList<string> EndSpellConditionsOnTarget(CharacterSheet target, SpellDefinition spell)
+    {
+        if (string.IsNullOrWhiteSpace(spell.ConditionsEndedOnTarget)) return Array.Empty<string>();
+        var cleared = new List<string>();
+        foreach (var condition in spell.ConditionsEndedOnTarget.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (RemoveConditionInternal(target, condition))
+                cleared.Add(condition);
+        return cleared;
+    }
+
     private string ResolveStabilizingSpell(CampaignState campaign, CharacterSheet target, SpellDefinition spell)
     {
         if (target.Dead) throw new InvalidOperationException($"{target.Name} is dead and cannot be stabilized by {spell.Name}.");
@@ -1145,7 +1277,7 @@ public sealed partial class GameEngine
     {
         if (resolution == "unsupported")
             throw new InvalidOperationException($"{spell.Name} is in the rules catalog, but its deterministic effect is not implemented yet. The app will not guess the spell's mechanics.");
-        if (resolution is not ("attack" or "save" or "healing" or "stabilize" or "utility" or "projectile_auto" or "projectile_attack" or "area_save" or "multi_buff" or "persistent_area"))
+        if (resolution is not ("attack" or "save" or "healing" or "stabilize" or "utility" or "projectile_auto" or "projectile_attack" or "area_save" or "multi_buff" or "multi_heal" or "persistent_area"))
             throw new InvalidOperationException($"Spell resolution mode '{spell.Resolution}' is not supported.");
         if ((resolution is "attack" or "projectile_auto" or "projectile_attack") && string.IsNullOrWhiteSpace(spell.DamageExpression))
             throw new InvalidOperationException($"{spell.Name} is configured to deal deterministic damage but has no damage expression.");
@@ -1157,6 +1289,13 @@ public sealed partial class GameEngine
             throw new InvalidOperationException($"{spell.Name} is configured as an area spell but its save or area geometry metadata is incomplete.");
         if (resolution == "multi_buff" && spell.BaseTargets < 1)
             throw new InvalidOperationException($"{spell.Name} is configured as a multi-target spell but has no target-count metadata.");
+        if (resolution == "multi_heal")
+        {
+            if (spell.BaseTargets < 1)
+                throw new InvalidOperationException($"{spell.Name} is configured as a multi-target healing spell but has no target-count metadata.");
+            if (string.IsNullOrWhiteSpace(spell.HealingExpression))
+                throw new InvalidOperationException($"{spell.Name} is configured as a multi-target healing spell but has no deterministic healing expression.");
+        }
         if (resolution == "persistent_area" && (string.IsNullOrWhiteSpace(spell.AreaShape) || spell.AreaSizeFeet <= 0 || string.IsNullOrWhiteSpace(spell.AreaOrigin)))
             throw new InvalidOperationException($"{spell.Name} is configured as a persistent-area spell but its area geometry metadata is incomplete.");
     }

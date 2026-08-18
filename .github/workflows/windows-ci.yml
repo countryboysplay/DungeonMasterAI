@@ -89,6 +89,9 @@ jobs:
       - name: Run area spell roll tests
         run: dotnet run --project tests/DungeonMasterAI.AreaSpellRollTests/DungeonMasterAI.AreaSpellRollTests.csproj --configuration Release
 
+      - name: Run r58 spell coverage tests
+        run: dotnet run --project tests/DungeonMasterAI.R58SpellCoverageTests/DungeonMasterAI.R58SpellCoverageTests.csproj --configuration Release
+
       - name: Run combat skill roll tests
         run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
 

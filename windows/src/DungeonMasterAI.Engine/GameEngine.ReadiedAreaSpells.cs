@@ -50,7 +50,7 @@ public sealed partial class GameEngine
 
         var affected = encounter.Combatants
             .Where(c => c.Positioned)
-            .Where(c => AreaContains(shape, spell.AreaSizeFeet, origin, casterCombatant, c, pointX, pointY, normalizedDirection))
+            .Where(c => AreaContains(shape, spell.AreaSizeFeet, origin, casterCombatant, c, pointX, pointY, normalizedDirection, spell.AreaWidthFeet))
             .Where(c => GetAreaCoverBonus(encounter, pointX, pointY, c.GridX, c.GridY) < 100)
             .ToArray();
         if (affected.Length == 0)

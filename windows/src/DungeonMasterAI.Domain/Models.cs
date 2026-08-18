@@ -161,6 +161,13 @@ public sealed class SpellDefinition
     public bool CantripRangeDoubling { get; set; }
     public bool IgnoreHalfAndThreeQuartersCoverOnSave { get; set; }
     public string RequiredTargetCreatureType { get; set; } = "";
+    /// <summary>Creature type the spell explicitly cannot affect, when the SRD text calls one out. Empty means no exclusion.</summary>
+    public string ExcludedTargetCreatureType { get; set; } = "";
+    /// <summary>
+    /// Comma-separated conditions the spell ends on its target, for spells whose SRD text ends conditions
+    /// in addition to their main effect (for example Heal ending Blinded, Deafened, and Poisoned).
+    /// </summary>
+    public string ConditionsEndedOnTarget { get; set; } = "";
     public string ConditionOnFailedSave { get; set; } = "";
     public bool RepeatSaveAtEndOfTurn { get; set; }
     public bool NextAttackAgainstTargetHasAdvantage { get; set; }
@@ -175,8 +182,10 @@ public sealed class SpellDefinition
     public int ExtraTargetsPerSlot { get; set; }
     public string AttackRollBonusExpression { get; set; } = "";
     public string SavingThrowBonusExpression { get; set; } = "";
-    public string AreaShape { get; set; } = ""; // sphere, cone, cube
+    public string AreaShape { get; set; } = ""; // sphere, cone, cube, line
     public int AreaSizeFeet { get; set; }
+    /// <summary>Width in feet of a line-shaped area. Ignored by other shapes; defaults to the SRD 5-foot line width.</summary>
+    public int AreaWidthFeet { get; set; } = SpellAreaGeometry.DefaultLineWidthFeet;
     public int ExtraAreaSizePerSlotFeet { get; set; }
     public string AreaOrigin { get; set; } = ""; // point, self
     public int PushFeetOnFailedSave { get; set; }
@@ -338,8 +347,10 @@ public sealed class BattlefieldEffectState
     public string Name { get; set; } = "Battlefield Effect";
     public string SourceCharacterId { get; set; } = "";
     public string SourceSpellId { get; set; } = "";
-    public string Shape { get; set; } = "sphere"; // sphere, cone, cube
+    public string Shape { get; set; } = "sphere"; // sphere, cone, cube, line
     public int SizeFeet { get; set; } = 5;
+    /// <summary>Width in feet of a line-shaped effect. Ignored by other shapes.</summary>
+    public int WidthFeet { get; set; } = SpellAreaGeometry.DefaultLineWidthFeet;
     public int OriginX { get; set; }
     public int OriginY { get; set; }
     public string Direction { get; set; } = "north";

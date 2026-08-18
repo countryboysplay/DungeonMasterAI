@@ -113,7 +113,7 @@ public sealed class CombatGridControl : FrameworkElement
         var terrain = Encounter.Terrain.ToArray();
         var battlefieldEffects = Encounter.BattlefieldEffects.ToArray();
         var persistentEffectCells = battlefieldEffects
-            .SelectMany(effect => SpellAreaGeometry.EnumerateCells(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, effect.Direction)
+            .SelectMany(effect => SpellAreaGeometry.EnumerateCells(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, effect.Direction, effect.WidthFeet)
                 .Select(cell => (Effect: effect, Cell: cell)))
             .ToArray();
         var preview = BuildAreaPreview(Campaign, Encounter);
@@ -178,7 +178,7 @@ public sealed class CombatGridControl : FrameworkElement
 
         foreach (var effect in battlefieldEffects)
         {
-            var cells = SpellAreaGeometry.EnumerateCells(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, effect.Direction);
+            var cells = SpellAreaGeometry.EnumerateCells(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, effect.Direction, effect.WidthFeet);
             var harmful = !string.IsNullOrWhiteSpace(effect.DamageExpression);
             var fill = harmful
                 ? new SolidColorBrush(Color.FromArgb(70, 185, 78, 72))
@@ -309,7 +309,7 @@ public sealed class CombatGridControl : FrameworkElement
         IReadOnlyList<(int X, int Y)> all;
         try
         {
-            all = SpellAreaGeometry.EnumerateCells(spell.AreaShape, previewSizeFeet, ox, oy, PreviewDirection)
+            all = SpellAreaGeometry.EnumerateCells(spell.AreaShape, previewSizeFeet, ox, oy, PreviewDirection, spell.AreaWidthFeet)
                 .Where(c => originKind != "self" || c.X != caster.GridX || c.Y != caster.GridY)
                 .ToArray();
         }
@@ -329,7 +329,7 @@ public sealed class CombatGridControl : FrameworkElement
         {
             if (encounter.Terrain.Any(t => ContainsSquare(t, x, y)
                 && (t.BlocksLineOfSight || NormalizeCover(t.Cover) == "total"))
-                || encounter.BattlefieldEffects.Any(e => e.BlocksLineOfSight && SpellAreaGeometry.ContainsCell(e.Shape, e.SizeFeet, e.OriginX, e.OriginY, x, y, e.Direction)))
+                || encounter.BattlefieldEffects.Any(e => e.BlocksLineOfSight && SpellAreaGeometry.ContainsCell(e.Shape, e.SizeFeet, e.OriginX, e.OriginY, x, y, e.Direction, e.WidthFeet)))
                 return true;
         }
         return false;

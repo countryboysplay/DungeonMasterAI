@@ -206,6 +206,14 @@ def main() -> int:
             "spell.ray_of_frost": {"resolution": "attack", "damage_expression": "1d8", "damage_type": "Cold", "cantrip_damage_scaling": True, "speed_modifier_feet": -10, "effect_expires_at_start_of_caster_next_turn": True},
             "spell.shatter": {"resolution": "area_save", "save_ability": "constitution", "damage_expression": "3d8", "damage_type": "Thunder", "area_shape": "sphere", "area_size_feet": 10, "area_origin": "point", "save_disadvantage_creature_type": "Construct"},
             "spell.shield_of_faith": {"resolution": "multi_buff", "base_targets": 1, "armor_class_bonus": 2},
+            "spell.lightning_bolt": {"resolution": "area_save", "save_ability": "dexterity", "damage_expression": "8d6", "damage_type": "Lightning", "extra_damage_per_slot_expression": "1d6", "area_shape": "line", "area_size_feet": 100, "area_width_feet": 5, "area_origin": "self"},
+            "spell.cone_of_cold": {"resolution": "area_save", "save_ability": "constitution", "damage_expression": "8d8", "damage_type": "Cold", "extra_damage_per_slot_expression": "1d8", "area_shape": "cone", "area_size_feet": 60, "area_origin": "self"},
+            "spell.circle_of_death": {"resolution": "area_save", "save_ability": "constitution", "damage_expression": "8d8", "damage_type": "Necrotic", "extra_damage_per_slot_expression": "2d8", "area_shape": "sphere", "area_size_feet": 60, "area_origin": "point"},
+            "spell.inflict_wounds": {"resolution": "save", "save_ability": "constitution", "damage_expression": "2d10", "damage_type": "Necrotic", "extra_damage_per_slot_expression": "1d10", "half_damage_on_successful_save": True},
+            "spell.longstrider": {"resolution": "multi_buff", "base_targets": 1, "extra_targets_per_slot": 1, "speed_modifier_feet": 10},
+            "spell.mass_cure_wounds": {"resolution": "multi_heal", "base_targets": 6, "extra_targets_per_slot": 0, "healing_expression": "5d8", "extra_healing_per_slot_expression": "1d8", "add_spellcasting_ability_modifier_to_healing": True, "area_shape": "sphere", "area_size_feet": 30},
+            "spell.mass_healing_word": {"resolution": "multi_heal", "base_targets": 6, "extra_targets_per_slot": 0, "healing_expression": "2d4", "extra_healing_per_slot_expression": "1d4", "add_spellcasting_ability_modifier_to_healing": True},
+            "spell.heal": {"resolution": "healing", "healing_expression": "70", "extra_healing_per_slot_expression": "10", "add_spellcasting_ability_modifier_to_healing": False, "conditions_ended_on_target": "Blinded,Deafened,Poisoned"},
         }
         for key, expected in required.items():
             actual = by_key.get(key)

@@ -87,7 +87,7 @@ public sealed partial class GameEngine
         var sizeFeet = checked(spell.AreaSizeFeet + upcastLevels * spell.ExtraAreaSizePerSlotFeet);
         if (sizeFeet <= 0 || sizeFeet % 5 != 0)
             throw new InvalidOperationException($"{spell.Name} resolved to an invalid persistent-area size of {sizeFeet} feet.");
-        _ = SpellAreaGeometry.EnumerateCells(spell.AreaShape, sizeFeet, originX, originY, direction);
+        _ = SpellAreaGeometry.EnumerateCells(spell.AreaShape, sizeFeet, originX, originY, direction, spell.AreaWidthFeet);
 
         // All geometry, range, action-economy, slot, and metadata validation is complete before state mutates.
         if (spell.Level > 0)
@@ -107,6 +107,7 @@ public sealed partial class GameEngine
             SourceSpellId = spell.Id,
             Shape = spell.AreaShape,
             SizeFeet = sizeFeet,
+            WidthFeet = spell.AreaWidthFeet,
             OriginX = originX,
             OriginY = originY,
             Direction = direction,
