@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "packId": "core.fantasy.crypt",
+  "name": "DungeonMasterAI Core Crypt",
+  "version": "1.0.0",
+  "author": "DungeonMasterAI project",
+  "license": "Project-original procedural fallbacks; external image variants may be added only with compatible redistribution metadata",
+  "licenseUrl": "",
+  "sourceUrl": "",
+  "credits": "Built-in reference manifest for the tactical map renderer. Missing image variants intentionally use deterministic procedural fallbacks.",
+  "assets": [
+    { "key": "floor.stone.flagstone", "kind": "floor", "renderMode": "tile", "allowProceduralFallback": true, "variants": [] },
+    { "key": "floor.stone.crypt_flagstone", "kind": "floor", "renderMode": "tile", "allowProceduralFallback": true, "variants": [] },
+    { "key": "wall.stone.block", "kind": "wall", "renderMode": "segment", "allowProceduralFallback": true, "variants": [] },
+    { "key": "wall.stone.crypt_block", "kind": "wall", "renderMode": "segment", "allowProceduralFallback": true, "variants": [] },
+    { "key": "door.wood.ironbound", "kind": "door", "renderMode": "segment", "allowProceduralFallback": true, "variants": [] },
+    { "key": "door.wood.broken", "kind": "door", "renderMode": "segment", "allowProceduralFallback": true, "variants": [] },
+    { "key": "door.stone.secret", "kind": "door", "renderMode": "segment", "allowProceduralFallback": true, "variants": [] },
+    { "key": "terrain.water.crypt_shallow", "kind": "terrain", "renderMode": "stretch", "opacity": 0.9, "allowProceduralFallback": true, "variants": [] },
+    { "key": "terrain.rubble.stone", "kind": "terrain", "renderMode": "stretch", "allowProceduralFallback": true, "variants": [] },
+    { "key": "prop.pillar.stone_round", "kind": "prop", "renderMode": "sprite", "scale": 0.9, "allowProceduralFallback": true, "variants": [] },
+    { "key": "prop.rubble.pillar", "kind": "prop", "renderMode": "sprite", "allowProceduralFallback": true, "variants": [] },
+    { "key": "prop.altar.stone_crypt", "kind": "prop", "renderMode": "sprite", "scale": 0.95, "allowProceduralFallback": true, "variants": [] },
+    { "key": "prop.sarcophagus.stone", "kind": "prop", "renderMode": "sprite", "scale": 0.95, "allowProceduralFallback": true, "variants": [] },
+    { "key": "light.torch.wall", "kind": "light", "renderMode": "sprite", "scale": 0.7, "allowProceduralFallback": true, "variants": [] },
+    { "key": "light.brazier", "kind": "light", "renderMode": "sprite", "scale": 0.8, "allowProceduralFallback": true, "variants": [] }
+  ]
+}
