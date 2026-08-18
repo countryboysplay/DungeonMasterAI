@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Text.Json;
 using System.Windows.Input;
 using DungeonMasterAI.AI;
@@ -22,6 +23,7 @@ public sealed partial class MainViewModel
     private string _mapGenerationStatus = "Describe a tactical location, then generate a reviewable candidate with the local AI.";
     private string _mapGenerationWarnings = "No candidate generated yet.";
     private string _mapAssetStatus = "Core fantasy assets have not been checked yet.";
+    private string? _generatedMapCampaignId;
     private TacticalMap? _generatedMapCandidate;
     private TacticalMap? _selectedCampaignMap;
     private TacticalMap? _mapPreview;
@@ -52,6 +54,7 @@ public sealed partial class MainViewModel
         private set
         {
             _generatedMapCandidate = value;
+            if (value is null) _generatedMapCampaignId = null;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasGeneratedMapCandidate));
             RefreshMapPreview();
@@ -128,6 +131,7 @@ public sealed partial class MainViewModel
             return;
         }
 
+        var targetCampaignId = SelectedCampaign.Id;
         IsMapGenerationBusy = true;
         MapGenerationStatus = "Starting the local model and preparing the map contract…";
         MapGenerationWarnings = "Validation has not completed yet.";
@@ -156,6 +160,7 @@ public sealed partial class MainViewModel
             };
 
             var result = await _mapGenerator.GenerateAsync(request, Settings);
+            _generatedMapCampaignId = targetCampaignId;
             GeneratedMapCandidate = result.Map;
             MapSeedInput = result.Map.Seed.ToString(CultureInfo.InvariantCulture);
             MapGenerationWarnings = result.Warnings.Count == 0
@@ -184,6 +189,12 @@ public sealed partial class MainViewModel
         if (SelectedCampaign is null || GeneratedMapCandidate is null)
         {
             MapGenerationStatus = "Generate a valid candidate before adding a map to the campaign.";
+            return;
+        }
+        if (!string.Equals(_generatedMapCampaignId, SelectedCampaign.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            MapGenerationStatus = "This candidate was generated for a different campaign. Return to that campaign or discard it and generate a new map here.";
+            StatusMessage = MapGenerationStatus;
             return;
         }
 
