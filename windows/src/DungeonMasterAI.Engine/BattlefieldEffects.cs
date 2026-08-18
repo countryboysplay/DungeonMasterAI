@@ -191,14 +191,15 @@ public sealed partial class GameEngine
     }
 
     private static bool BattlefieldEffectContainsCell(BattlefieldEffectState effect, int x, int y) =>
-        SpellAreaGeometry.ContainsCell(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, x, y, effect.Direction);
+        SpellAreaGeometry.ContainsCell(effect.Shape, effect.SizeFeet, effect.OriginX, effect.OriginY, x, y, effect.Direction, effect.WidthFeet);
 
     private static string NormalizeBattlefieldEffectShape(string? value) => (value ?? "sphere").Trim().ToLowerInvariant() switch
     {
         "sphere" => "sphere",
         "cone" => "cone",
         "cube" => "cube",
-        _ => throw new ArgumentException("Battlefield effect shape must be sphere, cone, or cube.")
+        "line" => "line",
+        _ => throw new ArgumentException("Battlefield effect shape must be sphere, cone, cube, or line.")
     };
 
     private static string NormalizeBattlefieldEffectDirection(string? value)

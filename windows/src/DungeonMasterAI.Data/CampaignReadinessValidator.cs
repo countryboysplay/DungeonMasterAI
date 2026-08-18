@@ -109,8 +109,10 @@ public sealed class CampaignReadinessValidator
                     if (string.IsNullOrWhiteSpace(spell.DamageExpression))
                         Add(issues, ReadinessSeverity.Warning, "spellcasting", spell.Key, $"{spell.Name} is an area saving-throw spell without a configured damage expression.");
                     var shape = (spell.AreaShape ?? "").Trim().ToLowerInvariant();
-                    if (shape is not ("sphere" or "cone" or "cube"))
-                        Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} has unsupported or missing area shape '{spell.AreaShape}'. Supported alpha shapes are sphere, cone, and cube.");
+                    if (shape is not ("sphere" or "cone" or "cube" or "line"))
+                        Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} has unsupported or missing area shape '{spell.AreaShape}'. Supported alpha shapes are sphere, cone, cube, and line.");
+                    if (shape == "line" && (spell.AreaWidthFeet <= 0 || spell.AreaWidthFeet % 5 != 0))
+                        Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} is a line-shaped area and must declare a positive width in 5-foot increments.");
                     if (spell.AreaSizeFeet <= 0)
                         Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} has no positive area size.");
                     var origin = (spell.AreaOrigin ?? "").Trim().ToLowerInvariant();
@@ -124,8 +126,10 @@ public sealed class CampaignReadinessValidator
 
                 case "persistent_area":
                     var persistentShape = (spell.AreaShape ?? "").Trim().ToLowerInvariant();
-                    if (persistentShape is not ("sphere" or "cone" or "cube"))
+                    if (persistentShape is not ("sphere" or "cone" or "cube" or "line"))
                         Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} has unsupported or missing persistent-area shape '{spell.AreaShape}'.");
+                    if (persistentShape == "line" && (spell.AreaWidthFeet <= 0 || spell.AreaWidthFeet % 5 != 0))
+                        Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} is a line-shaped persistent area and must declare a positive width in 5-foot increments.");
                     if (spell.AreaSizeFeet <= 0 || spell.AreaSizeFeet % 5 != 0)
                         Add(issues, ReadinessSeverity.Error, "spellcasting", spell.Key, $"{spell.Name} must have a positive persistent-area size in 5-foot increments.");
                     if (spell.ExtraAreaSizePerSlotFeet < 0 || spell.ExtraAreaSizePerSlotFeet % 5 != 0)

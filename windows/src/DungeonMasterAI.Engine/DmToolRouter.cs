@@ -159,6 +159,7 @@ public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, Ru
                     OriginY = RequiredInt(a, "origin_y"),
                     Shape = OptionalString(a, "shape") ?? "sphere",
                     SizeFeet = OptionalInt(a, "size_feet", 5),
+                    WidthFeet = OptionalInt(a, "width_feet", SpellAreaGeometry.DefaultLineWidthFeet),
                     Direction = OptionalString(a, "direction") ?? "north",
                     Trigger = OptionalString(a, "trigger") ?? "none",
                     DamageExpression = OptionalString(a, "damage_expression") ?? "",
@@ -483,10 +484,10 @@ public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, Ru
                     s.RequiresTarget, s.Resolution, s.SaveAbility, s.DamageExpression, s.DamageType, s.HalfDamageOnSuccessfulSave,
                     s.HealingExpression, s.ExtraDamagePerSlotExpression, s.ExtraHealingPerSlotExpression, s.AddSpellcastingAbilityModifierToHealing,
                     s.CantripDamageScaling, s.CantripRangeDoubling, s.IgnoreHalfAndThreeQuartersCoverOnSave, s.RequiredTargetCreatureType,
-                    s.ConditionOnFailedSave, s.RepeatSaveAtEndOfTurn, s.NextAttackAgainstTargetHasAdvantage, s.EffectExpiresAtEndOfCasterNextTurn,
+                    s.ExcludedTargetCreatureType, s.ConditionsEndedOnTarget, s.ConditionOnFailedSave, s.RepeatSaveAtEndOfTurn, s.NextAttackAgainstTargetHasAdvantage, s.EffectExpiresAtEndOfCasterNextTurn,
                     s.EffectExpiresAtStartOfCasterNextTurn, s.SpeedModifierFeet, s.ArmorClassBonus, s.SaveDisadvantageCreatureType,
                     s.BaseProjectiles, s.ExtraProjectilesPerSlot, s.BaseTargets, s.ExtraTargetsPerSlot, s.AttackRollBonusExpression, s.SavingThrowBonusExpression,
-                    s.AreaShape, s.AreaSizeFeet, s.ExtraAreaSizePerSlotFeet, s.AreaOrigin, s.PushFeetOnFailedSave, s.EnvironmentalEffect,
+                    s.AreaShape, s.AreaSizeFeet, s.AreaWidthFeet, s.ExtraAreaSizePerSlotFeet, s.AreaOrigin, s.PushFeetOnFailedSave, s.EnvironmentalEffect,
                     s.BattlefieldTrigger, s.BattlefieldDifficultTerrain, s.BattlefieldHeavilyObscured, s.BattlefieldBlocksLineOfSight, s.BattlefieldDurationRounds,
                     s.RequiresVisibleTarget, s.SourceKind
                 }).ToArray()

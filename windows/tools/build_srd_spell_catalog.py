@@ -175,6 +175,96 @@ DETERMINISTIC_OVERRIDES: dict[str, dict] = {
         "base_targets": 1,
         "armor_class_bonus": 2,
     },
+    # SRD 5.2.1 p. 144. The only SRD line-shaped area implemented in the engine:
+    # a 100-foot-long, 5-foot-wide Line originating from the caster.
+    "spell.lightning_bolt": {
+        "resolution": "area_save",
+        "save_ability": "dexterity",
+        "damage_expression": "8d6",
+        "damage_type": "Lightning",
+        "half_damage_on_successful_save": True,
+        "extra_damage_per_slot_expression": "1d6",
+        "area_shape": "line",
+        "area_size_feet": 100,
+        "area_width_feet": 5,
+        "area_origin": "self",
+    },
+    # SRD 5.2.1 p. 117. The frozen-statue clause applies only to a creature the
+    # spell kills outright, so it is recorded as a narrative environmental effect
+    # rather than a combat-mechanical condition.
+    "spell.cone_of_cold": {
+        "resolution": "area_save",
+        "save_ability": "constitution",
+        "damage_expression": "8d8",
+        "damage_type": "Cold",
+        "half_damage_on_successful_save": True,
+        "extra_damage_per_slot_expression": "1d8",
+        "area_shape": "cone",
+        "area_size_feet": 60,
+        "area_origin": "self",
+        "environmental_effect": "A creature killed by this spell becomes a frozen statue until it thaws.",
+    },
+    # SRD 5.2.1 p. 115. Upcasting adds 2d8 per slot level, not the more common 1d8.
+    "spell.circle_of_death": {
+        "resolution": "area_save",
+        "save_ability": "constitution",
+        "damage_expression": "8d8",
+        "damage_type": "Necrotic",
+        "half_damage_on_successful_save": True,
+        "extra_damage_per_slot_expression": "2d8",
+        "area_shape": "sphere",
+        "area_size_feet": 60,
+        "area_origin": "point",
+    },
+    # SRD 5.2.1 p. 143. A touch-range single-target save spell, not an attack roll.
+    "spell.inflict_wounds": {
+        "requires_target": True,
+        "resolution": "save",
+        "save_ability": "constitution",
+        "damage_expression": "2d10",
+        "damage_type": "Necrotic",
+        "half_damage_on_successful_save": True,
+        "extra_damage_per_slot_expression": "1d10",
+    },
+    # SRD 5.2.1 p. 145. Upcasting adds targets rather than increasing the speed bonus.
+    "spell.longstrider": {
+        "resolution": "multi_buff",
+        "base_targets": 1,
+        "extra_targets_per_slot": 1,
+        "speed_modifier_feet": 10,
+    },
+    # SRD 5.2.1 p. 147. Up to six creatures in a 30-foot-radius Sphere. The target
+    # cap does not grow when upcast; only the healing dice do.
+    "spell.mass_cure_wounds": {
+        "resolution": "multi_heal",
+        "base_targets": 6,
+        "extra_targets_per_slot": 0,
+        "healing_expression": "5d8",
+        "extra_healing_per_slot_expression": "1d8",
+        "add_spellcasting_ability_modifier_to_healing": True,
+        "area_shape": "sphere",
+        "area_size_feet": 30,
+        "area_origin": "point",
+    },
+    # SRD 5.2.1 p. 148. Up to six creatures chosen individually; no area geometry.
+    "spell.mass_healing_word": {
+        "resolution": "multi_heal",
+        "base_targets": 6,
+        "extra_targets_per_slot": 0,
+        "healing_expression": "2d4",
+        "extra_healing_per_slot_expression": "1d4",
+        "add_spellcasting_ability_modifier_to_healing": True,
+    },
+    # SRD 5.2.1 p. 139. Flat healing with no dice, and it ends three conditions.
+    # The SRD text does not include a disease clause, so none is implemented.
+    "spell.heal": {
+        "requires_target": True,
+        "resolution": "healing",
+        "healing_expression": "70",
+        "extra_healing_per_slot_expression": "10",
+        "add_spellcasting_ability_modifier_to_healing": False,
+        "conditions_ended_on_target": "Blinded,Deafened,Poisoned",
+    },
     "spell.spike_growth": {
         "resolution": "persistent_area",
         "area_shape": "sphere",
@@ -203,7 +293,21 @@ def clean_line(line: str) -> str:
     return line.replace("\u00ad", "").strip()
 
 
+# Page footers carry the only page numbers in the document, and different pdftotext
+# releases emit them differently: older builds put the document title and the page
+# number on separate lines, while newer builds keep them on one line and glue the
+# form feed to the preceding text. Normalizing both layouts to the same canonical
+# three-line shape keeps generated page provenance stable across poppler versions.
+FOOTER_RE = re.compile(r"\f?System Reference Document 5\.2\.1[ \t]+(\d{1,3})[ \t]*$", re.M)
+
+
+def normalize_page_footers(text: str) -> str:
+    text = FOOTER_RE.sub(lambda m: f"\nSystem Reference Document 5.2.1\n{m.group(1)}", text)
+    return text.replace("\f", "\n")
+
+
 def parse_catalog(text: str) -> list[dict]:
+    text = normalize_page_footers(text)
     start = text.find("\nSpell Descriptions\n")
     if start < 0:
         raise RuntimeError("Spell Descriptions section not found")
