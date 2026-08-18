@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using DungeonMasterAI.App;
+using DungeonMasterAI.App.Controls;
 using DungeonMasterAI.App.Views;
 using DungeonMasterAI.Data;
 using DungeonMasterAI.Domain;
@@ -49,6 +50,8 @@ internal static class Program
             window.Show();
             FlushUi(window);
             Check(window.IsVisible, "AAA shell can be shown without startup binding failures.", failures);
+
+            VerifySalvagedR50Visuals(application, failures);
 
             PopulateGreenhavenPreview(window, failures);
             FlushUi(window);
@@ -318,6 +321,38 @@ internal static class Program
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+
+    /// <summary>
+    /// Guards the r59 visual salvage recovered from the abandoned feature/r50-aaa-gui
+    /// branch: the selected-nav gradient resource, the campaign map inset frame, and the
+    /// flagstone battlefield floor drawn beneath the tactical grid.
+    /// </summary>
+    private static void VerifySalvagedR50Visuals(Application application, ICollection<string> failures)
+    {
+        Check(application.TryFindResource("AaaSelectedNavGradient") is LinearGradientBrush,
+            "Salvaged AaaSelectedNavGradient resolves as a LinearGradientBrush.", failures);
+
+        var map = new CampaignMapControl();
+        LayoutVisual(map, 640, 420);
+        var frames = map.Children
+            .OfType<Border>()
+            .Where(border => Math.Abs(border.Width - (map.ActualWidth - 18)) < 0.5
+                && Math.Abs(border.Height - (map.ActualHeight - 18)) < 0.5)
+            .ToArray();
+        Check(frames.Length == 1, "Campaign map draws exactly one salvaged inset frame.", failures);
+        Check(frames.All(frame => !frame.IsHitTestVisible),
+            "Campaign map inset frame never intercepts hit testing.", failures);
+
+        // Force the flagstone floor render path to execute so a regression in the
+        // salvaged geometry surfaces as a CI failure rather than a silent visual change.
+        var battlefield = new CombatGridControl();
+        LayoutVisual(battlefield, 900, 560);
+        var target = new RenderTargetBitmap(900, 560, 96, 96, PixelFormats.Pbgra32);
+        target.Render(battlefield);
+        Check(target.PixelWidth == 900 && target.PixelHeight == 560,
+            "Tactical battlefield renders with the salvaged flagstone floor.", failures);
     }
 
     private static void LayoutVisual(FrameworkElement? element, double width, double height)

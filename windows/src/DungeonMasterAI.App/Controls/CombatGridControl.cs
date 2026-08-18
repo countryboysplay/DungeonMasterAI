@@ -101,7 +101,7 @@ public sealed class CombatGridControl : FrameworkElement
     {
         base.OnRender(dc);
         var bounds = new Rect(0, 0, Math.Max(0, ActualWidth), Math.Max(0, ActualHeight));
-        dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(20, 23, 28)), null, bounds);
+        AaaDungeonFloor.Render(dc, bounds);
 
         if (Campaign is null || Encounter is null)
         {
