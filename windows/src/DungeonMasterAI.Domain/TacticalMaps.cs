@@ -29,7 +29,19 @@ public sealed class TacticalMap
     public int WidthSquares { get; set; } = 30;
     public int HeightSquares { get; set; } = 20;
     public int FeetPerSquare { get; set; } = 5;
+
+    /// <summary>
+    /// Renderer seed. Asset variants are selected from this seed, so it may be rerolled without
+    /// changing authoritative geometry.
+    /// </summary>
     public int Seed { get; set; }
+
+    /// <summary>
+    /// Original seed supplied to the structured map generator. Zero on legacy maps that predate
+    /// r57. Before a legacy map is visually rerolled the editor snapshots Seed into this field.
+    /// </summary>
+    public int GenerationSeed { get; set; }
+
     public bool FogOfWarEnabled { get; set; }
     public string SourceKind { get; set; } = "source_canon";
     public List<TacticalMapRoom> Rooms { get; set; } = [];
