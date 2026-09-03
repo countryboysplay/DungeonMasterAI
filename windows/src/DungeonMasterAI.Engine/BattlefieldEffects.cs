@@ -90,6 +90,55 @@ public sealed partial class GameEngine
         }
     }
 
+    /// <summary>
+    /// Mirrors the guards the turn-start damage path enforces so a caller can refuse the turn
+    /// transition before it mutates the turn index, the round or the action economy.
+    /// </summary>
+    private static void ValidateTurnStartBattlefieldEffects(CampaignState campaign, EncounterState encounter, CombatantState combatant)
+    {
+        if (!combatant.Positioned) return;
+        var character = RequireCharacter(campaign, combatant.CharacterId);
+        if (character.Dead) return;
+
+        foreach (var effect in encounter.BattlefieldEffects)
+        {
+            if (effect.Trigger is not ("start_turn" or "start_or_enter")) continue;
+            if (!BattlefieldEffectContainsCell(effect, combatant.GridX, combatant.GridY)) continue;
+            ValidateBattlefieldEffectDamage(campaign, character, effect);
+        }
+    }
+
+    /// <summary>
+    /// Mirrors the same guards for every effect the traced movement path would trigger, so a
+    /// caller can refuse the move before it spends a Reaction the throw would strand.
+    /// </summary>
+    private static void ValidateMovementBattlefieldEffects(CampaignState campaign, EncounterState encounter, CombatantState combatant, IReadOnlyList<(int X, int Y)> path)
+    {
+        if (!combatant.Positioned) return;
+        var character = RequireCharacter(campaign, combatant.CharacterId);
+        if (character.Dead) return;
+
+        foreach (var effect in encounter.BattlefieldEffects)
+        {
+            if (effect.Trigger is not ("enter" or "start_or_enter" or "move_within")) continue;
+            if (!path.Any(cell => BattlefieldEffectContainsCell(effect, cell.X, cell.Y))) continue;
+            ValidateBattlefieldEffectDamage(campaign, character, effect);
+        }
+    }
+
+    /// <summary>
+    /// Raises the failure <see cref="TriggerBattlefieldEffect"/> would raise for this effect.
+    /// </summary>
+    private static void ValidateBattlefieldEffectDamage(CampaignState campaign, CharacterSheet character, BattlefieldEffectState effect)
+    {
+        if (!string.IsNullOrWhiteSpace(effect.DamageExpression) && !DiceService.TryValidateExpression(effect.DamageExpression))
+            throw new InvalidOperationException($"Battlefield effect '{effect.Name}' has an unparseable damage expression '{effect.DamageExpression}'. The deterministic engine will not guess it.");
+        if (campaign.PendingPlayerRoll?.Required == true
+            && character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(character.ConcentrationEffect))
+            throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
+    }
+
     private void ProcessBattlefieldEffectsOnMovement(
         CampaignState campaign,
         EncounterState encounter,

@@ -157,6 +157,15 @@ public sealed partial class GameEngine
             && string.Equals(campaign.PendingPlayerRoll.CombatantId, combatant.Id, StringComparison.OrdinalIgnoreCase))
             return;
 
+        // A different live required roll is queued behind, never overwritten: the Death Saving
+        // Throw is re-requested by the next sync once that roll resolves, and the turn cannot end
+        // meanwhile because DeathSaveRequiredThisTurn is already set.
+        if (campaign.PendingPlayerRoll?.Required == true)
+        {
+            Log(campaign, "death_save_deferred", $"{character.Name}'s required Death Saving Throw is queued behind an unresolved required roll: {campaign.PendingPlayerRoll.Purpose}", dmOnly: true);
+            return;
+        }
+
         campaign.PendingPlayerRoll = new PendingRollRequest
         {
             ActorCharacterId = character.Id,
