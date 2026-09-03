@@ -340,12 +340,19 @@ public sealed partial class GameEngine
             && (t.HeavilyObscured || NormalizeCover(t.Cover) is "three-quarters" or "total"))
         || encounter.BattlefieldEffects.Any(e => e.HeavilyObscured && BattlefieldEffectContainsCell(e, combatant.GridX, combatant.GridY));
 
+    /// <summary>
+    /// Whether two combatants are on opposing sides. Sides are compared after normalization so a
+    /// combatant whose side was written in a legacy vocabulary is not treated as hostile to its own
+    /// party by an exact string comparison; an unrecognized side falls back to comparing verbatim.
+    /// </summary>
     private static bool IsEnemy(CombatantState subject, CombatantState other)
     {
         if (subject.Id.Equals(other.Id, StringComparison.OrdinalIgnoreCase)) return false;
         if (string.IsNullOrWhiteSpace(subject.Side) || string.IsNullOrWhiteSpace(other.Side)) return true;
-        if (subject.Side.Equals("neutral", StringComparison.OrdinalIgnoreCase) || other.Side.Equals("neutral", StringComparison.OrdinalIgnoreCase)) return false;
-        return !subject.Side.Equals(other.Side, StringComparison.OrdinalIgnoreCase);
+        var subjectSide = CombatSide.TryNormalize(subject.Side) ?? subject.Side.Trim();
+        var otherSide = CombatSide.TryNormalize(other.Side) ?? other.Side.Trim();
+        if (subjectSide == CombatSide.Neutral || otherSide == CombatSide.Neutral) return false;
+        return !subjectSide.Equals(otherSide, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool CanSeeCombatant(CampaignState campaign, EncounterState encounter, CombatantState observerCombatant, CombatantState targetCombatant)
