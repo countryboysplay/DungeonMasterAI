@@ -1,0 +1,52 @@
+# Repository-root ignores.
+#
+# windows/.gitignore already covers the .NET build artifacts, the vendored
+# llama.cpp runtime and the GGUF model, and it stays the owner of those. This
+# file covers the repository root, which had no .gitignore at all.
+
+# ---------------------------------------------------------------------------
+# Third-party adventure material.
+#
+# Reference modules are read locally while authoring a campaign; none of them
+# may be committed. This repository publishes a public installer and is kept
+# deliberately clean against SRD 5.2.1, and the material that gets dropped here
+# generally is not: fan modules built on a commercial setting carry the setting
+# owner's trademarks and artwork, and cite creatures by Monster Manual page
+# rather than from the SRD. A fan author cannot license a setting they do not
+# own, so their permission would not cover it either.
+#
+# Keep the source documents local, ship only original, SRD-derived campaigns.
+# ---------------------------------------------------------------------------
+Sample Campaigns/*
+!Sample Campaigns/.gitkeep
+!Sample Campaigns/README.md
+
+*.pdf
+*.epub
+*.mobi
+*.docx
+
+# ---------------------------------------------------------------------------
+# Agent worktrees.
+#
+# .claude/worktrees/ holds complete git checkouts of this repository, one per
+# parallel track. Committing it would nest the repository inside itself.
+# ---------------------------------------------------------------------------
+.claude/worktrees/
+.claude/settings.local.json
+
+# ---------------------------------------------------------------------------
+# OS and editor noise. desktop.ini matters here specifically because the
+# working copy lives inside a OneDrive folder, which writes them.
+# ---------------------------------------------------------------------------
+desktop.ini
+Thumbs.db
+ehthumbs.db
+.DS_Store
+*.swp
+*~
+
+# Scratch space
+scratch/
+tmp/
+*.tmp
