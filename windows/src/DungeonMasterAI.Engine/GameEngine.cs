@@ -41,6 +41,7 @@ public sealed partial class GameEngine
         character.HitDiceMaximum = Math.Max(1, character.HitDiceMaximum <= 0 ? character.Level : character.HitDiceMaximum);
         character.HitDiceRemaining = Math.Clamp(character.HitDiceRemaining, 0, character.HitDiceMaximum);
         character.LocationId ??= campaign.PartyLocationId;
+        SeedExperienceForNewCharacter(character);
         campaign.Characters.Add(character);
         Touch(campaign);
         Log(campaign, "character_added", $"{character.Name} joined the campaign.");
@@ -54,6 +55,13 @@ public sealed partial class GameEngine
         location.Discovered = true;
         Touch(campaign);
         Log(campaign, "location_discovered", $"Discovered {location.Name}.");
+        // Faucet F3. Small on purpose -- this is a cadence lever, not a magnitude one. It exists
+        // so the twenty minutes of a session in which nothing is being killed still move a number.
+        if (!location.DiscoveryExperienceAwarded)
+        {
+            location.DiscoveryExperienceAwarded = true;
+            AwardExperienceToEachPartyMember(campaign, 5 * PartyLevel(campaign), "discovery", location.Name);
+        }
         return true;
     }
 
@@ -123,7 +131,7 @@ public sealed partial class GameEngine
             var failures = criticalHit ? 2 : 1;
             character.DeathSaveFailures = Math.Min(3, character.DeathSaveFailures + failures);
             if (effective >= character.MaxHp || character.DeathSaveFailures >= 3)
-                MarkDead(character);
+                MarkDead(campaign, character);
             if (character.Dead) EndGrapplesForCharacter(campaign, character.Id, includeTarget: true);
             Touch(campaign);
             var atZeroSummary = character.Dead
@@ -150,7 +158,7 @@ public sealed partial class GameEngine
             var monster = character.CharacterType.Equals("monster", StringComparison.OrdinalIgnoreCase);
             if (monster || overkill >= character.MaxHp)
             {
-                MarkDead(character);
+                MarkDead(campaign, character);
             }
             else
             {
@@ -316,7 +324,7 @@ public sealed partial class GameEngine
         {
             if (!string.IsNullOrWhiteSpace(character.ConcentrationEffect))
                 EndConcentrationInternal(campaign, character, "dying from Exhaustion");
-            MarkDead(character);
+            MarkDead(campaign, character);
             EndGrapplesForCharacter(campaign, character.Id, includeTarget: true);
         }
         Touch(campaign);
@@ -576,6 +584,11 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         var character = RequireCharacter(campaign, characterId);
         if (character.CurrentHp < 1) throw new InvalidOperationException("A creature must have at least 1 Hit Point to start a Long Rest.");
         var effects = new List<string>();
+        // Banked level-ups are applied first, so the new maximum is what the rest then restores to.
+        // This is the default application path, and it means the reward loop closes end to end even
+        // if no progression UI is ever built.
+        foreach (var levelUp in ApplyAllPendingLevelUps(campaign, character))
+            effects.Add(levelUp.Summary);
         if (character.CurrentHp != character.MaxHp) effects.Add("Restored all Hit Points.");
         character.CurrentHp = character.MaxHp;
         if (character.TempHp > 0) effects.Add("Temporary Hit Points expired.");
@@ -1977,6 +1990,10 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
     public EncounterState EndEncounter(CampaignState campaign, string encounterId)
     {
         var encounter = RequireEncounter(campaign, encounterId);
+        // Captured before the status changes: faucet F4 pays only for an encounter the party
+        // actually met. A planned encounter that is ended without ever being activated is not
+        // active, and a second end finds this already "completed", so neither pays anything.
+        var wasActive = encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase);
         encounter.Status = "completed";
         encounter.PendingMove = null;
         if (campaign.PendingPlayerRoll?.EncounterId == encounter.Id) campaign.PendingPlayerRoll = null;
@@ -2006,6 +2023,7 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         }
         Touch(campaign);
         Log(campaign, "encounter_ended", $"Encounter '{encounter.Name}' ended.");
+        if (wasActive) AwardEncounterResolutionExperience(campaign, encounter);
         return encounter;
     }
 
@@ -2236,7 +2254,17 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         return true;
     }
 
-    private static void MarkDead(CharacterSheet character)
+    /// <summary>
+    /// The single choke point every death path funnels through, and therefore the only place
+    /// faucet F1 needs to be wired: damage at 0 HP, massive-damage overkill, a monster dropping to
+    /// zero, the third Death Saving Throw failure, and Exhaustion level 6 all arrive here.
+    ///
+    /// The award fires at the kill rather than at the end of the fight. Batching four kills into
+    /// one end-of-encounter total would repeat, at the level of the reward loop, exactly the
+    /// mistake this product is trying to leave behind: computing a dramatic outcome and then
+    /// showing the player a summary of it later.
+    /// </summary>
+    private void MarkDead(CampaignState campaign, CharacterSheet character)
     {
         character.Dead = true;
         character.Stable = false;
@@ -2244,6 +2272,7 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         character.ConcentrationEffect = null;
         AddConditionInternal(character, "Dead");
         RemoveConditionInternal(character, "Unconscious");
+        AwardDefeatExperience(campaign, character);
     }
 
     private static void Touch(CampaignState campaign) => campaign.UpdatedAt = DateTimeOffset.UtcNow;

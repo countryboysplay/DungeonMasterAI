@@ -451,6 +451,11 @@ public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, Ru
     private static object DmCharacter(CampaignState campaign, CharacterSheet c) => new
     {
         c.Id, c.Name, c.CharacterType, c.CreatureType, c.Level, c.ArmorClass, c.MaxHp, c.CurrentHp, c.TempHp, c.Gold, c.LocationId,
+        // Read-only. The DM narrates progression; it never grants, adjusts, or withholds XP, and
+        // there is no tool through which it could.
+        experience_points = c.ExperiencePoints,
+        experience_to_next_level = Progression.ExperienceToNextLevel(c.ExperiencePoints),
+        pending_level_ups = c.PendingLevelUps,
         c.PublicKnowledge, c.Abilities, c.Speed, c.Size, c.FreeHands, effective_speed = CharacterMechanics.EffectiveSpeed(c, campaign.ActiveEffects), c.ProficiencyBonus,
         c.Conditions, c.SkillProficiencies, c.ToolProficiencies, c.ExhaustionLevel, c.DeathSaveSuccesses, c.DeathSaveFailures, c.Stable, c.Dead,
         c.HitDiceRemaining, c.HitDiceMaximum, c.HitDieSides, c.ConcentrationEffect,
@@ -511,13 +516,13 @@ public sealed partial class DmToolRouter(GameEngine engine, DiceService dice, Ru
         return new { c.Day, c.MinuteOfDay, formatted = GameEngine.FormatCampaignTime(c) };
     }
 
-    private static object SetQuestStatus(CampaignState campaign, string id, string status)
+    // Delegated to the engine so that completing a quest pays its rewards through the same
+    // deterministic path everything else uses. The model still only names a status; it does not
+    // and cannot name an amount.
+    private object SetQuestStatus(CampaignState campaign, string id, string status)
     {
-        var quest = campaign.Quests.FirstOrDefault(q => q.Id == id && !q.DmOnly) ?? throw new KeyNotFoundException("Player-visible quest not found.");
-        quest.Status = status.Trim();
-        campaign.UpdatedAt = DateTimeOffset.UtcNow;
-        campaign.Events.Add(new CampaignEvent { Type = "quest_status", Summary = $"Quest '{quest.Name}' changed to {quest.Status}." });
-        return new { quest.Id, quest.Name, quest.Status };
+        var quest = engine.SetQuestStatus(campaign, id, status);
+        return new { quest.Id, quest.Name, quest.Status, rewards_granted = quest.RewardsGranted };
     }
 
     private static object ListMerchants(CampaignState campaign)
