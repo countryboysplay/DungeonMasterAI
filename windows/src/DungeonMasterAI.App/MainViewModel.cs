@@ -73,6 +73,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _showDmMap;
     private int _mapRevision;
     private CampaignRehearsalReport? _rehearsalReport;
+    // Cancels an in-flight local AI provisioning run. The model is a one-time ~2.6 GB download, so
+    // the user needs a way out of it; Stop Local AI is that way out.
+    private CancellationTokenSource? _aiSetupCts;
 
     public MainViewModel()
     {
@@ -747,16 +750,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(SpellLibrary));
         SelectedLibrarySpell = SpellLibrary.FirstOrDefault();
 
-        var runtimeExe = Path.Combine(_runtime.RuntimeDirectory, "llama-server.exe");
-        if (File.Exists(runtimeExe))
+        // Report the runtime and the model separately. They fail independently: the runtime ships in
+        // the installer, the model does not, and the old single File.Exists check on the 9 KB
+        // llama-server.exe stub reported "Runtime installed" for directories that could not launch.
+        var runtimeReady = RuntimeBootstrapService.IsRuntimeInstalled(_runtime.RuntimeDirectory);
+        var modelReady = RuntimeBootstrapService.IsModelInstalled(_runtime.ModelDirectory);
+        if (!runtimeReady)
         {
-            LocalAiSetupProgress = "Local AI runtime is installed. Use Test Local AI to start or verify the configured model.";
-            LocalAiStatus = "Runtime installed";
+            LocalAiStatus = "Runtime incomplete";
+            LocalAiSetupProgress = "The bundled llama.cpp runtime is missing files from this install. Use Start Local AI to repair it, or reinstall the application.";
+        }
+        else if (!modelReady)
+        {
+            LocalAiStatus = "Model not downloaded";
+            LocalAiSetupProgress = RuntimeBootstrapService.ModelDownloadNotice + " Use Start Local AI to begin, and Stop Local AI to cancel.";
         }
         else
         {
-            LocalAiStatus = "Not installed";
-            LocalAiSetupProgress = "Use Set Up Local AI to install the runtime and download the model on first start.";
+            LocalAiStatus = "Runtime installed";
+            LocalAiSetupProgress = "The local AI runtime and model are installed. Use Start Local AI to load the model, or Test AI Reply to verify it.";
         }
         StatusMessage = _store.LastRecoveryMessage ?? (State.Campaigns.Count == 0 ? "Load the included sample or create a campaign." : "Campaign state loaded.");
     }
@@ -824,7 +836,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             var source = await _importer.ExtractSourceAsync(dialog.FileName);
             if (!await EnsureLocalAiReadyAsync(TimeSpan.FromMinutes(45)))
             {
-                CampaignCompilerStatus = "Local AI is not ready. Use Settings > Set Up Local AI, then retry AI Compile File.";
+                CampaignCompilerStatus = "Local AI is not ready. Use Settings > Start Local AI, then retry AI Compile File.";
                 StatusMessage = CampaignCompilerStatus;
                 return;
             }
@@ -896,7 +908,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             CampaignCompilerStatus = "Preparing campaign playability expansion...";
             if (!await EnsureLocalAiReadyAsync(TimeSpan.FromMinutes(45)))
             {
-                CampaignCompilerStatus = "Local AI is not ready. Use Settings > Set Up Local AI, then retry expansion.";
+                CampaignCompilerStatus = "Local AI is not ready. Use Settings > Start Local AI, then retry expansion.";
                 StatusMessage = CampaignCompilerStatus;
                 return;
             }
@@ -935,10 +947,14 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             return true;
         }
 
-        var runtimeExe = Path.Combine(_runtime.RuntimeDirectory, "llama-server.exe");
-        if (!File.Exists(runtimeExe))
+        if (!RuntimeBootstrapService.IsRuntimeInstalled(_runtime.RuntimeDirectory))
         {
-            LocalAiStatus = "Not installed";
+            LocalAiStatus = "Runtime incomplete";
+            return false;
+        }
+        if (!RuntimeBootstrapService.IsModelInstalled(_runtime.ModelDirectory))
+        {
+            LocalAiStatus = "Model not downloaded";
             return false;
         }
         if (!_runtime.IsRunning && !_runtime.TryStart(Settings))
@@ -1096,15 +1112,21 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             var status = await _dm.CheckAsync(Settings);
             if (!status.Online)
             {
-                if (!File.Exists(Path.Combine(_runtime.RuntimeDirectory, "llama-server.exe")))
+                if (!RuntimeBootstrapService.IsRuntimeInstalled(_runtime.RuntimeDirectory))
                 {
-                    LocalAiStatus = "Not installed";
-                    LocalAiSetupProgress = "The local runtime is not installed yet. Use Start Local AI to install it.";
+                    LocalAiStatus = "Runtime incomplete";
+                    LocalAiSetupProgress = "The bundled llama.cpp runtime is missing files from this install. Use Start Local AI to repair it.";
+                    return;
+                }
+                if (!RuntimeBootstrapService.IsModelInstalled(_runtime.ModelDirectory))
+                {
+                    LocalAiStatus = "Model not downloaded";
+                    LocalAiSetupProgress = RuntimeBootstrapService.ModelDownloadNotice + " Use Start Local AI to begin.";
                     return;
                 }
 
                 LocalAiStatus = "Starting model...";
-                LocalAiSetupProgress = "Starting llama.cpp. On the first launch the configured GGUF model must download before it can load into GPU memory.";
+                LocalAiSetupProgress = "Starting llama.cpp and loading the local GGUF model into memory.";
                 StatusMessage = LocalAiSetupProgress;
                 if (!_runtime.TryStart(Settings))
                 {
@@ -1147,8 +1169,11 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         if (IsAiSetupBusy) return;
         IsAiSetupBusy = true;
+        var cts = new CancellationTokenSource();
+        _aiSetupCts = cts;
         try
         {
+            var token = cts.Token;
             LocalAiStatus = "Preparing local AI...";
             LocalAiSetupProgress = "Checking the bundled local AI runtime...";
             var progress = new Progress<RuntimeProvisionProgress>(p =>
@@ -1156,7 +1181,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
                 LocalAiSetupProgress = p.Message;
                 StatusMessage = p.Message;
             });
-            var installed = await _runtimeBootstrap.EnsureRuntimeAsync(_runtime.RuntimeDirectory, progress);
+
+            var installed = await _runtimeBootstrap.EnsureRuntimeAsync(_runtime.RuntimeDirectory, progress, token);
             if (!installed.Success)
             {
                 LocalAiStatus = "Setup failed";
@@ -1165,8 +1191,28 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            // The model is the step that actually needs the network, and it is the reason this
+            // command can be cancelled at all. Nothing may start llama-server before the GGUF is
+            // on disk and past its SHA-256 check: with no model to serve, llama-server exits
+            // immediately and the user is shown a startup failure for what is really a missing
+            // download.
+            if (!RuntimeBootstrapService.IsModelInstalled(_runtime.ModelDirectory))
+            {
+                LocalAiStatus = "Downloading model...";
+                LocalAiSetupProgress = RuntimeBootstrapService.ModelDownloadNotice;
+                StatusMessage = LocalAiSetupProgress;
+            }
+            var model = await _runtimeBootstrap.EnsureModelAsync(_runtime.ModelDirectory, progress, token);
+            if (!model.Success)
+            {
+                LocalAiStatus = "Model not downloaded";
+                LocalAiSetupProgress = model.Message;
+                StatusMessage = model.Message;
+                return;
+            }
+
             LocalAiStatus = "Starting model...";
-            LocalAiSetupProgress = "Runtime ready. Starting the configured GGUF model. First launch may spend several minutes downloading before GPU loading begins.";
+            LocalAiSetupProgress = "Runtime and model are ready. Loading the GGUF into memory; the first load takes a few minutes.";
             StatusMessage = LocalAiSetupProgress;
             if (!_runtime.TryStart(Settings))
             {
@@ -1183,6 +1229,14 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             StatusMessage = LocalAiSetupProgress;
             await SaveAsync();
         }
+        catch (OperationCanceledException)
+        {
+            // Cancelling is not a failure. The .partial file is deliberately left on disk, so the
+            // next Start Local AI resumes the download instead of restarting 2.55 GiB of it.
+            LocalAiStatus = RuntimeBootstrapService.IsModelInstalled(_runtime.ModelDirectory) ? "Stopped" : "Model not downloaded";
+            LocalAiSetupProgress = "Local AI setup was cancelled. Any partly downloaded file was kept, so starting again resumes where it stopped.";
+            StatusMessage = LocalAiSetupProgress;
+        }
         catch (Exception ex)
         {
             LocalAiStatus = "Setup failed";
@@ -1190,7 +1244,12 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             StatusMessage = ex.Message;
             RefreshLocalAiRuntimeLog();
         }
-        finally { IsAiSetupBusy = false; }
+        finally
+        {
+            IsAiSetupBusy = false;
+            _aiSetupCts = null;
+            cts.Dispose();
+        }
     }
 
     private async Task<bool> WaitForLocalAiWithProgressAsync(TimeSpan timeout)
@@ -1257,6 +1316,19 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void StopLocalAi()
     {
+        // Stop has to cancel the provisioning run as well as kill the server process. Without this
+        // the button does nothing at all during the one-time multi-gigabyte model download, which
+        // is precisely the state a user is most likely to want out of.
+        var cts = _aiSetupCts;
+        if (cts is not null)
+        {
+            try { cts.Cancel(); } catch (ObjectDisposedException) { }
+            // SetupLocalAiAsync owns the message and status from here; it reports the cancellation
+            // when its own OperationCanceledException handler runs.
+            _runtime.Stop();
+            return;
+        }
+
         _runtime.Stop();
         LocalAiStatus = "Stopped";
         LocalAiSetupProgress = "Local AI was stopped. The deterministic game engine remains available.";
@@ -2345,5 +2417,13 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-    public void Dispose() => _runtime.Dispose();
+    public void Dispose()
+    {
+        // Cancel before disposing the runtime: an in-flight provisioning run holds a file handle on
+        // the .partial download, and leaving it running past shutdown writes into a directory the
+        // application no longer owns.
+        try { _aiSetupCts?.Cancel(); } catch (ObjectDisposedException) { }
+        _runtime.Dispose();
+        _runtimeBootstrap.Dispose();
+    }
 }

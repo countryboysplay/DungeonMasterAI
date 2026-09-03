@@ -129,10 +129,13 @@ Run("encounter binding lookups are rebuilt case-insensitively without losing col
 
 Run("the state schema version accounts for persisted tactical map state", () =>
 {
-    Equal(3, AppDataStore.CurrentSchemaVersion, "current state schema version");
+    // v3 is the migration slot that gave tactical map state a versioned home. Later rounds add
+    // their own slots, so this asserts the floor rather than pinning a literal that every future
+    // migration would have to come back and edit.
+    True(AppDataStore.CurrentSchemaVersion >= 3, "map state must have a versioned migration slot");
 });
 
-Run("a v2 state file carrying legacy map data migrates to v3 on load", () =>
+Run("a v2 state file carrying legacy map data migrates to the current version on load", () =>
 {
     using var dir = new TempDirectory();
     File.WriteAllText(Path.Combine(dir.Path, "state.json"), """
@@ -159,7 +162,7 @@ Run("a v2 state file carrying legacy map data migrates to v3 on load", () =>
     """);
 
     var state = new AppDataStore(dir.Path).LoadAsync().GetAwaiter().GetResult();
-    Equal(3, state.SchemaVersion, "migrated state schema version");
+    Equal(AppDataStore.CurrentSchemaVersion, state.SchemaVersion, "migrated state schema version");
 
     var campaign = state.Campaigns.Single();
     var map = campaign.TacticalMaps.Single();
@@ -173,14 +176,14 @@ Run("a v2 state file carrying legacy map data migrates to v3 on load", () =>
         "binding lookup is case-insensitive after deserialization");
 });
 
-Run("a pre-schema v1 state file migrates all the way to v3", () =>
+Run("a pre-schema v1 state file migrates all the way to the current version", () =>
 {
     using var dir = new TempDirectory();
     File.WriteAllText(Path.Combine(dir.Path, "state.json"),
         """{ "campaigns": [ { "id": "c", "name": "Legacy" } ] }""");
 
     var state = new AppDataStore(dir.Path).LoadAsync().GetAwaiter().GetResult();
-    Equal(3, state.SchemaVersion, "state schema version after full migration chain");
+    Equal(AppDataStore.CurrentSchemaVersion, state.SchemaVersion, "state schema version after full migration chain");
     True(state.Campaigns.Single().TacticalMaps.Count == 0, "map collection is present and empty");
     var bindings = state.Campaigns.Single().EncounterMapBindings;
     bindings["Enc"] = "m";
@@ -239,7 +242,7 @@ Run("saving normalizes legacy provenance so it is written once, not re-read fore
     True(raw.Contains("ai_expanded", StringComparison.Ordinal), "canonical provenance is persisted");
 
     using var document = JsonDocument.Parse(raw);
-    Equal(3, document.RootElement.GetProperty("schemaVersion").GetInt32(), "persisted schema version");
+    Equal(AppDataStore.CurrentSchemaVersion, document.RootElement.GetProperty("schemaVersion").GetInt32(), "persisted schema version");
 });
 
 Run("a map from an unsupported future schema fails the load loudly", () =>

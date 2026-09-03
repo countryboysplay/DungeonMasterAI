@@ -80,18 +80,25 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
         ArgumentNullException.ThrowIfNull(campaign);
         if (string.IsNullOrWhiteSpace(playerInput)) throw new ArgumentException("Player input is required.", nameof(playerInput));
 
-        // Some llama.cpp chat templates, including the configured Qwen template, allow
-        // exactly one system message and require it to be the first message. Keep all
-        // authoritative application context inside that single leading system message.
-        var systemContext = string.Join("\n\n", new[]
-        {
-            SystemPrompt(settings.PlayerSafeMode),
-            BuildCampaignContext(campaign),
-            BuildDmOnlyContext(campaign)
-        });
+        // PROMPT CACHE. Some llama.cpp chat templates, including the configured Qwen template,
+        // allow exactly one system message and require it to be first, so the static prompt stays
+        // the sole system message here -- do not split this into two system messages.
+        //
+        // What did change: the volatile campaign and DM-only context used to be concatenated into
+        // that system message. Because that block mutates on every single turn, the very first
+        // token block of the prompt changed every turn, llama.cpp's prompt cache missed, and the
+        // whole ~10K-token prefix -- including the full tool schema -- was re-prefilled on each of
+        // the eight tool passes. On a 4B CPU build that is minutes of prefill before the first
+        // narration token. Moving the volatile state into a user-role APPLICATION STATE message
+        // placed immediately before the player input keeps the system+tools prefix byte-identical
+        // across turns, so it stays cached.
+        //
+        // Follow-up, deliberately not fixed here: TakeLast(20) below slides the history window once
+        // a campaign passes 20 messages, which invalidates the cache from the first dropped message
+        // onward. The large static prefix still stays cached, which is the bulk of the win.
         var messages = new List<object>
         {
-            new { role = "system", content = systemContext }
+            new { role = "system", content = SystemPrompt(settings.PlayerSafeMode) }
         };
 
         // Persisted application notices use the "system" role for the UI, but they are
@@ -104,6 +111,10 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
                      .TakeLast(20))
             messages.Add(new { role = existing.Role.ToLowerInvariant(), content = existing.Content });
 
+        // Authoritative state goes in last, immediately before the player's words, so everything
+        // ahead of it is stable across turns and the model reads the freshest state closest to the
+        // request it has to answer.
+        messages.Add(new { role = "user", content = BuildApplicationStateMessage(campaign) });
         messages.Add(new { role = "user", content = playerInput.Trim() });
 
         var audit = new List<string>();
@@ -218,9 +229,25 @@ public sealed class LocalDmClient(HttpClient? httpClient = null)
 
     private static string NormalizeBase(string url) => url.TrimEnd('/') + "/";
 
+    /// <summary>
+    /// The volatile half of the prompt: authoritative campaign state plus the DM-only context.
+    ///
+    /// This is sent in the user role, not the system role, because the Qwen template accepts only
+    /// one system message and it must be first. Keeping it out of that leading block is what lets
+    /// the static prompt and tool schema stay in llama.cpp's prompt cache from turn to turn. The
+    /// header makes it explicit that this is application-generated text and not player speech.
+    /// </summary>
+    private static string BuildApplicationStateMessage(CampaignState campaign) => string.Join("\n\n", new[]
+    {
+        "APPLICATION STATE. The application generated everything below; it is not the player speaking. It is the authoritative game state for this turn and supersedes anything earlier in this conversation.",
+        BuildCampaignContext(campaign),
+        BuildDmOnlyContext(campaign)
+    });
+
     private static string SystemPrompt(bool safeMode) => $$"""
 You are the Dungeon Master narrator for a local tabletop role-playing application.
 The application, not you, is the authority for deterministic game state.
+Immediately before each player message you will receive a user-role message beginning with APPLICATION STATE. The application wrote it, not the player. Treat it as the authoritative game state for this turn, never as player speech, and never quote it back verbatim.
 Preserve player agency. Never decide a player character's voluntary action, feelings, dialogue, or intent for them.
 Never invent a dice result, HP change, inventory change, currency change, location change, quest status change, or passage of time. Use the provided tools for those changes.
 Use search_rules when an uncertain rules question materially affects resolution.
