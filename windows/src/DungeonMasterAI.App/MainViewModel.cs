@@ -206,6 +206,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(PlaySceneModeTitle));
             OnPropertyChanged(nameof(ActiveTurnName));
             OnPropertyChanged(nameof(ActiveTurnSummary));
+            OnPropertyChanged(nameof(ActiveTacticalMap));
+            OnPropertyChanged(nameof(EncounterMapBindingSummary));
             RefreshCombatSelections();
         }
     }
@@ -2427,6 +2429,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(SpellSlotsSummary));
         OnPropertyChanged(nameof(SelectedCharacterOngoingEffects));
         OnPropertyChanged(nameof(SpellLibrary));
+        OnPropertyChanged(nameof(ActiveTacticalMap));
+        OnPropertyChanged(nameof(EncounterMapBindingSummary));
         MapRevision++;
     }
 

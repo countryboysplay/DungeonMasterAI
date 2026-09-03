@@ -221,10 +221,12 @@ public sealed partial class GameEngine
             throw new InvalidOperationException($"{character.Name} must be positioned before using readied movement.");
         EnsureSquareAvailable(encounter, combatant.Id, gridX, gridY);
 
+        var map = ResolveEncounterMap(campaign, encounter.Id);
         var path = TraceGridPath(combatant.GridX, combatant.GridY, gridX, gridY);
         ValidateMovementPath(encounter, combatant.Id, path);
+        ValidateMapMovementPath(map, combatant.GridX, combatant.GridY, path);
         var distanceFeet = GridDistanceFeet(combatant.GridX, combatant.GridY, gridX, gridY);
-        var movementCostFeet = MovementCostFeet(encounter, path, character);
+        var movementCostFeet = MovementCostFeet(encounter, map, path, character);
         var speed = CharacterMechanics.EffectiveSpeed(character, campaign.ActiveEffects);
         if (movementCostFeet > speed)
             throw new InvalidOperationException($"That readied move costs {movementCostFeet} feet, exceeding {character.Name}'s Speed of {speed} feet.");
@@ -273,6 +275,7 @@ public sealed partial class GameEngine
         var fromX = combatant.GridX;
         var fromY = combatant.GridY;
         var path = TraceGridPath(fromX, fromY, gridX, gridY);
+        var map = ResolveEncounterMap(campaign, encounter.Id);
         var dice = new DiceService();
         var previousX = fromX;
         var previousY = fromY;
@@ -281,7 +284,7 @@ public sealed partial class GameEngine
 
         foreach (var (nextX, nextY) in path)
         {
-            var stepCost = MovementStepCostFeet(encounter, nextX, nextY, character);
+            var stepCost = MovementStepCostFeet(encounter, map, nextX, nextY, character);
             combatant.GridX = nextX;
             combatant.GridY = nextY;
             spentMovement += stepCost;
