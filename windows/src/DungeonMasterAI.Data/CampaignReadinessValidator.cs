@@ -246,7 +246,6 @@ public sealed class CampaignReadinessValidator
     private static readonly string[] RoomKinds = ["room", "corridor", "cave", "exterior"];
     private static readonly string[] ZoneTypes = ["encounter", "trap", "loot", "quest", "trigger"];
     private static readonly string[] CoverKinds = ["none", "half", "three_quarters", "total"];
-    private static readonly string[] SpawnSides = ["party", "enemy", "ally", "neutral"];
 
     /// <summary>
     /// Validates authored tactical maps and their encounter bindings. Grid cells are zero-based, so
@@ -367,9 +366,14 @@ public sealed class CampaignReadinessValidator
             {
                 if (spawn.X < 0 || spawn.Y < 0 || spawn.X >= width || spawn.Y >= height)
                     Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' sits outside the {width}x{height} grid.");
-                if (!SpawnSides.Contains(spawn.Side, StringComparer.OrdinalIgnoreCase))
-                    Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' has unsupported side '{spawn.Side}'.");
-                if (spawn.Side.Equals("party", StringComparison.OrdinalIgnoreCase)) sawPartySpawn = true;
+                // Spawn sides are the canonical CombatSide vocabulary. Legacy and model-emitted
+                // synonyms ("player", "enemy", "ally") resolve through CombatSide rather than
+                // being compared against a list private to this validator: the list version of
+                // this check rejected the exact value the AI map generator was required to emit.
+                var canonicalSide = CombatSide.TryNormalize(spawn.Side);
+                if (canonicalSide is null)
+                    Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' has unsupported side '{spawn.Side}'. Use one of: {string.Join(", ", CombatSide.All)}.");
+                if (canonicalSide == CombatSide.Party) sawPartySpawn = true;
                 if (!string.IsNullOrWhiteSpace(spawn.CharacterKey)
                     && !characterKeys.Contains(spawn.CharacterKey) && !characterIds.Contains(spawn.CharacterKey))
                     Add(issues, ReadinessSeverity.Error, "map_spawn", key, $"Spawn point '{spawn.Name}' on '{map.Name}' reserves an unresolved character '{spawn.CharacterKey}'.");

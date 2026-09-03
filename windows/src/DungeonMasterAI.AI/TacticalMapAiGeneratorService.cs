@@ -187,6 +187,14 @@ public sealed class TacticalMapAiGeneratorService(HttpClient? httpClient = null)
         EnsureIds(map.Lights, light => light.Id, (light, id) => light.Id = id);
         EnsureIds(map.SpawnPoints, spawn => spawn.Id, (spawn, id) => spawn.Id = id);
         EnsureIds(map.Zones, zone => zone.Id, (zone, id) => zone.Id = id);
+
+        // The local model is asked for canonical CombatSide values, but it is a small model
+        // reading a free-text prompt and it reaches for "player"/"enemy" by habit. Collapse
+        // whatever it produced onto the canonical vocabulary here, once, so the acceptance gate
+        // below and campaign readiness later are testing the same value. An unrecognized side is
+        // left verbatim so ValidateGeneratedMap rejects it and the repair prompt can correct it.
+        foreach (var spawn in map.SpawnPoints)
+            spawn.Side = CombatSide.TryNormalize(spawn.Side) ?? spawn.Side;
     }
 
     private static void EnsureIds<T>(IEnumerable<T> items, Func<T, string> getId, Action<T, string> setId)
@@ -208,8 +216,10 @@ public sealed class TacticalMapAiGeneratorService(HttpClient? httpClient = null)
         }
 
         if (map.Rooms.Count == 0) errors.Add("rooms: Generated map must contain at least one room, corridor, cave, or exterior region.");
-        if (!map.SpawnPoints.Any(spawn => spawn.Side.Equals("player", StringComparison.OrdinalIgnoreCase)))
-            errors.Add("spawnPoints: Generated map must contain at least one player-side spawn point.");
+        foreach (var spawn in map.SpawnPoints.Where(spawn => !CombatSide.IsRecognized(spawn.Side)))
+            errors.Add($"spawnPoints: Spawn point '{spawn.Name}' has unsupported side '{spawn.Side}'. Use one of: {string.Join(", ", CombatSide.All)}.");
+        if (!map.SpawnPoints.Any(spawn => CombatSide.IsParty(spawn.Side)))
+            errors.Add($"spawnPoints: Generated map must contain at least one spawn point whose side is {CombatSide.Party}.");
 
         var allowed = allowedKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var (path, key) in EnumerateAssetKeys(map))
@@ -271,7 +281,9 @@ Coordinate contract:
 - A vertical door at (x,y) occupies edge (x,y) to (x,y+1).
 - A horizontal door at (x,y) occupies edge (x,y) to (x+1,y).
 - Every door should be embedded in a matching explicit wall segment.
-- Include at least one spawnPoint with side "player" in a walkable entrance area.
+- Every spawnPoint side must be exactly one of: "party", "opposition", "neutral".
+- Include at least one spawnPoint with side "party" in a walkable entrance area; give creatures that fight the party side "opposition".
+- Spawn points must sit on walkable squares. Combat places creatures on them.
 - Mark secret doors with secret=true and discovered=false.
 - Gameplay flags must agree with the described object: solid pillars/walls block movement as appropriate, shallow water/rubble may be difficult terrain, and opaque solid objects may block line of sight.
 - Do not output rendered pixels, image prompts, filenames, markdown, comments, or prose outside the JSON object.

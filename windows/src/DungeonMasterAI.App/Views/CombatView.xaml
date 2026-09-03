@@ -165,7 +165,7 @@
         <!-- Tactical battlefield -->
         <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="0" Margin="0,0,6,0" ClipToBounds="True" BorderBrush="#55452F">
             <Grid>
-                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Revision="{Binding MapRevision}" MinHeight="275"/>
+                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Map="{Binding ActiveTacticalMap}" ShowDmMapLayer="{Binding ShowDmMap}" Revision="{Binding MapRevision}" MinHeight="275"/>
                 <controls:AaaCombatAtmosphere/>
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="9" Background="#D0080D10">
                     <Button Style="{StaticResource AaaGoldButton}" Width="34" Height="34" Padding="0" Margin="0,0,0,4" ToolTip="Select"><controls:AaaVectorIcon Kind="Location" Width="16" Height="16" Foreground="#E8C67E"/></Button>
@@ -284,7 +284,8 @@
                                     </StackPanel>
                                 </Border>
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding Side}" Value="player"><Setter TargetName="TargetCard" Property="BorderBrush" Value="#3E7447"/></DataTrigger>
+                                    <!-- Side values are the canonical CombatSide vocabulary. This trigger read "player", which the engine has never written, so the party highlight never appeared. -->
+                                    <DataTrigger Binding="{Binding Side}" Value="party"><Setter TargetName="TargetCard" Property="BorderBrush" Value="#3E7447"/></DataTrigger>
                                     <DataTrigger Binding="{Binding Dead}" Value="True"><Setter TargetName="TargetCard" Property="Opacity" Value="0.35"/></DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>
