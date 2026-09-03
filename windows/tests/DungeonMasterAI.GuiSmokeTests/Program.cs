@@ -135,15 +135,23 @@ internal static class Program
         campaign.MinuteOfDay = 19 * 60 + 43;
         foreach (var location in campaign.Locations.Where(l => !l.DmOnly)) location.Discovered = true;
 
+        // Give the preview encounter a real battlefield. Without a bound map the combat grid falls
+        // back to its pre-r62 empty-grid path, the Map/ShowDmMapLayer bindings resolve to null in
+        // every snapshot, and the map underlay is never actually rendered by the live shell — which
+        // is the one place a WPF binding failure or a rendering exception would surface.
+        var previewMap = BuildPreviewBattlefield();
+        campaign.TacticalMaps.Add(previewMap);
+
         var encounter = campaign.Encounters.FirstOrDefault();
         if (encounter is not null)
         {
+            campaign.EncounterMapBindings[encounter.Id] = previewMap.Id;
             encounter.Status = "active";
             encounter.Round = 3;
             encounter.TurnIndex = 0;
             var player = campaign.Characters.FirstOrDefault(c => c.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase));
             if (player is not null && encounter.Combatants.All(c => c.CharacterId != player.Id))
-                encounter.Combatants.Insert(0, new CombatantState { CharacterId = player.Id, Side = "player", TieBreaker = -1 });
+                encounter.Combatants.Insert(0, new CombatantState { CharacterId = player.Id, Side = CombatSide.Party, TieBreaker = -1 });
 
             var positions = new (int X, int Y)[] { (4, 6), (9, 4), (11, 7), (8, 9), (5, 10), (12, 10) };
             for (var i = 0; i < encounter.Combatants.Count; i++)
@@ -155,7 +163,7 @@ internal static class Program
                 combatant.GridY = position.Y;
                 combatant.Initiative = Math.Max(1, 18 - i * 2);
                 combatant.MovementRemainingFeet = 30;
-                if (string.IsNullOrWhiteSpace(combatant.Side)) combatant.Side = "enemy";
+                combatant.Side = CombatSide.Normalize(combatant.Side, CombatSide.Opposition);
             }
         }
 
@@ -164,6 +172,50 @@ internal static class Program
 
         Check(viewModel.SelectedCampaign is not null, "Direct-import Greenhaven preview selects a campaign.", failures);
         Check(viewModel.SelectedEncounter is not null, "Direct-import Greenhaven preview selects an encounter.", failures);
+        Check(viewModel.ActiveTacticalMap is not null,
+            "The preview encounter resolves the tactical map bound to it, so the combat grid renders a real battlefield.", failures);
+    }
+
+    /// <summary>
+    /// A small, geometrically valid battlefield for the populated preview: two chambers, a dividing
+    /// wall with a door, one blocking pillar, a difficult-terrain strip, and one spawn point per
+    /// side. Sized to contain the preview combatant positions above.
+    /// </summary>
+    private static TacticalMap BuildPreviewBattlefield()
+    {
+        var map = new TacticalMap
+        {
+            Id = "greenhaven-preview-battlefield",
+            Key = "greenhaven.preview",
+            Name = "Greenhaven Skirmish",
+            SchemaVersion = TacticalMapSchema.CurrentMapSchemaVersion,
+            WidthSquares = 18,
+            HeightSquares = 14,
+            FeetPerSquare = 5,
+            Seed = 620059,
+            GenerationSeed = 620059,
+            SourceKind = CampaignProvenance.TestFixture
+        };
+        map.Rooms.Add(new TacticalMapRoom { Id = "gp-west", Name = "Courtyard", X = 0, Y = 0, WidthSquares = 10, HeightSquares = 14, FloorAssetKey = "floor.stone.flagstone", WallAssetKey = "wall.stone.block" });
+        map.Rooms.Add(new TacticalMapRoom { Id = "gp-east", Name = "Undercroft", X = 10, Y = 0, WidthSquares = 8, HeightSquares = 14, FloorAssetKey = "floor.stone.crypt_flagstone", WallAssetKey = "wall.stone.crypt_block" });
+        map.Walls.Add(new TacticalMapWall { Id = "gp-divider", FromX = 10, FromY = 0, ToX = 10, ToY = 14, AssetKey = "wall.stone.block" });
+        map.Doors.Add(new TacticalMapDoor { Id = "gp-door", Name = "Undercroft Door", X = 10, Y = 6, Orientation = "vertical", State = "closed", AssetKey = "door.wood.ironbound" });
+        map.Props.Add(new TacticalMapProp { Id = "gp-pillar", Name = "Pillar", X = 3, Y = 3, AssetKey = "prop.pillar.stone_round", BlocksMovement = true, BlocksLineOfSight = true });
+        map.Terrain.Add(new TacticalMapTerrain
+        {
+            Id = "gp-rubble",
+            Name = "Rubble",
+            TerrainType = "rubble",
+            X = 6,
+            Y = 8,
+            WidthSquares = 3,
+            HeightSquares = 2,
+            AssetKey = "terrain.rubble.stone",
+            DifficultTerrain = true
+        });
+        map.SpawnPoints.Add(new TacticalMapSpawnPoint { Id = "gp-spawn-party", Name = "Party Entrance", Side = CombatSide.Party, X = 1, Y = 6 });
+        map.SpawnPoints.Add(new TacticalMapSpawnPoint { Id = "gp-spawn-foe", Name = "Raider Line", Side = CombatSide.Opposition, X = 15, Y = 6 });
+        return map;
     }
 
     /// <summary>

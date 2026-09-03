@@ -324,8 +324,10 @@ public sealed class CombatGridControl : FrameworkElement
             ? $" • Preview: {preview.SpellName} ({preview.EffectiveCells.Count} effective square{(preview.EffectiveCells.Count == 1 ? "" : "s")}{(preview.OriginBlocked ? ", origin blocked" : "")})"
             : "";
         var scaleFeet = map?.FeetPerSquare > 0 ? map.FeetPerSquare : 5;
-        var mapLabel = map is null ? "" : $"{map.Name} • ";
-        DrawText(dc, $"{mapLabel}Each square = {scaleFeet} feet • terrain affects movement, cover, line of sight, obscurement, and area line of effect{previewLabel}", 11, Brushes.Gray, 10, 8, centered: false, FontWeights.Normal);
+        // The map name goes last. The host views overlay tool buttons on the top-left of this
+        // control, so anything prefixed to this line is the part that gets covered.
+        var mapLabel = map is null ? "" : $" • {map.Name}";
+        DrawText(dc, $"Each square = {scaleFeet} feet • terrain affects movement, cover, line of sight, obscurement, and area line of effect{previewLabel}{mapLabel}", 11, Brushes.Gray, 10, 8, centered: false, FontWeights.Normal);
     }
 
     /// <summary>
@@ -449,8 +451,17 @@ public sealed class CombatGridControl : FrameworkElement
             };
             dc.DrawRectangle(null, new Pen(new SolidColorBrush(color), Math.Max(1.2, cell * 0.08)) { DashStyle = DashStyles.Dash },
                 new Rect(rect.X + cell * 0.12, rect.Y + cell * 0.12, cell * 0.76, cell * 0.76));
-            if (cell >= 26)
-                DrawText(dc, side ?? spawn.Side, 9, new SolidColorBrush(color), rect.Left + cell / 2, rect.Top + cell * 0.34, centered: true, FontWeights.SemiBold);
+            // A short glyph rather than the side's full name: the marker is one grid square wide,
+            // and "opposition" rendered at 9pt overruns it into the neighbouring squares.
+            var glyph = side switch
+            {
+                CombatSide.Party => "P",
+                CombatSide.Opposition => "O",
+                CombatSide.Neutral => "N",
+                _ => "?"
+            };
+            if (cell >= 20)
+                DrawText(dc, glyph, Math.Min(11, cell * 0.3), new SolidColorBrush(color), rect.Left + cell / 2, rect.Top + cell * 0.2, centered: true, FontWeights.Bold);
         }
     }
 
