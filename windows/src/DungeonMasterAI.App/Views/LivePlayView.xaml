@@ -108,7 +108,7 @@
         <!-- Tactical battlefield -->
         <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="0" Margin="0,0,8,0" ClipToBounds="True">
             <Grid>
-                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Revision="{Binding MapRevision}" MinHeight="450"/>
+                <controls:CombatGridControl Campaign="{Binding SelectedCampaign}" Encounter="{Binding SelectedEncounter}" Map="{Binding ActiveTacticalMap}" ShowDmMapLayer="{Binding ShowDmMap}" Revision="{Binding MapRevision}" MinHeight="450"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Background="#C8070B0E">
                     <Button Content="➤" Style="{StaticResource AaaGoldButton}" Width="40" Height="40" Padding="0"/>
                     <Button Content="✥" Style="{StaticResource AaaTopButton}" Width="40" Height="40" Padding="0"/>

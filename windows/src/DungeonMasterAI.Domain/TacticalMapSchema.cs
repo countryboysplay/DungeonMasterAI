@@ -12,8 +12,19 @@ namespace DungeonMasterAI.Domain;
 /// </summary>
 public static class TacticalMapSchema
 {
-    /// <summary>Current tactical map record schema version.</summary>
-    public const int CurrentMapSchemaVersion = 1;
+    /// <summary>
+    /// Current tactical map record schema version.
+    /// <list type="bullet">
+    /// <item><description>1 — r53 tactical map schema.</description></item>
+    /// <item><description>
+    /// 2 — r62 spawn-side unification. Spawn point <c>side</c> values are stored using the
+    /// canonical <see cref="CombatSide"/> vocabulary. Version 1 records may hold any of the three
+    /// disagreeing vocabularies that shipped before it (<c>player</c>, <c>enemy</c>, <c>ally</c>,
+    /// …) and are rewritten on load by <see cref="NormalizeMap"/>.
+    /// </description></item>
+    /// </list>
+    /// </summary>
+    public const int CurrentMapSchemaVersion = 2;
 
     /// <summary>
     /// Normalizes every tactical map on a campaign and repairs the encounter binding lookup.
@@ -48,10 +59,17 @@ public static class TacticalMapSchema
 
         var changed = false;
 
-        // Maps serialized before the map schema was versioned report 0.
-        if (map.SchemaVersion < 1)
+        if (map.SchemaVersion > CurrentMapSchemaVersion)
         {
-            map.SchemaVersion = 1;
+            throw new InvalidOperationException(
+                $"Tactical map '{map.Name}' reports schema version {map.SchemaVersion}, which is newer than " +
+                $"the supported version {CurrentMapSchemaVersion}. Refusing to reinterpret unknown map geometry.");
+        }
+
+        // Maps serialized before the map schema was versioned report 0.
+        if (map.SchemaVersion < CurrentMapSchemaVersion)
+        {
+            map.SchemaVersion = CurrentMapSchemaVersion;
             changed = true;
         }
 
@@ -91,11 +109,17 @@ public static class TacticalMapSchema
             if (map.Visibility.RevealedCells is null) { map.Visibility.RevealedCells = []; changed = true; }
         }
 
-        if (map.SchemaVersion > CurrentMapSchemaVersion)
+        // v1 -> v2: spawn sides were written in whichever of the three pre-r62 vocabularies the
+        // writer happened to use. Collapse them onto the canonical CombatSide set so every reader
+        // — engine placement, readiness validation, the renderer — sees the same value. An
+        // unrecognized side has no safe canonical meaning, so it is left verbatim for the
+        // readiness validator to report rather than being guessed into a side that fights.
+        foreach (var spawn in map.SpawnPoints)
         {
-            throw new InvalidOperationException(
-                $"Tactical map '{map.Name}' reports schema version {map.SchemaVersion}, which is newer than " +
-                $"the supported version {CurrentMapSchemaVersion}. Refusing to reinterpret unknown map geometry.");
+            var canonical = CombatSide.TryNormalize(spawn.Side);
+            if (canonical is null || string.Equals(canonical, spawn.Side, StringComparison.Ordinal)) continue;
+            spawn.Side = canonical;
+            changed = true;
         }
 
         return changed;

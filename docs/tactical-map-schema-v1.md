@@ -1,4 +1,6 @@
-# Tactical Map Schema v1
+# Tactical Map Schema
+
+**Current record version: 2** (`TacticalMapSchema.CurrentMapSchemaVersion`). Version 1 records still load; see *Record versions* below.
 
 DungeonMasterAI tactical maps are **structured game data first** and artwork second. The same map definition drives rendering, movement, line of sight, doors, difficult terrain, fog, encounter placement, and future Campaign Builder editing.
 
@@ -11,6 +13,44 @@ DungeonMasterAI tactical maps are **structured game data first** and artwork sec
 5. Missing visual assets must fall back gracefully without changing gameplay geometry.
 6. Replacing an asset pack must not alter map coordinates, walls, doors, encounters, or save-game state.
 7. Map generation is seedable so decorative variation can be reproduced.
+
+## Record versions
+
+| Version | Introduced | Change |
+|---|---|---|
+| 1 | r53 | Original tactical map schema. |
+| 2 | r62 | Spawn point `side` is stored using the canonical combat-side vocabulary. |
+
+`TacticalMapSchema.NormalizeMap` is the one place that raises a deserialized record to the current
+version, so migrations stay covered by migration tests rather than happening lazily inside an
+editor interaction. A record reporting a version newer than this build supports is refused rather
+than reinterpreted.
+
+## Combat sides
+
+`Domain.CombatSide` is the single source of truth for which side anything fights on. It is shared by
+live combatants (`CombatantState.Side`) and by authored spawn points (`TacticalMapSpawnPoint.Side`),
+because a spawn point exists to place a combatant.
+
+Canonical values — the only ones written to disk:
+
+- `party` — the player characters and anyone fighting alongside them.
+- `opposition` — creatures fighting against the party.
+- `neutral` — creatures on no side; excluded from side-based hostility checks.
+
+Synonyms are **accepted on input and normalized away**, never persisted: `player`, `players`, `pc`,
+`pcs`, `ally`, `allies`, `friendly`, `hero`, `heroes` resolve to `party`; `enemy`, `enemies`,
+`hostile`, `foe`, `foes`, `monster`, `monsters` resolve to `opposition`; `bystander` resolves to
+`neutral`. `ally` collapses onto `party` because the engine has no fourth side — an allied NPC is
+mechanically on the party's side for initiative, targeting, and stealth.
+
+A side that resolves onto nothing is **not** guessed at. It is stored verbatim and reported as a
+campaign readiness error, so unknown data never silently becomes a creature that fights.
+
+Before r62 the generator, the engine, and the readiness validator each carried a private and
+mutually incompatible list, and every generated map failed readiness on the value the generator was
+required to emit. New side comparisons must route through `CombatSide` rather than adding another
+inline string literal.
 
 ## Coordinate convention
 
@@ -79,6 +119,11 @@ Generation flow:
 
 The Campaign Builder should reject or repair invalid generated maps before they become campaign canon.
 
+The prompt asks for canonical `side` values, but a small local model reaches for `player` and
+`enemy` by habit, so generated spawn sides are normalized through `CombatSide` once, before the
+acceptance gate runs. Gate and readiness therefore test the same value. A map must contain at least
+one `party` spawn point on a walkable square, because combat places creatures on them.
+
 ## Prototype acceptance
 
 The r53 prototype verifies:
@@ -93,3 +138,15 @@ The r53 prototype verifies:
 - deterministic 1280x720 PNG rendering
 
 The first reference fixture is **The Ruined Crypt of Saint Veyra**.
+
+## r62 acceptance
+
+Design-contract item 3 — *gameplay rules query the structured geometry* — became true in r62. The
+engine verifies:
+
+- spawn placement uses authored spawn points for the combatant's side;
+- movement rejects unwalkable squares and edges blocked by walls or closed doors, and re-permits a
+  move once the door is opened;
+- map difficult terrain costs the extra 5 feet;
+- an encounter with no bound map, or a dangling binding, behaves exactly as it did before;
+- the combat grid renders the map beneath the combatant layer.

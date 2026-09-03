@@ -201,6 +201,19 @@ So every AI-generated map is *guaranteed* to fail campaign readiness with
 mandatory value is the one value the validator rejects. This is a placement-layer bug in my lane,
 so I am flagging it; the fix is an engineering decision about which vocabulary wins.
 
+> **Resolved in r62.** The engine's vocabulary won: `Domain.CombatSide` is now the single source of
+> truth for `party` / `opposition` / `neutral`, and the generator, the engine, the readiness
+> validator, and geometry validation all consume it. `player`, `enemy`, and `ally` are accepted as
+> synonyms through one normalization function and are never persisted; map schema version 2
+> rewrites stored v1 spawn sides on load. The diagnosis above is kept as written — it is the record
+> of why the type exists. See `docs/tactical-map-schema-v1.md` for the vocabulary itself.
+>
+> r62 also closed the placement half of §5: `ActivateEncounter` and `AddCombatant` now take the
+> first authored spawn point for the combatant's side that is walkable and unoccupied, falling back
+> to `FreePlacementColumn` only when no map is bound. The *design* critique in §5 — that placement
+> is not yet a design act — still stands; the by-index fallback simply no longer runs on maps that
+> author spawn points.
+
 ---
 
 ## 5. Placement and initial tension

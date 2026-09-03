@@ -23,8 +23,8 @@ public static class TacticalMapGeometry
         ArgumentNullException.ThrowIfNull(map);
         var report = new TacticalMapValidationReport();
 
-        if (map.SchemaVersion != 1)
-            Error(report, "schemaVersion", $"Unsupported tactical map schema version {map.SchemaVersion}; expected 1.");
+        if (map.SchemaVersion < 1 || map.SchemaVersion > TacticalMapSchema.CurrentMapSchemaVersion)
+            Error(report, "schemaVersion", $"Unsupported tactical map schema version {map.SchemaVersion}; expected 1 to {TacticalMapSchema.CurrentMapSchemaVersion}.");
         if (string.IsNullOrWhiteSpace(map.Id)) Error(report, "id", "Map ID is required.");
         if (string.IsNullOrWhiteSpace(map.Name)) Error(report, "name", "Map name is required.");
         if (map.WidthSquares <= 0 || map.WidthSquares > 500) Error(report, "widthSquares", "Width must be between 1 and 500 squares.");
@@ -76,7 +76,15 @@ public static class TacticalMapGeometry
         for (var i = 0; i < map.Zones.Count; i++)
             ValidateRect(report, map, $"zones[{i}]", map.Zones[i].X, map.Zones[i].Y, map.Zones[i].WidthSquares, map.Zones[i].HeightSquares);
         for (var i = 0; i < map.SpawnPoints.Count; i++)
-            if (!IsInside(map, map.SpawnPoints[i].X, map.SpawnPoints[i].Y)) Error(report, $"spawnPoints[{i}]", "Spawn point must be inside the map.");
+        {
+            var spawn = map.SpawnPoints[i];
+            if (!IsInside(map, spawn.X, spawn.Y)) Error(report, $"spawnPoints[{i}]", "Spawn point must be inside the map.");
+            if (!CombatSide.IsRecognized(spawn.Side))
+                Error(report, $"spawnPoints[{i}].side",
+                    $"Unsupported spawn side '{spawn.Side}'. Use one of: {string.Join(", ", CombatSide.All)}.");
+            else if (IsInside(map, spawn.X, spawn.Y) && !IsCellWalkable(map, spawn.X, spawn.Y))
+                Warn(report, $"spawnPoints[{i}]", $"Spawn point '{spawn.Name}' sits on an unwalkable square; combat placement will fall back to a nearby square.");
+        }
         for (var i = 0; i < map.Lights.Count; i++)
             if (map.Lights[i].X < 0 || map.Lights[i].Y < 0 || map.Lights[i].X > map.WidthSquares || map.Lights[i].Y > map.HeightSquares)
                 Error(report, $"lights[{i}]", "Light origin must be inside the map.");
@@ -116,6 +124,35 @@ public static class TacticalMapGeometry
         if (Math.Abs(from.X - to.X) + Math.Abs(from.Y - to.Y) != 1) return false;
         var edge = SharedEdge(from, to);
         return !EdgeBlocksMovement(map, edge);
+    }
+
+    /// <summary>
+    /// True when a creature may take a single grid step from <paramref name="from"/> to
+    /// <paramref name="to"/>, honouring blocking terrain and props in the destination square and
+    /// walls and closed doors on the edge crossed.
+    /// <para>
+    /// <see cref="CanMoveBetween"/> answers this for orthogonal steps only. The combat engine
+    /// traces movement with a Chebyshev path, so it also produces diagonal steps: a diagonal is
+    /// allowed when at least one of its two orthogonal decompositions is legal, which is the same
+    /// corner rule <see cref="HasLineOfSight"/> already applies to sight. This is a single-step
+    /// legality test, not a pathfinder — it never searches for a route.
+    /// </para>
+    /// </summary>
+    public static bool CanTraverseStep(TacticalMap map, TacticalMapCell from, TacticalMapCell to)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        if (from == to) return IsCellWalkable(map, to.X, to.Y);
+        if (!IsInside(map, from.X, from.Y) || !IsCellWalkable(map, to.X, to.Y)) return false;
+
+        var dx = Math.Abs(to.X - from.X);
+        var dy = Math.Abs(to.Y - from.Y);
+        if (dx > 1 || dy > 1) return false;
+        if (dx + dy == 1) return CanMoveBetween(map, from, to);
+
+        var horizontalFirst = new TacticalMapCell(to.X, from.Y);
+        var verticalFirst = new TacticalMapCell(from.X, to.Y);
+        return (CanMoveBetween(map, from, horizontalFirst) && CanMoveBetween(map, horizontalFirst, to))
+            || (CanMoveBetween(map, from, verticalFirst) && CanMoveBetween(map, verticalFirst, to));
     }
 
     public static bool HasLineOfSight(TacticalMap map, TacticalMapCell from, TacticalMapCell to)
