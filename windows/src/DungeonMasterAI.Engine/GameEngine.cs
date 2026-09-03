@@ -427,9 +427,18 @@ public sealed partial class GameEngine
         var abilityModifier = CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(character, "constitution"));
         var proficiencyModifier = proficient ? Math.Max(0, character.ProficiencyBonus) : 0;
         var exhaustionPenalty = 2 * Math.Clamp(character.ExhaustionLevel, 0, 6);
+        // Like every other in-combat pending roll, the request carries its encounter so the
+        // turn-advance guard can see that the save belongs to this encounter.
+        var concentrationEncounter = campaign.Encounters.LastOrDefault(e =>
+            e.Status.Equals("active", StringComparison.OrdinalIgnoreCase) &&
+            e.Combatants.Any(c => c.CharacterId.Equals(character.Id, StringComparison.OrdinalIgnoreCase)));
+        var concentrationCombatant = concentrationEncounter?.Combatants
+            .FirstOrDefault(c => c.CharacterId.Equals(character.Id, StringComparison.OrdinalIgnoreCase));
         var pending = new PendingRollRequest
         {
             ActorCharacterId = character.Id,
+            EncounterId = concentrationEncounter?.Id,
+            CombatantId = concentrationCombatant?.Id,
             Formula = "1d20",
             RollType = "d20",
             RollMode = "normal",
@@ -667,7 +676,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
                     TieBreaker = encounter.Combatants.Count,
                     Side = "party",
                     Positioned = true,
-                    GridX = encounter.Combatants.Count * 2,
+                    GridX = FreePlacementColumn(encounter, 0),
                     GridY = 0
                 });
             }
@@ -687,6 +696,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         if (encounter.Combatants.Any(c => c.CharacterId == characterId))
             throw new InvalidOperationException($"{character.Name} is already in the encounter.");
 
+        var gridY = character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? 0 : 6;
         var combatant = new CombatantState
         {
             CharacterId = character.Id,
@@ -694,8 +704,8 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
             TieBreaker = encounter.Combatants.Count,
             Side = NormalizeCombatSide(side, character),
             Positioned = true,
-            GridX = encounter.Combatants.Count * 2,
-            GridY = character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? 0 : 6
+            GridX = FreePlacementColumn(encounter, gridY),
+            GridY = gridY
         };
         encounter.Combatants.Add(combatant);
         Touch(campaign);
@@ -864,6 +874,10 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         if (endingCombatant.DeathSaveRequiredThisTurn && !endingCombatant.DeathSaveResolvedThisTurn)
             throw new InvalidOperationException($"{endingCharacter.Name} must make the required Death Saving Throw before this turn can end.");
         ProcessEndOfTurnEffects(campaign, encounter, endingCombatant, dice);
+        // The transition must be all-or-nothing: the incoming combatant's turn-start battlefield
+        // damage is pre-checked before the turn index, round and action economy are touched.
+        var incomingIndex = encounter.TurnIndex + 1 >= encounter.Combatants.Count ? 0 : Math.Max(0, encounter.TurnIndex + 1);
+        ValidateTurnStartBattlefieldEffects(campaign, encounter, encounter.Combatants[incomingIndex]);
 
         encounter.TurnIndex++;
         encounter.SpellSlotCasterIdsThisTurn.Clear();
@@ -908,6 +922,8 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
     public CombatantState SetCombatantPosition(CampaignState campaign, string encounterId, string combatantId, int gridX, int gridY)
     {
         var encounter = RequireEncounter(campaign, encounterId);
+        if (encounter.PendingMove is not null)
+            throw new InvalidOperationException("Resolve or decline the pending Opportunity Attacks before repositioning a combatant.");
         var combatant = RequireCombatant(encounter, combatantId);
         EnsureSquareAvailable(encounter, combatant.Id, gridX, gridY);
         combatant.Positioned = true;
@@ -1498,11 +1514,22 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
             return;
         }
 
-        EnsureSquareAvailable(encounter, combatant.Id, pending.ToX, pending.ToY);
-        if (pending.ReadiedReactionMove)
-            CommitReadiedCombatMove(campaign, encounter, combatant, character, pending.ToX, pending.ToY, pending.DistanceFeet, pending.MovementCostFeet);
-        else
-            CommitCombatMove(campaign, encounter, combatant, character, pending.ToX, pending.ToY, pending.DistanceFeet, pending.MovementCostFeet);
+        try
+        {
+            EnsureSquareAvailable(encounter, combatant.Id, pending.ToX, pending.ToY);
+            if (pending.ReadiedReactionMove)
+                CommitReadiedCombatMove(campaign, encounter, combatant, character, pending.ToX, pending.ToY, pending.DistanceFeet, pending.MovementCostFeet);
+            else
+                CommitCombatMove(campaign, encounter, combatant, character, pending.ToX, pending.ToY, pending.DistanceFeet, pending.MovementCostFeet);
+        }
+        catch
+        {
+            // Every window is already resolved, so a stranded pending move could only be cleared
+            // by ending the encounter. A finalize that fails cancels the move instead.
+            encounter.PendingMove = null;
+            Log(campaign, "combat_move_cancelled", $"{character.Name}'s pending movement was cancelled because it could not be completed.");
+            throw;
+        }
         encounter.PendingMove = null;
     }
 
@@ -2030,6 +2057,17 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
 
     private static int GridDistanceFeet(int x1, int y1, int x2, int y2) =>
         Math.Max(Math.Abs(x2 - x1), Math.Abs(y2 - y1)) * 5;
+
+    /// <summary>
+    /// Returns the first unoccupied column of a placement row, scanning deterministically from the
+    /// index-derived column so the same encounter always produces the same starting layout.
+    /// </summary>
+    private static int FreePlacementColumn(EncounterState encounter, int gridY)
+    {
+        var gridX = encounter.Combatants.Count * 2;
+        while (encounter.Combatants.Any(c => c.Positioned && c.GridX == gridX && c.GridY == gridY)) gridX += 2;
+        return gridX;
+    }
 
     private static void EnsureSquareAvailable(EncounterState encounter, string movingCombatantId, int gridX, int gridY)
     {

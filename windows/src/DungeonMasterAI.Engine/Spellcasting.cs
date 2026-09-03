@@ -1298,6 +1298,25 @@ public sealed partial class GameEngine
         }
         if (resolution == "persistent_area" && (string.IsNullOrWhiteSpace(spell.AreaShape) || spell.AreaSizeFeet <= 0 || string.IsNullOrWhiteSpace(spell.AreaOrigin)))
             throw new InvalidOperationException($"{spell.Name} is configured as a persistent-area spell but its area geometry metadata is incomplete.");
+        // Damage and healing are rolled only after the slot, the action economy and Concentration
+        // have already been spent, so an unparseable expression is rejected here instead.
+        if (resolution is "attack" or "save" or "projectile_auto" or "projectile_attack")
+        {
+            ValidateSpellDiceExpression(spell, spell.DamageExpression, "damage");
+            ValidateSpellDiceExpression(spell, spell.ExtraDamagePerSlotExpression, "upcast damage");
+        }
+        if (resolution is "healing" or "multi_heal")
+        {
+            ValidateSpellDiceExpression(spell, spell.HealingExpression, "healing");
+            ValidateSpellDiceExpression(spell, spell.ExtraHealingPerSlotExpression, "upcast healing");
+        }
+    }
+
+    private static void ValidateSpellDiceExpression(SpellDefinition spell, string? expression, string label)
+    {
+        if (string.IsNullOrWhiteSpace(expression)) return;
+        if (!DiceService.TryValidateExpression(expression))
+            throw new InvalidOperationException($"{spell.Name} has an unparseable {label} expression '{expression}'. The deterministic engine will not guess it.");
     }
 
     private static void ValidateSpellTargetType(CharacterSheet? target, SpellDefinition spell)

@@ -26,6 +26,27 @@ public sealed partial class DiceService
 
     public DiceRoll Roll(string expression) => RollCore(expression, MaxDiceCount);
 
+    /// <summary>
+    /// Reports whether an expression would roll. Callers validate campaign-authored and
+    /// model-supplied strings with this before they mutate state a mid-resolution roll would strand.
+    /// </summary>
+    public static bool TryValidateExpression(string? expression)
+    {
+        var raw = expression ?? "";
+        var fixedMatch = FixedExpressionRegex().Match(raw);
+        if (fixedMatch.Success)
+            return int.TryParse(fixedMatch.Groups["fixed"].Value, out var fixedValue) && fixedValue <= 1_000_000;
+
+        var match = DiceExpressionRegex().Match(raw);
+        if (!match.Success) return false;
+        var countText = match.Groups["count"].Value;
+        var count = 1;
+        if (!string.IsNullOrWhiteSpace(countText) && !int.TryParse(countText, out count)) return false;
+        if (!int.TryParse(match.Groups["sides"].Value, out var sides)) return false;
+        if (match.Groups["modifier"].Success && !int.TryParse(match.Groups["modifier"].Value, out _)) return false;
+        return count is >= 1 and <= MaxDiceCount && sides is >= 2 and <= 1000;
+    }
+
     private DiceRoll RollCore(string expression, int maxDiceCount)
     {
         var raw = expression ?? "";

@@ -131,6 +131,47 @@ Run("pending readied movement decision survives campaign JSON serialization", ()
     Equal("2", restoredDecision.Context["grid_y"], "destination survives restore");
 });
 
+Run("a readied move whose path cannot resolve leaves the Reaction and the ready untouched", () =>
+{
+    var f = CreateFixture(playerReactor: true, provokingEnemy: false);
+    ReadyAndAdvance(f);
+    AddUnrollableHazard(f);
+    var decision = f.Engine.RequestReadiedMoveDecision(f.Campaign, f.Encounter.Id, f.ReactorCombatant.Id, 0, 2);
+
+    var threw = false;
+    try { f.Engine.ResolvePendingPlayerDecision(f.Campaign, decision.Id, "use_reaction", MinimumDice()); }
+    catch (InvalidOperationException) { threw = true; }
+
+    True(threw, "a path that cannot resolve must throw");
+    Equal(0, f.ReactorCombatant.GridY, "the failed trigger must not move the PC");
+    True(f.ReactorCombatant.ReactionAvailable, "the failed trigger must not spend the Reaction");
+    True(f.ReactorCombatant.ReadiedAction is not null, "the failed trigger must not consume the readied movement");
+    Equal(decision.Id, f.Campaign.PendingPlayerDecision?.Id, "the decision must remain pending");
+
+    var declined = f.Engine.ResolvePendingPlayerDecision(f.Campaign, decision.Id, "decline_trigger", MinimumDice());
+    Equal("decline_trigger", declined.OptionId, "the restored decision can still be declined");
+    True(declined.Summary.Contains("remain available"), "the ignore summary reports the Reaction that is genuinely still available");
+    True(f.ReactorCombatant.ReactionAvailable, "declining preserves the Reaction");
+});
+
+Run("a restored readied-move decision can still be accepted once the path resolves", () =>
+{
+    var f = CreateFixture(playerReactor: true, provokingEnemy: false);
+    ReadyAndAdvance(f);
+    var hazard = AddUnrollableHazard(f);
+    var decision = f.Engine.RequestReadiedMoveDecision(f.Campaign, f.Encounter.Id, f.ReactorCombatant.Id, 0, 2);
+    try { f.Engine.ResolvePendingPlayerDecision(f.Campaign, decision.Id, "use_reaction", MinimumDice()); }
+    catch (InvalidOperationException) { }
+    f.Engine.RemoveBattlefieldEffect(f.Campaign, f.Encounter.Id, hazard.Id, "dispelled");
+
+    var result = f.Engine.ResolvePendingPlayerDecision(f.Campaign, decision.Id, "use_reaction", MinimumDice());
+
+    Equal("use_reaction", result.OptionId, "the restored decision can still be accepted");
+    Equal(2, f.ReactorCombatant.GridY, "the accepted movement commits");
+    True(!f.ReactorCombatant.ReactionAvailable, "the accepted movement spends the Reaction");
+    True(f.ReactorCombatant.ReadiedAction is null, "the accepted movement consumes the ready");
+});
+
 if (failures.Count > 0)
 {
     Console.Error.WriteLine($"Readied movement decision tests failed: {failures.Count}");
@@ -159,6 +200,20 @@ static void ReadyAndAdvance(Fixture f)
     f.Engine.TakeReadyMove(f.Campaign, f.Encounter.Id, f.ReactorCombatant.Id, "the enemy advances");
     f.Engine.NextTurn(f.Campaign, f.Encounter.Id, MinimumDice());
 }
+
+static BattlefieldEffectState AddUnrollableHazard(Fixture f) =>
+    f.Engine.AddBattlefieldEffect(f.Campaign, f.Encounter.Id, new BattlefieldEffectState
+    {
+        Name = "Cinder Bloom",
+        Shape = "sphere",
+        SizeFeet = 5,
+        OriginX = 0,
+        OriginY = 2,
+        Trigger = "enter",
+        // The campaign file supplies a damage string the dice parser rejects.
+        DamageExpression = "2d6 + STR",
+        DamageType = "Fire"
+    });
 
 static Fixture CreateFixture(bool playerReactor, bool provokingEnemy)
 {

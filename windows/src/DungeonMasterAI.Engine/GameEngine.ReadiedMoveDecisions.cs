@@ -102,7 +102,10 @@ public sealed partial class GameEngine
         if (option.Id.Equals("decline_trigger", StringComparison.OrdinalIgnoreCase))
         {
             campaign.PendingPlayerDecision = null;
-            var summary = $"{character.Name} ignored this readied-movement trigger. The Reaction and readied movement remain available until they expire or another legal trigger is accepted.";
+            var reactionText = combatant.ReactionAvailable
+                ? "The Reaction and readied movement remain available until they expire or another legal trigger is accepted."
+                : "The readied movement remains, but the Reaction has already been spent and cannot be used again until the start of the next turn.";
+            var summary = $"{character.Name} ignored this readied-movement trigger. {reactionText}";
             Log(campaign, "readied_move_declined", summary, dmOnly: true);
             Log(campaign, "player_decision_resolved", $"{character.Name}: {option.Label}.", dmOnly: true);
             Touch(campaign);

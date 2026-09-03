@@ -229,6 +229,10 @@ public sealed partial class GameEngine
         if (movementCostFeet > speed)
             throw new InvalidOperationException($"That readied move costs {movementCostFeet} feet, exceeding {character.Name}'s Speed of {speed} feet.");
 
+        // The whole path is validated before the Reaction and the readied action are spent: the
+        // committing walk is not atomic, and a throw inside it must not strand a half-spent Ready.
+        ValidateMovementBattlefieldEffects(campaign, encounter, combatant, path);
+
         combatant.ReactionAvailable = false;
         combatant.ReadiedAction = null;
         var opportunityAttacks = FindOpportunityAttackWindows(campaign, encounter, combatant, gridX, gridY);
