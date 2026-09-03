@@ -283,6 +283,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged();
             OnPropertyChanged(nameof(Locations));
             OnPropertyChanged(nameof(Quests));
+            OnPropertyChanged(nameof(ActiveQuest));
             OnPropertyChanged(nameof(RecentEvents));
             OnPropertyChanged(nameof(Encounters));
             OnPropertyChanged(nameof(FactionDisplays));
@@ -354,7 +355,20 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     public IEnumerable<CharacterSheet> Characters => SelectedCampaign?.Characters ?? [];
     public IEnumerable<WorldLocation> Locations => SelectedCampaign?.Locations.Where(l => ShowDmMap || (l.Discovered && !l.DmOnly)) ?? [];
-    public IEnumerable<Quest> Quests => SelectedCampaign?.Quests.Where(q => ShowDmMap || !q.DmOnly) ?? [];
+    // Materialised rather than left as a lazy Where: the views bind Quests.Count and the Home
+    // dashboard needs a single stable "first quest", neither of which an unevaluated iterator can
+    // answer. It also stops every binding re-running the filter on each refresh.
+    public IReadOnlyList<Quest> Quests => SelectedCampaign?.Quests.Where(q => ShowDmMap || !q.DmOnly).ToList() ?? [];
+
+    /// <summary>
+    /// The quest the Home dashboard features. Home previously bound <c>Quests[0]</c>, which cannot
+    /// work: the property was a lazy iterator with no indexer, and once materialised the index threw
+    /// on a campaign that has no visible quests. Prefer one that is under way, otherwise the first
+    /// known quest, otherwise null so the card can show its empty state.
+    /// </summary>
+    public Quest? ActiveQuest =>
+        Quests.FirstOrDefault(q => q.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+        ?? Quests.FirstOrDefault();
     public IEnumerable<CampaignEvent> RecentEvents => SelectedCampaign?.Events.Where(e => ShowDmMap || !e.DmOnly).TakeLast(12).Reverse() ?? [];
     public IEnumerable<ChatMessage> Chat => SelectedCampaign?.Chat ?? [];
     public IEnumerable<SessionChatMessageDisplay> SessionChat => (SelectedCampaign?.Chat ?? [])
@@ -2297,6 +2311,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(Characters));
         OnPropertyChanged(nameof(Locations));
         OnPropertyChanged(nameof(Quests));
+        OnPropertyChanged(nameof(ActiveQuest));
         OnPropertyChanged(nameof(RecentEvents));
         OnPropertyChanged(nameof(Chat));
         OnPropertyChanged(nameof(SessionChat));

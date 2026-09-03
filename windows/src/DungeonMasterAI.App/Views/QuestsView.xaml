@@ -49,11 +49,11 @@
         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,8,8">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <DockPanel>
-                    <TextBlock Text="QUEST JOURNAL" Style="{StaticResource AaaSectionTitle}"/>
-                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" VerticalAlignment="Center">
+                <DockPanel><TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" VerticalAlignment="Center">
                         <Run Text="{Binding Quests.Count, Mode=OneWay, FallbackValue=0}"/><Run Text=" tracked"/>
                     </TextBlock>
+                    <TextBlock Text="QUEST JOURNAL" Style="{StaticResource AaaSectionTitle}"/>
+                    
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding Quests}" Style="{StaticResource AaaListBox}"
                          Margin="0,8,0,0" HorizontalContentAlignment="Stretch"
@@ -85,11 +85,11 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
-                                    <DockPanel Margin="21,7,0,0">
+                                    <DockPanel Margin="21,7,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding SourceKind}"
+                                                   Style="{StaticResource AaaMuted}" FontSize="8.5"/>
                                         <TextBlock Text="{Binding RewardGp, StringFormat=Reward: {0} gp}"
                                                    Foreground="#D0A959" FontSize="9"/>
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding SourceKind}"
-                                                   Style="{StaticResource AaaMuted}" FontSize="8.5"/>
+                                        
                                     </DockPanel>
 
                                     <!-- DM-only notes stay visually distinct from player-facing text. -->
@@ -134,10 +134,10 @@
                             <DataTemplate>
                                 <Border BorderBrush="#272D30" BorderThickness="0,0,0,1" Padding="0,6">
                                     <StackPanel>
-                                        <DockPanel>
-                                            <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5"/>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Knowledge}"
+                                        <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Knowledge}"
                                                        Foreground="#D0A959" FontSize="8.5"/>
+                                            <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5"/>
+                                            
                                         </DockPanel>
                                         <TextBlock Text="{Binding Summary}" Style="{StaticResource AaaMuted}"
                                                    FontSize="9" TextWrapping="Wrap" Margin="0,2,0,0"/>
@@ -152,9 +152,9 @@
             <Border Grid.Row="1" Style="{StaticResource AaaPanelBorder}" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <DockPanel>
+                    <DockPanel><TextBlock DockPanel.Dock="Right" Text="DM only" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
                         <TextBlock Text="SECRETS" Style="{StaticResource AaaSectionTitle}" Foreground="#6D9FD4"/>
-                        <TextBlock DockPanel.Dock="Right" Text="DM only" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
+                        
                     </DockPanel>
                     <ListBox Grid.Row="1" ItemsSource="{Binding SecretDisplays}" Style="{StaticResource AaaListBox}"
                              Margin="0,8,0,0" HorizontalContentAlignment="Stretch"
@@ -204,11 +204,11 @@
                                 <Border Background="#11161A" BorderBrush="#4C4030" BorderThickness="1" CornerRadius="3"
                                         Margin="0,0,7,0" Padding="10,8" Width="212">
                                     <StackPanel>
-                                        <DockPanel>
+                                        <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Resolved, StringFormat=Resolved: {0}}"
+                                                       Style="{StaticResource AaaMuted}" FontSize="8"/>
                                             <TextBlock Text="{Binding Schedule}" FontFamily="Georgia"
                                                        Foreground="#DCC792" FontSize="10"/>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Resolved, StringFormat=Resolved: {0}}"
-                                                       Style="{StaticResource AaaMuted}" FontSize="8"/>
+                                            
                                         </DockPanel>
                                         <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5"
                                                    TextWrapping="Wrap" Margin="0,5,0,0"/>

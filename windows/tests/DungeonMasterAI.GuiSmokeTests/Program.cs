@@ -28,6 +28,8 @@ internal static class Program
         Application? application = null;
         AaaShellWindow? window = null;
 
+        var bindingFailures = BindingFailureListener.Attach();
+
         try
         {
             application = new DungeonMasterAI.App.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -79,6 +81,8 @@ internal static class Program
                     FlushUi(window);
                     LayoutVisual(window.Content as FrameworkElement, 1280, 720);
                 }
+
+                VerifyFirstRunEmptyState(window, tabs, failures);
             }
 
             Check(window.IsVisible, "AAA shell remains alive after compact-layout checks.", failures);
@@ -92,6 +96,9 @@ internal static class Program
             try { window?.Close(); } catch { }
             try { application?.Shutdown(); } catch { }
         }
+
+        foreach (var bindingFailure in bindingFailures.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
+            failures.Add($"Binding failure: {bindingFailure}");
 
         if (failures.Count == 0)
         {
@@ -157,6 +164,34 @@ internal static class Program
 
         Check(viewModel.SelectedCampaign is not null, "Direct-import Greenhaven preview selects a campaign.", failures);
         Check(viewModel.SelectedEncounter is not null, "Direct-import Greenhaven preview selects an encounter.", failures);
+    }
+
+    /// <summary>
+    /// Walks every destination with no campaign selected. That is the state a new user actually
+    /// opens the app in, yet the populated Greenhaven preview above never exercises it, so a view
+    /// that only survives because some collection happened to be non-empty would pass unnoticed.
+    /// The binding listener is what does the asserting here.
+    /// </summary>
+    private static void VerifyFirstRunEmptyState(AaaShellWindow window, TabControl tabs, ICollection<string> failures)
+    {
+        if (window.DataContext is not MainViewModel viewModel)
+        {
+            failures.Add("AAA shell exposes the MainViewModel for the first-run empty-state pass.");
+            return;
+        }
+
+        viewModel.SelectedCampaign = null;
+        FlushUi(window);
+
+        for (var index = 0; index < tabs.Items.Count; index++)
+        {
+            tabs.SelectedIndex = index;
+            tabs.ApplyTemplate();
+            FlushUi(window);
+            LayoutVisual(window.Content as FrameworkElement, ReferenceWidth, ReferenceHeight);
+        }
+
+        Check(window.IsVisible, "AAA shell survives every destination with no campaign loaded.", failures);
     }
 
     /// <summary>
@@ -254,6 +289,34 @@ internal static class Program
         {
             if (child is DependencyObject dependencyChild)
                 CollectReachableCommands(dependencyChild, instanceToName, reachable);
+        }
+    }
+
+    /// <summary>
+    /// A missing <c>StaticResource</c> key throws at XAML load, but a binding whose path does not
+    /// exist on the view model fails silently: WPF writes one line to the data-binding trace and
+    /// leaves the control blank. That is indistinguishable from "the value is genuinely empty" in a
+    /// screenshot, so every binding this shell evaluates is asserted here instead.
+    /// </summary>
+    private sealed class BindingFailureListener : System.Diagnostics.TraceListener
+    {
+        private readonly List<string> _messages = [];
+
+        internal static IReadOnlyList<string> Attach()
+        {
+            var listener = new BindingFailureListener();
+            System.Diagnostics.PresentationTraceSources.Refresh();
+            var source = System.Diagnostics.PresentationTraceSources.DataBindingSource;
+            source.Listeners.Add(listener);
+            source.Switch.Level = System.Diagnostics.SourceLevels.Error;
+            return listener._messages;
+        }
+
+        public override void Write(string? message) { }
+
+        public override void WriteLine(string? message)
+        {
+            if (!string.IsNullOrWhiteSpace(message)) _messages.Add(message.Trim());
         }
     }
 

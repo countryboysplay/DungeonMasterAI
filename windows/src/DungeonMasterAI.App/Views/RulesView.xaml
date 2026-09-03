@@ -26,9 +26,9 @@
         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource AaaPanelBorder}" Padding="11" Margin="0,0,7,0">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <DockPanel>
+                <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding RuleResults.Count, StringFormat={}{0} passages}" Style="{StaticResource AaaMuted}"/>
                     <TextBlock Text="RESULTS" Style="{StaticResource AaaSectionTitle}"/>
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding RuleResults.Count, StringFormat={}{0} passages}" Style="{StaticResource AaaMuted}"/>
+                    
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding RuleResults}" SelectedItem="{Binding SelectedRuleResult}"
                          Style="{StaticResource AaaListBox}" Margin="0,8,0,0">
@@ -66,12 +66,12 @@
         <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="11">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <DockPanel>
-                    <TextBlock Text="SPELL LIBRARY" Style="{StaticResource AaaSectionTitle}"/>
-                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" FontSize="9"
+                <DockPanel><TextBlock DockPanel.Dock="Right" Style="{StaticResource AaaMuted}" FontSize="9"
                                ToolTip="Spells resolved by the deterministic engine, out of the full SRD catalog">
                         <Run Foreground="#7DBE87" Text="{Binding SpellImplementedCount, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding SpellCatalogCount, Mode=OneWay}"/>
                     </TextBlock>
+                    <TextBlock Text="SPELL LIBRARY" Style="{StaticResource AaaSectionTitle}"/>
+                    
                 </DockPanel>
                 <TextBox Grid.Row="1" Text="{Binding SpellLibraryQuery, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource AaaTextBox}" Margin="0,8,0,8" ToolTip="Filter the SRD spell catalog"/>
@@ -81,14 +81,14 @@
                         <DataTemplate>
                             <Border BorderBrush="#272D30" BorderThickness="0,0,0,1" Padding="2,6">
                                 <StackPanel>
-                                    <DockPanel>
+                                    <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Level}" Foreground="{StaticResource AaaGoldBrush}" FontSize="9" Margin="6,0,0,0"/>
                                         <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="10.5" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level}" Foreground="{StaticResource AaaGoldBrush}" FontSize="9" Margin="6,0,0,0"/>
+                                        
                                     </DockPanel>
-                                    <DockPanel Margin="0,2,0,0">
-                                        <TextBlock Text="{Binding School}" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Resolution}" Style="{StaticResource AaaMuted}" FontSize="8.5"
+                                    <DockPanel Margin="0,2,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding Resolution}" Style="{StaticResource AaaMuted}" FontSize="8.5"
                                                    ToolTip="Deterministic engine resolution, or narration-only"/>
+                                        <TextBlock Text="{Binding School}" Style="{StaticResource AaaMuted}" FontSize="8.5"/>
+                                        
                                     </DockPanel>
                                 </StackPanel>
                             </Border>

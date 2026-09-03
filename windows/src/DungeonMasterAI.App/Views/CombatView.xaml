@@ -87,8 +87,8 @@
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <DockPanel Margin="2,0,2,7">
-                    <TextBlock Text="INITIATIVE ORDER" Style="{StaticResource AaaSectionTitle}" FontSize="11"/>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedEncounter.Combatants.Count, StringFormat={}{0} ACTIVE}" Style="{StaticResource AaaMuted}" FontSize="8"/>
+                    <TextBlock Text="INITIATIVE ORDER" Style="{StaticResource AaaSectionTitle}" FontSize="11"/>
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding Combatants}" SelectedItem="{Binding SelectedAttacker, Mode=TwoWay}" SelectionChanged="Initiative_SelectionChanged" Style="{StaticResource AaaListBox}" ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <ListBox.ItemTemplate>
@@ -102,8 +102,8 @@
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="11" Foreground="#E7DDCA" TextTrimming="CharacterEllipsis"/>
                                         <DockPanel>
-                                            <TextBlock Text="{Binding Side}" Style="{StaticResource AaaMuted}" FontSize="8"/>
                                             <TextBlock DockPanel.Dock="Right" FontFamily="Georgia" FontSize="8" Foreground="#BDB29D"><Run Text="{Binding CurrentHp}"/><Run Text="/"/><Run Text="{Binding MaxHp}"/></TextBlock>
+                                            <TextBlock Text="{Binding Side}" Style="{StaticResource AaaMuted}" FontSize="8"/>
                                         </DockPanel>
                                         <ProgressBar Maximum="{Binding MaxHp}" Value="{Binding CurrentHp}" Style="{StaticResource CombatHpBar}" Margin="0,3,3,0"/>
                                     </StackPanel>
@@ -111,7 +111,9 @@
                                 </Grid>
                             </Border>
                             <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding IsActiveTurn}" Value="True">
+                                <!-- CombatantDisplay exposes IsCurrentTurn; the old IsActiveTurn path
+                                     did not exist, so the initiative list never marked whose turn it was. -->
+                                <DataTrigger Binding="{Binding IsCurrentTurn}" Value="True">
                                     <Setter TargetName="InitiativeCard" Property="Background" Value="#132232"/>
                                     <Setter TargetName="InitiativeCard" Property="BorderBrush" Value="#315E80"/>
                                 </DataTrigger>
@@ -206,7 +208,7 @@
                     </UniformGrid>
                     <UniformGrid Columns="3" Margin="0,5,0,0">
                         <Border BorderBrush="#302F2B" BorderThickness="1" Padding="5" Margin="0,0,4,0"><StackPanel><TextBlock Text="INITIATIVE" Style="{StaticResource CombatTinyLabel}" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedAttacker.Initiative}" Style="{StaticResource CombatMetricValue}" FontSize="13"/></StackPanel></Border>
-                        <Border BorderBrush="#302F2B" BorderThickness="1" Padding="5" Margin="0,0,4,0"><StackPanel><TextBlock Text="SPEED" Style="{StaticResource CombatTinyLabel}" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedAttacker.Speed, StringFormat={}{0} ft}" Style="{StaticResource CombatMetricValue}" FontSize="13"/></StackPanel></Border>
+                        <Border BorderBrush="#302F2B" BorderThickness="1" Padding="5" Margin="0,0,4,0"><StackPanel><TextBlock Text="SPEED" Style="{StaticResource CombatTinyLabel}" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedAttacker.SpeedFeet, StringFormat={}{0} ft}" Style="{StaticResource CombatMetricValue}" FontSize="13"/></StackPanel></Border>
                         <Border BorderBrush="#302F2B" BorderThickness="1" Padding="5"><StackPanel><TextBlock Text="MOVE LEFT" Style="{StaticResource CombatTinyLabel}" HorizontalAlignment="Center"/><TextBlock Text="{Binding SelectedAttacker.MovementRemainingFeet, StringFormat={}{0} ft}" Style="{StaticResource CombatMetricValue}" FontSize="13"/></StackPanel></Border>
                     </UniformGrid>
 
@@ -217,10 +219,10 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions>
-                        <DockPanel><Ellipse Width="7" Height="7" Fill="{StaticResource CombatGreen}" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Action" FontFamily="Georgia" FontSize="9"/><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.ActionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
-                        <DockPanel Grid.Column="1" Margin="10,0,0,0"><Ellipse Width="7" Height="7" Fill="{StaticResource CombatGreen}" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Movement" FontFamily="Georgia" FontSize="9"/><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.MovementRemainingFeet}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
-                        <DockPanel Grid.Row="1"><Ellipse Width="7" Height="7" Fill="#D48B42" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Bonus Action" FontFamily="Georgia" FontSize="9"/><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.BonusActionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
-                        <DockPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,0"><Ellipse Width="7" Height="7" Fill="#5A9FBC" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Reaction" FontFamily="Georgia" FontSize="9"/><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.ReactionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
+                        <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.ActionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/><Ellipse Width="7" Height="7" Fill="{StaticResource CombatGreen}" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Action" FontFamily="Georgia" FontSize="9"/></DockPanel>
+                        <DockPanel Grid.Column="1" Margin="10,0,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.MovementRemainingFeet}" Style="{StaticResource AaaMuted}" FontSize="8"/><Ellipse Width="7" Height="7" Fill="{StaticResource CombatGreen}" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Movement" FontFamily="Georgia" FontSize="9"/></DockPanel>
+                        <DockPanel Grid.Row="1"><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.BonusActionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/><Ellipse Width="7" Height="7" Fill="#D48B42" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Bonus Action" FontFamily="Georgia" FontSize="9"/></DockPanel>
+                        <DockPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,0"><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedAttacker.ReactionAvailable}" Style="{StaticResource AaaMuted}" FontSize="8"/><Ellipse Width="7" Height="7" Fill="#5A9FBC" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Text="Reaction" FontFamily="Georgia" FontSize="9"/></DockPanel>
                     </Grid>
                     <TextBlock Text="{Binding SelectedAttacker.ReadyStatus, StringFormat=Readied: {0}}" Style="{StaticResource AaaMuted}" FontSize="8" Margin="0,6,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -267,7 +269,7 @@
             <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Padding="9" Margin="0,0,6,0">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <DockPanel><TextBlock Text="SELECT A TARGET" Style="{StaticResource AaaSectionTitle}" FontSize="10"/><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedTarget.Name}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
+                    <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedTarget.Name}" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBlock Text="SELECT A TARGET" Style="{StaticResource AaaSectionTitle}" FontSize="10"/></DockPanel>
                     <ListBox Grid.Row="1" ItemsSource="{Binding Combatants}" SelectedItem="{Binding SelectedTarget, Mode=TwoWay}" SelectionChanged="Target_SelectionChanged" Style="{StaticResource AaaListBox}" Margin="0,6,0,4" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
@@ -302,10 +304,10 @@
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <DockPanel>
-                        <TextBlock Text="MORE ACTIONS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
                         <Button DockPanel.Dock="Right" Command="{Binding ActivateEncounterCommand}" Content="Activate"
                                 Style="{StaticResource AaaTopButton}" Padding="7,2" Margin="0" FontSize="8.5"
                                 ToolTip="Activate the selected encounter"/>
+                        <TextBlock Text="MORE ACTIONS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
                     </DockPanel>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
@@ -404,7 +406,7 @@
             <Border Grid.Column="3" Style="{StaticResource AaaPanelBorder}" Padding="9">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <DockPanel><TextBlock Text="COMBAT LOG" Style="{StaticResource AaaSectionTitle}" FontSize="10"/><TextBlock DockPanel.Dock="Right" Text="{Binding CombatStatus}" Style="{StaticResource AaaMuted}" FontSize="8"/></DockPanel>
+                    <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding CombatStatus}" Style="{StaticResource AaaMuted}" FontSize="8"/><TextBlock Text="COMBAT LOG" Style="{StaticResource AaaSectionTitle}" FontSize="10"/></DockPanel>
                     <ListBox Grid.Row="1" ItemsSource="{Binding SessionChat}" Style="{StaticResource AaaListBox}" Margin="0,6,0,4" ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
