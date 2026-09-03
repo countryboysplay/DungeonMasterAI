@@ -27,7 +27,7 @@ public sealed partial class GameEngine
         else if (roll == 1)
         {
             character.DeathSaveFailures = Math.Min(3, character.DeathSaveFailures + 2);
-            if (character.DeathSaveFailures >= 3) MarkDead(character);
+            if (character.DeathSaveFailures >= 3) MarkDead(campaign, character);
             summary = character.Dead
                 ? $"{character.Name} rolled a natural 1, suffered two failures, and died."
                 : $"{character.Name} rolled a natural 1 and suffered two Death Saving Throw failures.";
@@ -47,7 +47,7 @@ public sealed partial class GameEngine
         else
         {
             character.DeathSaveFailures = Math.Min(3, character.DeathSaveFailures + 1);
-            if (character.DeathSaveFailures >= 3) MarkDead(character);
+            if (character.DeathSaveFailures >= 3) MarkDead(campaign, character);
             summary = character.Dead
                 ? $"{character.Name} reached three Death Saving Throw failures and died."
                 : $"{character.Name} failed a Death Saving Throw with a modified total of {modifiedTotal} ({character.DeathSaveFailures}/3).";

@@ -75,6 +75,10 @@ public sealed class WorldLocation
     public double Y { get; set; }
     public bool Discovered { get; set; }
     public bool DmOnly { get; set; }
+    // Faucet F3 idempotency (docs/progression-direction.md §3.0). Discovery XP is paid on the
+    // first reveal and never again. RevealLocation already refuses a second reveal, so this is
+    // the guard for the paths that set Discovered directly: import, clone, and migration.
+    public bool DiscoveryExperienceAwarded { get; set; }
     public string SourceKind { get; set; } = "source_canon";
 }
 
@@ -96,6 +100,26 @@ public sealed class CharacterSheet
     public string CharacterType { get; set; } = "pc";
     public string CreatureType { get; set; } = "";
     public int Level { get; set; } = 1;
+
+    // --- Progression (docs/progression-direction.md) -------------------------------------------
+    // XP is per character, but every award is divided across the whole eligible party, so in
+    // ordinary play all four totals stay equal. Per-character storage is what lets a PC die, be
+    // replaced, or join late without the party's progression becoming a single fiction.
+    public int ExperiencePoints { get; set; }
+    // Crossing a threshold arms a level-up; it does not apply one. A level grants Hit Points, so
+    // instant application would make "be damaged when the last enemy dies" a strategy. Applied at
+    // a Long Rest, or by an explicit call that is illegal during an active encounter.
+    public int PendingLevelUps { get; set; }
+    // Authored SRD Challenge Rating text, e.g. "1/4" or "5". Null on everything the importers
+    // produce today, which is why the engine derives one from stats when this is absent.
+    public string? ChallengeRating { get; set; }
+    // Explicit per-creature XP override. Wins over ChallengeRating, which wins over derivation.
+    public int? ExperienceValue { get; set; }
+    // Faucets F1 and F4 idempotency. A creature pays out exactly once, whether it was killed or
+    // talked past, and the flag is on the sheet so it survives save, load, and reload-and-re-kill.
+    public bool ExperienceAwarded { get; set; }
+    // ------------------------------------------------------------------------------------------
+
     public int ArmorClass { get; set; } = 10;
     public int MaxHp { get; set; } = 10;
     public int CurrentHp { get; set; } = 10;
@@ -479,6 +503,12 @@ public sealed class Quest
     public string Summary { get; set; } = "";
     public string DmNotes { get; set; } = "";
     public int RewardGp { get; set; }
+    // A party total, not a per-character amount. 0 means "use the level-scaled default" so that
+    // imported campaigns -- which author no XP at all -- are not economically dead.
+    public int RewardExperience { get; set; }
+    // Faucet F2 idempotency, covering both the XP and the gold. Quest status is LLM-driven, so
+    // completing, reopening, and completing again must not be a faucet.
+    public bool RewardsGranted { get; set; }
     public bool DmOnly { get; set; }
     public List<string> Objectives { get; set; } = [];
     public string SourceKind { get; set; } = "source_canon";
@@ -571,6 +601,31 @@ public sealed record DamageResult(int RequestedDamage, int EffectiveDamage, stri
 public sealed record ConcentrationCheckResult(string Effect, int DamageTaken, int DifficultyClass, D20TestResult SavingThrow, bool Maintained, string Summary);
 public sealed record DamageResolutionResult(DamageResult Damage, ConcentrationCheckResult? Concentration);
 public sealed record RestResult(string RestType, int Minutes, IReadOnlyList<string> Effects, string Summary);
+/// <summary>
+/// One character's share of one XP award. Carries everything the presentation layer needs to
+/// render the award beat without recomputing anything: the amount, where it came from, the new
+/// total, and how far the bar has left to travel.
+/// </summary>
+public sealed record ExperienceAward(
+    string CharacterId,
+    string CharacterName,
+    int Amount,
+    int NewTotal,
+    int Level,
+    int ExperienceToNextLevel,
+    bool CrossedThreshold,
+    string SourceKind,
+    string SourceName,
+    string Summary);
+public sealed record LevelUpResult(
+    string CharacterId,
+    string CharacterName,
+    int NewLevel,
+    int HitPointsGained,
+    int NewMaxHp,
+    int ProficiencyBonus,
+    int PendingLevelUpsRemaining,
+    string Summary);
 public sealed record InitiativeEntry(string CombatantId, string CharacterId, string Name, int Initiative, bool Surprised);
 public sealed record EncounterAttackResult(string EncounterId, string AttackerName, string TargetName, string AttackName, AttackResult Attack, DamageResult? Damage, string Summary, ConcentrationCheckResult? Concentration = null, bool UsedReaction = false, int CoverBonus = 0);
 public sealed record GrappleResult(string EncounterId, string GrapplerCombatantId, string TargetCombatantId, int SaveDc, string SaveAbility, D20TestResult SavingThrow, bool Grappled, string Summary);

@@ -5,7 +5,7 @@ namespace DungeonMasterAI.Data;
 
 public sealed class AppDataStore
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -166,6 +166,50 @@ public sealed class AppDataStore
                         if (settings.Temperature == 0.75) settings.Temperature = fresh.Temperature;
                     }
                     state.SchemaVersion = 4;
+                    break;
+                case 4:
+                    // v5 introduces progression: experience points, banked level-ups, and the
+                    // one-time payout flags described in docs/progression-direction.md.
+                    //
+                    // Two things this migration must do, and one it must not.
+                    //
+                    // It must seed experience from the level a character already has. Every
+                    // existing save has characters at levels 1..n and no XP at all. Left at 0, an
+                    // imported level-5 player character would bank a level-up on their next
+                    // 300-XP award, as though they were levelling 1 to 2, and would keep doing so
+                    // until their XP caught up with a level they already had. The seed is the
+                    // whole substance of the migration.
+                    //
+                    // It must settle every subject that could otherwise pay out retroactively:
+                    // creatures already dead, quests already completed, locations already found.
+                    //
+                    // It must NOT grant anything. No XP is paid, no level-up is banked, no gold
+                    // moves. A migration that paid out would hand a long-running campaign a
+                    // windfall on upgrade, and a migration is not the place to overrule the state
+                    // of a game already in progress.
+                    foreach (var campaign in state.Campaigns ?? [])
+                    {
+                        foreach (var character in campaign.Characters ?? [])
+                        {
+                            if (character.ExperiencePoints <= 0)
+                                character.ExperiencePoints = Progression.ExperienceThresholdForLevel(character.Level);
+                            // PendingLevelUps is deliberately NOT reset here. A v4 file cannot
+                            // carry the field, so it already deserializes to 0 -- and Migrate runs
+                            // on every save as well as every load, so zeroing it would destroy a
+                            // banked level-up on any state that reached this arm with one set.
+                            if (character.Dead && !character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase))
+                                character.ExperienceAwarded = true;
+                        }
+                        foreach (var quest in campaign.Quests ?? [])
+                        {
+                            if (Progression.IsCompletingQuestStatus(quest.Status)) quest.RewardsGranted = true;
+                        }
+                        foreach (var location in campaign.Locations ?? [])
+                        {
+                            if (location.Discovered) location.DiscoveryExperienceAwarded = true;
+                        }
+                    }
+                    state.SchemaVersion = 5;
                     break;
                 default:
                     throw new InvalidDataException($"No migration is defined from state schema version {state.SchemaVersion}.");

@@ -128,6 +128,9 @@ jobs:
       - name: Run first-class player decision tests
         run: dotnet run --project tests/DungeonMasterAI.PlayerDecisionTests/DungeonMasterAI.PlayerDecisionTests.csproj --configuration Release
 
+      - name: Run r62 progression and XP economy tests
+        run: dotnet run --project tests/DungeonMasterAI.ProgressionTests/DungeonMasterAI.ProgressionTests.csproj --configuration Release
+
       - name: Run full smoke suite
         run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
 
