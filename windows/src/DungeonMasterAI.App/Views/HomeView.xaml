@@ -40,7 +40,7 @@
                             </Grid>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="760" HorizontalAlignment="Left">
-                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN}" Style="{StaticResource AaaHeroTitle}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=No campaign loaded}" Style="{StaticResource AaaHeroTitle}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding CampaignSummary}" FontFamily="Georgia" FontSize="15" Foreground="#E2D9C7" Margin="0,7,0,18" TextWrapping="Wrap" MaxWidth="610"/>
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel Width="94"><TextBlock Text="Campaign Level" Style="{StaticResource AaaMuted}" FontSize="9"/><TextBlock Text="5" FontFamily="Georgia" FontSize="15"/></StackPanel>
@@ -60,16 +60,17 @@
                     <Border Height="1" Background="#2D3438" Margin="0,13,0,12"/>
                     <Border Background="#0A1217" BorderBrush="#26333A" BorderThickness="1" CornerRadius="4" Padding="10">
                         <DockPanel>
-                            <Ellipse Width="8" Height="8" Fill="{StaticResource AaaGreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding LocalAiStatus}" Foreground="{Binding LocalAiStatus, Converter={StaticResource AaaLocalAiStatusBrush}}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="8,0,0,0"/>
+                            <Ellipse Width="8" Height="8" Fill="{Binding LocalAiStatus, Converter={StaticResource AaaLocalAiStatusBrush}}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Local AI" FontFamily="Georgia" FontSize="13"/>
-                            <TextBlock DockPanel.Dock="Right" Text="● Running" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/>
                         </DockPanel>
                     </Border>
                     <Grid Margin="0,14,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/></Grid.RowDefinitions>
                         <TextBlock Text="Model" Style="{StaticResource AaaMuted}"/>
-                        <TextBlock Grid.Column="1" Text="Bundled GGUF" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF"/>
+                        <!-- No model is bundled; the name is only known once a runtime reports it, so the slot stays empty. -->
+                        <TextBlock Grid.Column="1" Text="—" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF"/>
                         <TextBlock Grid.Row="1" Text="Runtime" Style="{StaticResource AaaMuted}"/>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="llama.cpp • Local" Style="{StaticResource AaaMuted}" Foreground="#D3C7AF"/>
                         <TextBlock Grid.Row="2" Text="Status" Style="{StaticResource AaaMuted}"/>
@@ -96,16 +97,22 @@
                     <StackPanel>
                         <TextBlock Text="▤  ACTIVE QUEST" Style="{StaticResource AaaSectionTitle}" Foreground="{StaticResource AaaGreenBrush}"/>
                         <Border Height="1" Background="#314131" Margin="0,10,0,12"/>
-                        <TextBlock Text="{Binding Quests[0].Name, TargetNullValue=Whispers in the Roots}" FontFamily="Georgia" FontSize="18" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding Quests[0].Summary, TargetNullValue=Investigate the corruption spreading through the Eldenwood.}" Foreground="#C8C0AF" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,11" LineHeight="17"/>
-                        <TextBlock Text="Objective: Find the source        ›" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/>
+                        <!--
+                            Quests[0] could never resolve: the property is a filtered projection with no
+                            indexer, and indexing it once materialised throws on a campaign with no visible
+                            quests. ActiveQuest names one quest or none, and the card states plainly when
+                            there is none instead of falling back to invented flavour text.
+                        -->
+                        <TextBlock Text="{Binding ActiveQuest.Name, TargetNullValue=No active quest}" FontFamily="Georgia" FontSize="18" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding ActiveQuest.Summary, TargetNullValue=Load a campaign to see its quests here.}" Foreground="#C8C0AF" FontSize="11" TextWrapping="Wrap" Margin="0,9,0,11" LineHeight="17"/>
+                        <TextBlock Text="{Binding ActiveQuest.Status, StringFormat=Status: {0}}" Foreground="{StaticResource AaaGreenBrush}" FontFamily="Georgia" FontSize="11"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource AaaCardBorder}" Margin="0,0,6,0" BorderBrush="#2C4051">
                     <StackPanel>
                         <TextBlock Text="●  CURRENT LOCATION" Style="{StaticResource AaaSectionTitle}" Foreground="#6EA6DF"/>
                         <Border Height="1" Background="#293D4B" Margin="0,10,0,12"/>
-                        <TextBlock Text="{Binding CurrentLocationName, TargetNullValue=Greenhaven}" FontFamily="Georgia" FontSize="19"/>
+                        <TextBlock Text="{Binding CurrentLocationName, TargetNullValue=No location set}" FontFamily="Georgia" FontSize="19"/>
                         <TextBlock Text="A peaceful riverside town surrounded by ancient woodlands." Foreground="#C7BEAC" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,15" LineHeight="17"/>
                         <Button Content="▧  Open Map                         ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0"/>
                     </StackPanel>
@@ -114,12 +121,13 @@
                     <StackPanel>
                         <TextBlock Text="♟  PARTY STATUS" Style="{StaticResource AaaSectionTitle}" Foreground="#B485D4"/>
                         <Border Height="1" Background="#3D3040" Margin="0,10,0,12"/>
-                        <TextBlock Text="4 / 4 Members" FontFamily="Georgia" FontSize="17"/>
-                        <ItemsControl ItemsSource="{Binding Characters}" Margin="0,10,0,8">
+                        <!-- Party status lists the player characters only; monsters are combatants, not party members. -->
+                        <TextBlock Text="Party Members" FontFamily="Georgia" FontSize="17"/>
+                        <ItemsControl ItemsSource="{Binding PartyCharacters}" Margin="0,10,0,8">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate><DataTemplate><Border Width="38" Height="38" CornerRadius="19" Background="#151D21" BorderBrush="#8A7350" BorderThickness="1" Margin="0,0,5,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Width="30"/></Border></DataTemplate></ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <DockPanel><TextBlock Text="♥  Healthy" Style="{StaticResource AaaMuted}"/><TextBlock DockPanel.Dock="Right" Text="No Conditions" Style="{StaticResource AaaMuted}"/></DockPanel>
+                        <DockPanel><TextBlock DockPanel.Dock="Right" Text="No Conditions" Style="{StaticResource AaaMuted}"/><TextBlock Text="♥  Healthy" Style="{StaticResource AaaMuted}"/></DockPanel>
                         <Button Content="▥  Manage Party                     ›" Style="{StaticResource AaaTopButton}" Padding="10,6" Margin="0,10,0,0"/>
                     </StackPanel>
                 </Border>
@@ -130,7 +138,7 @@
                     <TextBlock Text="◇  SAVE &amp; RECOVERY" Style="{StaticResource AaaSectionTitle}"/>
                     <Border Height="1" Background="#3A3328" Margin="0,10,0,12"/>
                     <TextBlock Text="Last Save" Style="{StaticResource AaaMuted}"/>
-                    <DockPanel Margin="0,3,0,14"><TextBlock Text="Autosave active" FontFamily="Georgia" FontSize="13"/><TextBlock DockPanel.Dock="Right" Text="Auto Save  ✓" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/></DockPanel>
+                    <DockPanel Margin="0,3,0,14"><TextBlock DockPanel.Dock="Right" Text="Auto Save  ✓" Foreground="{StaticResource AaaGreenBrush}" FontSize="11"/><TextBlock Text="Autosave active" FontFamily="Georgia" FontSize="13"/></DockPanel>
                     <TextBlock Text="Save Slots" Style="{StaticResource AaaMuted}"/>
                     <UniformGrid Columns="5" Margin="0,9,0,12">
                         <Border BorderBrush="#98753B" BorderThickness="1" CornerRadius="3" Height="34" Margin="2"><TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Georgia"/></Border>
@@ -154,7 +162,7 @@
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource AaaPanelBorder}" Margin="0,0,6,0">
                     <StackPanel>
-                        <DockPanel><TextBlock Text="✎  RECENT ACTIVITY" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="9,4" Margin="0"/></DockPanel>
+                        <DockPanel><Button DockPanel.Dock="Right" Content="View All" Style="{StaticResource AaaTopButton}" Padding="9,4" Margin="0"/><TextBlock Text="✎  RECENT ACTIVITY" Style="{StaticResource AaaSectionTitle}" Foreground="#9B8AD5"/></DockPanel>
                         <Border Height="1" Background="#2C3031" Margin="0,10,0,5"/>
                         <TextBlock Text="▣   Session saved" FontFamily="Georgia" FontSize="11" Margin="2,7"/>
                         <TextBlock Text="▤   AI Note added: Possible motives for the druid circle." FontFamily="Georgia" FontSize="11" Margin="2,7" TextWrapping="Wrap"/>
@@ -167,7 +175,7 @@
                         <controls:CampaignMapControl Campaign="{Binding SelectedCampaign}" ShowDmView="False" Revision="{Binding MapRevision}" Opacity="0.42" IsHitTestVisible="False"/>
                         <Rectangle Fill="#8A4D351F"/>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="270">
-                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=GREENHAVEN}" FontFamily="Georgia" FontSize="17" Foreground="#E1C891" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding SelectedCampaign.Name, TargetNullValue=No campaign loaded}" FontFamily="Georgia" FontSize="17" Foreground="#E1C891" HorizontalAlignment="Center"/>
                             <TextBlock Text="“In every shadow, a story. In every choice, a legend.”" FontFamily="Georgia" FontStyle="Italic" FontSize="11" Foreground="#D6C49F" TextAlignment="Center" TextWrapping="Wrap" Margin="0,105,0,0"/>
                         </StackPanel>
                     </Grid>

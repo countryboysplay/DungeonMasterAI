@@ -137,9 +137,9 @@
             <Border Grid.Column="2" Style="{StaticResource AaaPanelBorder}" Padding="9">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <DockPanel Margin="1,0,1,6">
+                        <DockPanel Margin="1,0,1,6"><TextBlock DockPanel.Dock="Right" Text="{Binding SelectedCampaign.TacticalMaps.Count, StringFormat={}{0} SAVED}" Style="{StaticResource AaaMuted}" FontSize="8"/>
                             <TextBlock Text="CAMPAIGN MAPS" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedCampaign.TacticalMaps.Count, StringFormat={}{0} SAVED}" Style="{StaticResource AaaMuted}" FontSize="8"/>
+                            
                         </DockPanel>
                         <ListBox Height="126" ItemsSource="{Binding SelectedCampaign.TacticalMaps}" SelectedItem="{Binding SelectedCampaignMap, Mode=TwoWay}" ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.Style><Style TargetType="ListBox" BasedOn="{StaticResource AaaListBox}"><Style.Triggers><DataTrigger Binding="{Binding HasMapEditDraft}" Value="True"><Setter Property="IsEnabled" Value="False"/><Setter Property="Opacity" Value="0.55"/></DataTrigger></Style.Triggers></Style></ListBox.Style>
@@ -147,9 +147,9 @@
                         </ListBox>
 
                         <Border Height="1" Background="#3D3528" Margin="0,9,0,8"/>
-                        <DockPanel Margin="0,0,0,6">
+                        <DockPanel Margin="0,0,0,6"><TextBlock DockPanel.Dock="Right" Text="{Binding MapEditSourceLabel}" Style="{StaticResource AaaMuted}" FontSize="7.5"/>
                             <TextBlock Text="WORKING-COPY EDITOR" Style="{StaticResource AaaSectionTitle}" FontSize="10"/>
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding MapEditSourceLabel}" Style="{StaticResource AaaMuted}" FontSize="7.5"/>
+                            
                         </DockPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                             <Button Command="{Binding BeginMapEditCommand}" Style="{StaticResource AaaTopButton}" Padding="8,4" Margin="0,0,5,0" Content="Edit Selected"/>

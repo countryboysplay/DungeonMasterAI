@@ -296,11 +296,14 @@ public partial class AaaShellWindow : Window
 
     private static Grid? FindNavigationLayoutGrid(DependencyObject root)
     {
+        // The rail column is 198 when expanded and 64 once collapsed, so matching only the
+        // expanded width made the second hamburger click fail to find the grid.
         if (root is Grid grid
             && grid.ColumnDefinitions.Count == 2
             && grid.ColumnDefinitions[1].Width.IsStar
             && grid.ColumnDefinitions[0].Width.IsAbsolute
-            && Math.Abs(grid.ColumnDefinitions[0].Width.Value - 198) < 1)
+            && (Math.Abs(grid.ColumnDefinitions[0].Width.Value - 198) < 1
+                || Math.Abs(grid.ColumnDefinitions[0].Width.Value - 64) < 1))
             return grid;
 
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)

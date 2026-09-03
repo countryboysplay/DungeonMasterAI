@@ -48,7 +48,7 @@
                     <Border Grid.Column="2" Background="#0A1115" BorderBrush="#293034" BorderThickness="1" CornerRadius="4" Padding="12,6" Margin="0,9,20,9" MinWidth="160">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
-                                <Ellipse Width="8" Height="8" Fill="{StaticResource AaaGreenBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Ellipse Width="8" Height="8" Fill="{Binding LocalAiStatus, Converter={StaticResource AaaLocalAiStatusBrush}}" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Local AI" FontFamily="Georgia" FontSize="12"/>
                                 <TextBlock Text="  ▾" Foreground="{StaticResource AaaMutedBrush}"/>
                             </StackPanel>
@@ -129,8 +129,13 @@
                 <Grid Margin="18,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="v1.0.0" Style="{StaticResource AaaMuted}" FontSize="9"/>
-                        <Ellipse Width="7" Height="7" Fill="{StaticResource AaaGreenBrush}" Margin="18,0,8,0"/>
-                        <TextBlock Text="All systems operational" Style="{StaticResource AaaMuted}" FontSize="9"/>
+                        <Ellipse Width="7" Height="7" Fill="{Binding LocalAiStatus, Converter={StaticResource AaaLocalAiStatusBrush}}" Margin="18,0,8,0" VerticalAlignment="Center"/>
+                        <!--
+                            Shell status rail. StatusMessage is written from ~60 engine and view-model
+                            paths but was previously rendered only on the Combat tab, so Live Play could
+                            silently do nothing. Every destination now reads the same line.
+                        -->
+                        <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource AaaMuted}" FontSize="12" Foreground="{StaticResource AaaTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="900"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <TextBlock Text="Local Data Only" Style="{StaticResource AaaMuted}" FontSize="9"/>

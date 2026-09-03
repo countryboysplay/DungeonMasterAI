@@ -14,14 +14,32 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="✣" FontSize="29" Foreground="{StaticResource AaaGoldBrush}" VerticalAlignment="Center" Margin="0,0,14,0"/>
                     <StackPanel>
-                        <TextBlock Text="{Binding SelectedEncounter.Name, TargetNullValue=The Old Watchtower}" FontFamily="Georgia" FontSize="19"/>
-                        <TextBlock Text="{Binding SelectedEncounter.Summary, TargetNullValue=Third Floor • Crumbling Chamber}" Style="{StaticResource AaaMuted}"/>
+                        <TextBlock Text="{Binding SelectedEncounter.Name, TargetNullValue=No active encounter}" FontFamily="Georgia" FontSize="19"/>
+                        <TextBlock Text="{Binding SelectedEncounter.Summary, TargetNullValue=Load a campaign to begin play}" Style="{StaticResource AaaMuted}"/>
                     </StackPanel>
                     <Border Width="1" Height="38" Background="#38352E" Margin="24,0"/>
                     <StackPanel Width="80"><TextBlock Text="Day" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedCampaign.Day, StringFormat=Day {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
                     <StackPanel Width="105"><TextBlock Text="Campaign Time" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding CampaignTime}" FontFamily="Georgia" FontSize="12"/></StackPanel>
                     <StackPanel Width="95"><TextBlock Text="Round" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding SelectedEncounter.Round, StringFormat=Round {0}}" FontFamily="Georgia" FontSize="12"/></StackPanel>
-                    <StackPanel Width="150"><TextBlock Text="{Binding PlaySceneModeTitle}" Style="{StaticResource AaaMuted}"/><TextBlock Text="{Binding DmActivityText}" FontFamily="Georgia" FontSize="12" TextTrimming="CharacterEllipsis"/></StackPanel>
+                    <!--
+                        Model-turn progress. The activity line is wide enough to read in full and is
+                        backed by an indeterminate bar, so a multi-second local-model turn is never
+                        visually identical to idle.
+                    -->
+                    <StackPanel Width="270">
+                        <TextBlock Text="{Binding PlaySceneModeTitle}" Style="{StaticResource AaaMuted}"/>
+                        <TextBlock Text="{Binding DmActivityText}" FontFamily="Georgia" FontSize="12" TextWrapping="Wrap"/>
+                        <ProgressBar IsIndeterminate="True" Margin="0,5,8,0">
+                            <ProgressBar.Style>
+                                <Style TargetType="ProgressBar" BasedOn="{StaticResource AaaProgress}">
+                                    <Setter Property="Height" Value="3"/>
+                                    <Setter Property="Foreground" Value="{StaticResource AaaGoldBrush}"/>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding IsDmBusy}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                </Style>
+                            </ProgressBar.Style>
+                        </ProgressBar>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Ⅱ  Pause" Style="{StaticResource AaaTopButton}"/>
@@ -35,8 +53,8 @@
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <DockPanel>
-                    <TextBlock Text="▣  DM NARRATION" Style="{StaticResource AaaSectionTitle}"/>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding CampaignTime}" Style="{StaticResource AaaMuted}"/>
+                    <TextBlock Text="▣  DM NARRATION" Style="{StaticResource AaaSectionTitle}"/>
                 </DockPanel>
                 <ListBox Grid.Row="1" ItemsSource="{Binding SessionChat}" Style="{StaticResource AaaListBox}" Margin="0,9,0,8" ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <ListBox.ItemTemplate>
@@ -62,7 +80,7 @@
                     <StackPanel>
                         <TextBlock Text="☠  PLAYER ROLL REQUIRED" Foreground="#E17B70" FontFamily="Georgia" FontWeight="Bold" FontSize="11"/>
                         <TextBlock Text="{Binding PendingPlayerRoll.RollType, TargetNullValue=Required Roll}" FontFamily="Georgia" FontSize="21" Margin="0,5,0,2"/>
-                        <DockPanel><TextBlock Text="{Binding PendingPlayerRoll.Purpose}" Style="{StaticResource AaaMuted}" TextWrapping="Wrap"/><TextBlock DockPanel.Dock="Right" Text="{Binding PendingPlayerRoll.TargetNumber, StringFormat=DC {0}}" FontFamily="Georgia" FontSize="13"/></DockPanel>
+                        <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding PendingPlayerRoll.TargetNumber, StringFormat=DC {0}}" FontFamily="Georgia" FontSize="13" Margin="8,0,0,0"/><TextBlock Text="{Binding PendingPlayerRoll.Purpose}" Style="{StaticResource AaaMuted}" TextWrapping="Wrap"/></DockPanel>
                         <Border Height="1" Background="#62302D" Margin="0,10"/>
                         <Button Command="{Binding RollD20Command}" Style="{StaticResource AaaDangerButton}" Padding="14,11" Margin="0" BorderBrush="#A84940">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -75,8 +93,14 @@
 
                 <Grid Grid.Row="3">
                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="44"/></Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0" Text="{Binding PlayerInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" MinHeight="42" TextWrapping="Wrap" ToolTip="Describe your action or ask the DM"/>
-                    <Button Grid.Column="1" Command="{Binding SendPlayerInputCommand}" Style="{StaticResource AaaGoldButton}" Content="➤" Padding="0" Margin="6,0,0,0"/>
+                    <TextBox Grid.Column="0" Text="{Binding PlayerInput, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AaaTextBox}" MinHeight="42" TextWrapping="Wrap" ToolTip="Describe your action or ask the DM. Press Enter to send."
+                             IsEnabled="{Binding IsDmBusy, Converter={StaticResource AaaInverseBoolean}}">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Return" Command="{Binding SendPlayerInputCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <Button Grid.Column="1" Command="{Binding SendPlayerInputCommand}" Style="{StaticResource AaaGoldButton}" Content="➤" Padding="0" Margin="6,0,0,0"
+                            IsEnabled="{Binding IsDmBusy, Converter={StaticResource AaaInverseBoolean}}"/>
                 </Grid>
             </Grid>
         </Border>
@@ -98,10 +122,25 @@
         <StackPanel Grid.Row="1" Grid.Column="2">
             <Border Style="{StaticResource AaaPanelBorder}" Padding="12" Margin="0,0,0,7" MaxHeight="420">
                 <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <DockPanel><TextBlock Text="«  COMBAT TRACKER" Style="{StaticResource AaaSectionTitle}"/><TextBlock DockPanel.Dock="Right" Text="⚙" Foreground="{StaticResource AaaGoldBrush}"/></DockPanel>
+                    <DockPanel><TextBlock DockPanel.Dock="Right" Text="⚙" Foreground="{StaticResource AaaGoldBrush}"/><TextBlock Text="«  COMBAT TRACKER" Style="{StaticResource AaaSectionTitle}"/></DockPanel>
                     <TextBlock Grid.Row="1" Text="{Binding SelectedEncounter.Round, StringFormat=ROUND {0}}" FontFamily="Georgia" FontSize="11" Margin="0,10,0,5"/>
                     <ListBox Grid.Row="2" ItemsSource="{Binding Combatants}" Style="{StaticResource AaaListBox}" SelectedItem="{Binding SelectedTarget}">
-                        <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#252A2D" BorderThickness="0,0,0,1" Padding="3,7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Initiative}" FontFamily="Georgia" FontSize="13" VerticalAlignment="Center"/><Border Grid.Column="1" Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Left" Background="#171D20" BorderBrush="#79613D" BorderThickness="1"><TextBlock Text="♟" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="41,0,0,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="{Binding Side}" Style="{StaticResource AaaMuted}" FontSize="9"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding CharacterType}" Foreground="{StaticResource AaaMutedBrush}" FontSize="9" VerticalAlignment="Center"/></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+                        <!--
+                            Whose turn it is and who is targeted must never look alike: the current
+                            turn is a filled blue row with a blue left rule plus a leading caret, and
+                            the selected target keeps the gold ListBoxItem ring from the theme.
+                        -->
+                        <ListBox.ItemTemplate><DataTemplate><Border x:Name="TrackerRow" BorderBrush="#252A2D" BorderThickness="0,0,0,1" Padding="3,7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Initiative}" FontFamily="Georgia" FontSize="13" VerticalAlignment="Center"/><Border Grid.Column="1" Width="32" Height="32" CornerRadius="16" HorizontalAlignment="Left" Background="#171D20" BorderBrush="#79613D" BorderThickness="1"><TextBlock Text="♟" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="41,0,0,0"><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="11"/><TextBlock Text="{Binding Side}" Style="{StaticResource AaaMuted}" FontSize="9"/></StackPanel><TextBlock x:Name="TurnCaret" Grid.Column="2" Text="▶  NOW" Foreground="#69B0E4" FontFamily="Georgia" FontSize="9" VerticalAlignment="Center" Visibility="Collapsed"/><TextBlock x:Name="TrackerType" Grid.Column="2" Text="{Binding CharacterType}" Foreground="{StaticResource AaaMutedBrush}" FontSize="9" VerticalAlignment="Center"/></Grid></Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsCurrentTurn}" Value="True">
+                                        <Setter TargetName="TrackerRow" Property="Background" Value="#132232"/>
+                                        <Setter TargetName="TrackerRow" Property="BorderBrush" Value="#3E83B7"/>
+                                        <Setter TargetName="TrackerRow" Property="BorderThickness" Value="3,0,0,1"/>
+                                        <Setter TargetName="TurnCaret" Property="Visibility" Value="Visible"/>
+                                        <Setter TargetName="TrackerType" Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                 </Grid>
             </Border>
