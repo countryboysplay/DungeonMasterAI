@@ -112,8 +112,16 @@ internal static class Program
                 "Application-owned asset set, theme, and map type are preserved.", failures);
             Check(result.Map.FogOfWarEnabled && !result.Map.Visibility.RevealAll,
                 "Fog setting remains application-owned and accepted map begins unrevealed.", failures);
-            Check(result.Map.SpawnPoints.Any(spawn => spawn.Side.Equals("player", StringComparison.OrdinalIgnoreCase)),
-                "Accepted map contains a player-side entrance spawn.", failures);
+            // The fixture emits the vocabulary the r55 generator actually asked the model for
+            // ("player" / "enemy"). The accepted map must still contain a party entrance, and it
+            // must be stored using the canonical vocabulary the engine and readiness validator
+            // read, not the model's wording.
+            Check(result.Map.SpawnPoints.Any(spawn => CombatSide.IsParty(spawn.Side)),
+                "Accepted map contains a party-side entrance spawn.", failures);
+            Check(result.Map.SpawnPoints.All(spawn => CombatSide.All.Contains(spawn.Side, StringComparer.Ordinal)),
+                "Accepted map stores every spawn side in the canonical CombatSide vocabulary.", failures);
+            Check(result.Map.SpawnPoints.Any(spawn => spawn.Name == "Warden Spawn" && spawn.Side == CombatSide.Opposition),
+                "Model-emitted 'enemy' spawn side is normalized onto 'opposition'.", failures);
             Check(result.Map.Rooms.All(room => !string.IsNullOrWhiteSpace(room.Id))
                   && result.Map.Walls.All(wall => !string.IsNullOrWhiteSpace(wall.Id))
                   && result.Map.Doors.All(door => !string.IsNullOrWhiteSpace(door.Id)),
@@ -141,8 +149,10 @@ internal static class Program
                     "Repair prompt includes deterministic asset validation failure.", failures);
                 Check(second.Contains("supports axis-aligned walls only", StringComparison.OrdinalIgnoreCase),
                     "Repair prompt includes deterministic geometry failure.", failures);
-                Check(second.Contains("Generated map must contain at least one player-side spawn point", StringComparison.OrdinalIgnoreCase),
-                    "Repair prompt includes missing player entrance failure.", failures);
+                // Assert across a substring free of quote characters: the prompt travels inside a
+                // JSON request body, and System.Text.Json escapes an apostrophe to '.
+                Check(second.Contains("must contain at least one spawn point whose side is party", StringComparison.OrdinalIgnoreCase),
+                    "Repair prompt includes the missing party entrance failure.", failures);
                 Check(second.Contains("Broken Crypt", StringComparison.Ordinal), "Repair prompt includes the rejected candidate for correction.", failures);
             }
 

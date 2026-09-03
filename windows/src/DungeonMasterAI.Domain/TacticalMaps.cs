@@ -164,7 +164,13 @@ public sealed class TacticalMapSpawnPoint
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "Spawn";
-    public string Side { get; set; } = "enemy";
+
+    /// <summary>
+    /// Which side the creature placed here fights on. Values are the canonical
+    /// <see cref="CombatSide"/> vocabulary; legacy and model-emitted synonyms are collapsed onto
+    /// it by <see cref="TacticalMapSchema.NormalizeMap"/> when the record is loaded.
+    /// </summary>
+    public string Side { get; set; } = CombatSide.Opposition;
     public int X { get; set; }
     public int Y { get; set; }
     public string CharacterKey { get; set; } = "";

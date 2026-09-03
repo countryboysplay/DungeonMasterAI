@@ -667,17 +667,19 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
         if (includeParty)
         {
+            var map = ResolveEncounterMap(campaign, encounter.Id);
             foreach (var pc in campaign.Characters.Where(c => c.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) && !c.Dead))
             {
                 if (encounter.Combatants.Any(c => c.CharacterId == pc.Id)) continue;
+                var (gridX, gridY) = ChooseStartingSquare(map, encounter, CombatSide.Party, fallbackRow: 0);
                 encounter.Combatants.Add(new CombatantState
                 {
                     CharacterId = pc.Id,
                     TieBreaker = encounter.Combatants.Count,
-                    Side = "party",
+                    Side = CombatSide.Party,
                     Positioned = true,
-                    GridX = FreePlacementColumn(encounter, 0),
-                    GridY = 0
+                    GridX = gridX,
+                    GridY = gridY
                 });
             }
         }
@@ -696,15 +698,18 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         if (encounter.Combatants.Any(c => c.CharacterId == characterId))
             throw new InvalidOperationException($"{character.Name} is already in the encounter.");
 
-        var gridY = character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? 0 : 6;
+        var fallbackRow = character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? 0 : 6;
+        var combatSide = NormalizeCombatSide(side, character);
+        var map = ResolveEncounterMap(campaign, encounter.Id);
+        var (gridX, gridY) = ChooseStartingSquare(map, encounter, combatSide, fallbackRow);
         var combatant = new CombatantState
         {
             CharacterId = character.Id,
             Surprised = surprised,
             TieBreaker = encounter.Combatants.Count,
-            Side = NormalizeCombatSide(side, character),
+            Side = combatSide,
             Positioned = true,
-            GridX = FreePlacementColumn(encounter, gridY),
+            GridX = gridX,
             GridY = gridY
         };
         encounter.Combatants.Add(combatant);
@@ -926,6 +931,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
             throw new InvalidOperationException("Resolve or decline the pending Opportunity Attacks before repositioning a combatant.");
         var combatant = RequireCombatant(encounter, combatantId);
         EnsureSquareAvailable(encounter, combatant.Id, gridX, gridY);
+        EnsureMapSquarePlaceable(ResolveEncounterMap(campaign, encounter.Id), gridX, gridY);
         combatant.Positioned = true;
         combatant.GridX = gridX;
         combatant.GridY = gridY;
@@ -960,10 +966,12 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
         var fromX = combatant.GridX;
         var fromY = combatant.GridY;
+        var map = ResolveEncounterMap(campaign, encounter.Id);
         var path = TraceGridPath(fromX, fromY, gridX, gridY);
         ValidateMovementPath(encounter, combatant.Id, path);
+        ValidateMapMovementPath(map, fromX, fromY, path);
         var distanceFeet = GridDistanceFeet(fromX, fromY, gridX, gridY);
-        var movementCostFeet = MovementCostFeet(encounter, path, character);
+        var movementCostFeet = MovementCostFeet(encounter, map, path, character);
         if (movementCostFeet > combatant.MovementRemainingFeet)
             throw new InvalidOperationException($"That move costs {movementCostFeet} feet of movement, but only {combatant.MovementRemainingFeet} feet remain this turn.");
 
@@ -1459,6 +1467,7 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         var fromX = combatant.GridX;
         var fromY = combatant.GridY;
         var path = TraceGridPath(fromX, fromY, gridX, gridY);
+        var map = ResolveEncounterMap(campaign, encounter.Id);
         var dice = new DiceService();
         var previousX = fromX;
         var previousY = fromY;
@@ -1467,7 +1476,7 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
 
         foreach (var (nextX, nextY) in path)
         {
-            var stepCost = MovementStepCostFeet(encounter, nextX, nextY, character);
+            var stepCost = MovementStepCostFeet(encounter, map, nextX, nextY, character);
             combatant.GridX = nextX;
             combatant.GridY = nextY;
             combatant.MovementRemainingFeet = Math.Max(0, combatant.MovementRemainingFeet - stepCost);
@@ -1861,17 +1870,18 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         return chosen ?? throw new InvalidOperationException($"{character.Name} has no melee weapon or Unarmed Strike matching '{attackName}'.");
     }
 
-    private static string DefaultCombatSide(CharacterSheet character) =>
-        character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? "party" : "opposition";
+    private static string DefaultCombatSide(CharacterSheet character) => CombatSide.DefaultFor(character);
 
+    /// <summary>
+    /// Resolves a caller-supplied side onto the canonical <see cref="CombatSide"/> vocabulary.
+    /// Legacy and tool-supplied synonyms ("player", "enemy", "ally") are accepted; a value that
+    /// means nothing is still rejected rather than being guessed onto a side that fights.
+    /// </summary>
     private static string NormalizeCombatSide(string? side, CharacterSheet character)
     {
-        var value = string.IsNullOrWhiteSpace(side) ? DefaultCombatSide(character) : side.Trim().ToLowerInvariant();
-        return value switch
-        {
-            "party" or "opposition" or "neutral" => value,
-            _ => throw new ArgumentException("combat side must be party, opposition, or neutral.")
-        };
+        if (string.IsNullOrWhiteSpace(side)) return CombatSide.DefaultFor(character);
+        return CombatSide.TryNormalize(side)
+            ?? throw new ArgumentException($"combat side must be one of: {string.Join(", ", CombatSide.All)}.");
     }
 
     private static bool IsDodgeActive(CampaignState campaign, CombatantState combatant, CharacterSheet character) =>
@@ -1907,21 +1917,27 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         }
     }
 
-    private static int MovementCostFeet(EncounterState encounter, IReadOnlyList<(int X, int Y)> path, CharacterSheet mover)
+    private static int MovementCostFeet(EncounterState encounter, TacticalMap? map, IReadOnlyList<(int X, int Y)> path, CharacterSheet mover)
     {
         var cost = 0;
         foreach (var (x, y) in path)
-            cost += MovementStepCostFeet(encounter, x, y, mover);
+            cost += MovementStepCostFeet(encounter, map, x, y, mover);
         return cost;
     }
 
-    private static int MovementStepCostFeet(EncounterState encounter, int x, int y, CharacterSheet mover)
+    /// <summary>
+    /// Cost of entering one square. Difficult terrain costs an extra 5 feet once, whether it came
+    /// from encounter terrain, a persistent battlefield effect, or the bound tactical map — the
+    /// three sources are additive in coverage, not in cost.
+    /// </summary>
+    private static int MovementStepCostFeet(EncounterState encounter, TacticalMap? map, int x, int y, CharacterSheet mover)
     {
         var cost = 5;
         if (mover.Conditions.Any(c => c.Equals("Prone", StringComparison.OrdinalIgnoreCase)))
             cost += 5;
         if (encounter.Terrain.Any(t => t.DifficultTerrain && ContainsSquare(t, x, y))
-            || encounter.BattlefieldEffects.Any(e => e.DifficultTerrain && BattlefieldEffectContainsCell(e, x, y)))
+            || encounter.BattlefieldEffects.Any(e => e.DifficultTerrain && BattlefieldEffectContainsCell(e, x, y))
+            || (map is not null && TacticalMapGeometry.IsDifficultTerrain(map, x, y)))
             cost += 5;
         return cost;
     }

@@ -196,6 +196,9 @@ jobs:
       - name: Run non-destructive map editing tests (r57)
         run: dotnet run --project tests/DungeonMasterAI.R57MapEditingTests/DungeonMasterAI.R57MapEditingTests.csproj --configuration Release
 
+      - name: Run map-combat wiring and spawn-vocabulary tests (r62)
+        run: dotnet run --project tests/DungeonMasterAI.R62MapCombatTests/DungeonMasterAI.R62MapCombatTests.csproj --configuration Release
+
       # One artifact instead of four. Rendered references from every revision are retained,
       # each under its own subdirectory, so visual regressions stay reviewable.
       - name: Upload rendered map references
@@ -208,3 +211,4 @@ jobs:
             windows/artifacts/map-assets/*.png
             windows/artifacts/r56-map-builder/*.png
             windows/artifacts/r57-map-editing/*.png
+            windows/artifacts/r62-map-combat/*.png
