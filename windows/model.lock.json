@@ -1,0 +1,22 @@
+{
+  "comment": [
+    "Pinned narration model. This GGUF is NOT bundled in the installer: at 2,740,937,888 bytes it",
+    "would push the setup executable past the 2 GiB per-file limit on GitHub Releases. It is fetched",
+    "once on first run over a resumable, size-and-SHA-256-verified path.",
+    "The repository also publishes mmproj-*.gguf multimodal projectors. Passing -hf to llama-server",
+    "auto-pulls one of those (~0.9 GB) for Qwen3.5, and this application has no use for vision input.",
+    "The model is therefore always loaded from the local file with -m, never with -hf.",
+    "sha256 is the git-lfs object id for the blob, which is the SHA-256 of the file contents, read",
+    "from https://huggingface.co/api/models/<repo>/paths-info/<revision>.",
+    "revision is pinned to a commit so a later push to main cannot silently change the bytes."
+  ],
+  "repository": "unsloth/Qwen3.5-4B-GGUF",
+  "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+  "file": "Qwen3.5-4B-Q4_K_M.gguf",
+  "url": "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+  "sizeBytes": 2740937888,
+  "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "displayName": "Qwen3.5-4B (Q4_K_M)",
+  "license": "apache-2.0",
+  "gated": false
+}

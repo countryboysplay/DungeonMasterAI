@@ -34,6 +34,36 @@ def strip_csharp_noncode(text: str) -> tuple[str, str]:
                 out.extend("  ")
                 i += 2
                 continue
+            # C# 11 raw string literals. The opening fence is an optional run of "$"
+            # followed by three or more quotes, and the closing fence is a run of at
+            # least as many. Without this the fence reads as open/close/open, the
+            # lexer desyncs, and delimiters inside the literal are counted as code.
+            if c in '$"':
+                j = i
+                while j < len(text) and text[j] == "$":
+                    j += 1
+                k = j
+                while k < len(text) and text[k] == '"':
+                    k += 1
+                fence = k - j
+                if fence >= 3:
+                    out.extend(" " * (k - i))
+                    i = k
+                    while i < len(text):
+                        if text[i] == '"':
+                            m = i
+                            while m < len(text) and text[m] == '"':
+                                m += 1
+                            out.extend(" " * (m - i))
+                            closed = m - i >= fence
+                            i = m
+                            if closed:
+                                break
+                            continue
+                        out.append("\n" if text[i] == "\n" else " ")
+                        i += 1
+                    continue
+
             if c in "$@" and d in "$@" and i + 2 < len(text) and text[i + 2] == '"':
                 state = "verbatim" if "@" in c + d else "string"
                 out.extend("   ")

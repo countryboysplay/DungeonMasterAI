@@ -6,4 +6,13 @@
     <ProjectReference Include="../DungeonMasterAI.Domain/DungeonMasterAI.Domain.csproj" />
     <ProjectReference Include="../DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj" />
   </ItemGroup>
+  <!--
+    The provisioning locks are embedded rather than copied so tools/fetch-llama-runtime.ps1 and
+    RuntimeBootstrapService read the same pinned tag, size and SHA-256, and so a user cannot edit
+    the pinned hash out of a text file next to the executable.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../runtime.lock.json" LogicalName="runtime.lock.json" />
+    <EmbeddedResource Include="../../model.lock.json" LogicalName="model.lock.json" />
+  </ItemGroup>
 </Project>

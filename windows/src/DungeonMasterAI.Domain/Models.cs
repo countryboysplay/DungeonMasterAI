@@ -12,12 +12,21 @@ public sealed class AppSettings
 {
     public string LlamaServerUrl { get; set; } = "http://127.0.0.1:8080";
     public string ModelName { get; set; } = "local-model";
-    public string ModelPath { get; set; } = "";
-    public string HuggingFaceModel { get; set; } = "unsloth/Qwen3.5-9B-GGUF:UD-Q4_K_XL";
-    public int ContextSize { get; set; } = 16384;
-    public int GpuLayers { get; set; } = 99;
+    // Resolved against the app's Models directory. This is the filename the first-run provisioning
+    // step writes, so a default install needs no manual model configuration at all.
+    public string ModelPath { get; set; } = "Qwen3.5-4B-Q4_K_M.gguf";
+    // Empty on purpose. A non-empty value here sends llama-server down its -hf branch, which pulls
+    // the repository's mmproj-*.gguf multimodal projector (~0.9 GB) that this app never uses, and
+    // bypasses the pinned, hash-verified local file.
+    public string HuggingFaceModel { get; set; } = "";
+    public int ContextSize { get; set; } = 8192;
+    // 0, not 99. The bundled runtime is the llama.cpp CPU build and has no offload target; 99 also
+    // forced full offload onto whatever device a Vulkan build found, including a shared-memory iGPU.
+    public int GpuLayers { get; set; } = 0;
     public bool AutoProvisionRuntime { get; set; } = true;
-    public double Temperature { get; set; } = 0.75;
+    // 0.75 measurably degrades tool-call argument fidelity on a 4B model, and every state change in
+    // this application goes through a tool call.
+    public double Temperature { get; set; } = 0.4;
     public int MaxTokens { get; set; } = 700;
     public bool PlayerSafeMode { get; set; } = true;
 }

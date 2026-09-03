@@ -5,7 +5,7 @@ namespace DungeonMasterAI.Data;
 
 public sealed class AppDataStore
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -140,6 +140,32 @@ public sealed class AppDataStore
                         TacticalMapSchema.NormalizeCampaign(campaign);
                     }
                     state.SchemaVersion = 3;
+                    break;
+                case 3:
+                    // v4 retires the settings that predate the bundled runtime and the pinned,
+                    // hash-verified GGUF. Changing the defaults in AppSettings does nothing for an
+                    // install that already has a saved state file, and the stale values are not
+                    // merely suboptimal -- they route around the whole provisioning path:
+                    //
+                    //   HuggingFaceModel non-empty  -> LlamaRuntimeManager passes -hf instead of -m,
+                    //     which ignores the verified local file and makes llama-server auto-pull the
+                    //     repository's ~0.9 GB mmproj vision projector that this app never uses.
+                    //   ModelPath empty             -> nothing names the file the provisioner writes.
+                    //   GpuLayers 99                -> full offload requested from a CPU-only build.
+                    //
+                    // Only values identical to the superseded defaults are rewritten. Anything a
+                    // user actually chose is left exactly as they set it, even where the new default
+                    // would suit them better; a migration is not the place to overrule a preference.
+                    if (state.Settings is { } settings)
+                    {
+                        var fresh = new AppSettings();
+                        if (string.IsNullOrWhiteSpace(settings.ModelPath)) settings.ModelPath = fresh.ModelPath;
+                        if (settings.HuggingFaceModel == "unsloth/Qwen3.5-9B-GGUF:UD-Q4_K_XL") settings.HuggingFaceModel = fresh.HuggingFaceModel;
+                        if (settings.ContextSize == 16384) settings.ContextSize = fresh.ContextSize;
+                        if (settings.GpuLayers == 99) settings.GpuLayers = fresh.GpuLayers;
+                        if (settings.Temperature == 0.75) settings.Temperature = fresh.Temperature;
+                    }
+                    state.SchemaVersion = 4;
                     break;
                 default:
                     throw new InvalidDataException($"No migration is defined from state schema version {state.SchemaVersion}.");
