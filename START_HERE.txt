@@ -1,15 +1,47 @@
 Dungeon Master AI - Windows Development Start
 
+THERE IS NO RUNNABLE FRONT END RIGHT NOW.
+
+r63 deleted the WPF desktop application. Unity replaces it, and Unity does not exist yet.
+Until it does there is nothing to launch, nothing to publish and no installer. This was a
+deliberate decision, taken knowing the game is unplayable in the meantime. See
+docs/unity-target-architecture.md for the target design and docs/unity-migration-plan.md
+for the ordered plan.
+
+What still exists and still works:
+
+  windows/src/DungeonMasterAI.Domain   models
+  windows/src/DungeonMasterAI.Engine   the deterministic D&D 5e adjudicator
+  windows/src/DungeonMasterAI.Data     persistence, import, readiness validation
+  windows/src/DungeonMasterAI.AI       llama.cpp lifecycle and the local DM client
+  windows/tests/*                      30 test projects, all green
+
+That engine is the game. It has no reference to System.Windows and never did, which is why
+it survived the deletion untouched.
+
 Primary development loop:
-1. Push changes to a feature branch in GitHub.
-2. Let .github/workflows/windows-ci.yml restore, compile, run focused roll-state tests, run the full smoke suite, publish the Windows build, and build the installer on windows-latest.
-3. Do not merge a feature branch into main until its Windows CI run is green.
+1. Push changes to a feature branch.
+2. .github/workflows/windows-ci.yml validates the source on Linux, then builds every project
+   and runs every test project under windows/tests on windows-latest.
+3. Do not merge into main until that run is green.
 
-Optional local verification:
-1. Install the .NET 10 SDK if needed:
-   winget install Microsoft.DotNet.SDK.10 --source winget
-2. Open PowerShell in this repository.
-3. Run:
-   powershell -ExecutionPolicy Bypass -File .\windows\WINDOWS_TEST.ps1
+Local verification (.NET 10 SDK required; winget install Microsoft.DotNet.SDK.10):
 
-GitHub Actions is the authoritative compiler/test loop. Local source-only validators are supplemental and do not replace a real dotnet build.
+  cd windows
+  python tools/validate_source.py
+  dotnet build src/DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj
+  dotnet run --project tests/DungeonMasterAI.R62MapCombatTests/DungeonMasterAI.R62MapCombatTests.csproj -c Release
+
+Every test project is a plain console executable that exits 0 on pass and prints each failure
+on stderr. There is no test runner to install. To run them all the way CI does, iterate the
+directories under windows/tests; DungeonMasterAI.Smoke is the only one that takes an argument
+(reference-python/demo/sample_campaign_manifest.json).
+
+Read this before trusting a green CI run: deleting the front end also deleted the GUI
+binding-failure gate, every rendered PNG reference, and the Map Builder's editing tests.
+Nothing replaces them. .github/workflows/windows-ci.yml names each loss at the top of the
+file, and docs/unity-migration-plan.md section 8.3 explains why nothing stands in for the
+binding gate yet.
+
+GitHub Actions is the authoritative compiler/test loop. Local source-only validators are
+supplemental and do not replace a real dotnet build.

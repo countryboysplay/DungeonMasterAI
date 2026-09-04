@@ -1,4 +1,27 @@
 # Changelog
+
+## r63 — WPF front end removed
+
+- Rescued 51 engine assertions out of the three WPF-coupled test projects that had extractable
+  engine content, verbatim: 39 from `R62MapCombatTests` (retargeted to `net10.0`), 10 from
+  `MapRendererTests` (renamed `MapGeometryTests`, since the renderer is what left), 2 from
+  `MapAssetTests` (reduced to its `TacticalMapAssetPackValidator` checks).
+- Deleted `windows/src/DungeonMasterAI.App` (61 files) and the three test projects with no
+  extractable engine content: `GuiSmokeTests`, `R56MapBuilderTests`, `R57MapEditingTests`.
+  72 presentation-only assertions removed in total.
+- **Coverage genuinely lost, not relocated:** the GUI binding-failure gate, every rendered PNG
+  reference, the Map Builder's editing guarantees, and the asset catalog's deterministic seeded
+  variant selection. Their requirements survive as Unity acceptance criteria in
+  `docs/unity-migration-plan.md` §7.2 and §8.3. Nothing was invented to stand in for them.
+- Relocated content out of the deleted project into `windows/content/`: the SRD spell catalog,
+  the `core.fantasy.crypt` map pack manifest, and the three approved reference images.
+- Removed `build-windows.ps1`, `WINDOWS_TEST.ps1` and the Inno Setup installer. There is no
+  application to publish or package until Unity produces one.
+- Reworked `windows-ci.yml` to two jobs, source validation and engine tests, with both the build
+  list and the test list discovered rather than hand-maintained. This added
+  `RuntimeProvisioningTests` to CI, which had never been in it.
+- **There is no runnable front end.** See `START_HERE.txt`.
+
 ## r23 candidate
 - Added authoritative pending player-roll state for required rolls.
 - Routed the Game Table Roll d20 button into an active Death Saving Throw instead of producing an orphan roll.

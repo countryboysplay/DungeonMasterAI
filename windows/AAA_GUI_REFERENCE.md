@@ -1,6 +1,12 @@
 # Dungeon Master AI — AAA GUI Visual Contract
 
-This document is authoritative for the r50+ native Windows UI redesign.
+> **r63 status: kept deliberately. The WPF application this described was deleted; the visual
+> language it specifies was not.** `docs/unity-target-architecture.md` §9.10 puts it as "drop the
+> code, keep the language". Read every reference below to WPF, XAML, controls or pixel sizes as art
+> direction for the Unity rebuild rather than as a description of code that exists. The 1536×864
+> reference renders and the approved artwork now live in `windows/content/ReferenceArt/`.
+
+This document was authoritative for the r50+ native Windows UI redesign.
 
 Jonathan approved four 1536×864 concept renders as the target product appearance. They are not loose inspiration. The native WPF application should reproduce their composition, proportions, visual hierarchy, color language, panel treatment, and interaction emphasis as closely as practical while remaining a real data-driven desktop application.
 
