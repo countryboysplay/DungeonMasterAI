@@ -1,0 +1,622 @@
+[
+  {
+    "Name": "dice.raw-stream",
+    "Value": "12,7,20,3,12,13,3,5,3,5,3,8,9,11,9,15,3,12,3,2,7,7,3,9,4,8,9,17,19,3,19,13,1,17,19,9,7,16,4,13"
+  },
+  {
+    "Name": "dice.roll[1d20]",
+    "Value": "expr='1d20' rolls=[12] mod=0 total=12"
+  },
+  {
+    "Name": "dice.roll[3d6+2]",
+    "Value": "expr='3d6+2' rolls=[3,6,5] mod=2 total=16"
+  },
+  {
+    "Name": "dice.roll[2d8-1]",
+    "Value": "expr='2d8-1' rolls=[4,1] mod=-1 total=4"
+  },
+  {
+    "Name": "dice.roll[1D12+5]",
+    "Value": "expr='1D12+5' rolls=[3] mod=5 total=8"
+  },
+  {
+    "Name": "dice.roll[ 4d4 ]",
+    "Value": "expr='4d4' rolls=[1,3,1,3] mod=0 total=8"
+  },
+  {
+    "Name": "dice.roll[7]",
+    "Value": "expr='7' rolls=[] mod=7 total=7"
+  },
+  {
+    "Name": "dice.roll[100d6]",
+    "Value": "expr='100d6' rolls=[6,5,1,1,5,5,4,3,2,3,1,3,1,2,6,5,1,1,5,1,5,5,1,1,1,1,4,6,1,6,2,6,4,3,1,1,3,6,1,6,2,1,4,4,5,3,3,3,1,3,6,6,1,5,6,5,1,1,3,6,3,2,3,3,4,4,6,6,5,4,2,1,6,5,3,1,3,1,6,6,5,2,1,4,3,1,5,4,3,5,5,3,6,2,5,5,4,4,3,5] mod=0 total=343"
+  },
+  {
+    "Name": "dice.roll[1d1000]",
+    "Value": "expr='1d1000' rolls=[459] mod=0 total=459"
+  },
+  {
+    "Name": "dice.d20[Normal]",
+    "Value": "one=12 two=null chosen=12"
+  },
+  {
+    "Name": "dice.d20[Advantage]",
+    "Value": "one=19 two=11 chosen=19"
+  },
+  {
+    "Name": "dice.d20[Disadvantage]",
+    "Value": "one=20 two=10 chosen=10"
+  },
+  {
+    "Name": "dice.damage[1d8+3,crit=False]",
+    "Value": "7"
+  },
+  {
+    "Name": "dice.damage[1d8+3,crit=True]",
+    "Value": "10"
+  },
+  {
+    "Name": "dice.damage[2d6,crit=True]",
+    "Value": "8"
+  },
+  {
+    "Name": "dice.damage[5,crit=True]",
+    "Value": "5"
+  },
+  {
+    "Name": "dice.attack[ac=8]",
+    "Value": "d20=16 mod=5 total=21 hit=True crit=False dmg=4 | Attack with Advantage 21 vs AC 8: hit for 4 damage."
+  },
+  {
+    "Name": "dice.attack[ac=12]",
+    "Value": "d20=14 mod=5 total=19 hit=True crit=False dmg=7 | Attack with Advantage 19 vs AC 12: hit for 7 damage."
+  },
+  {
+    "Name": "dice.attack[ac=16]",
+    "Value": "d20=19 mod=5 total=24 hit=True crit=False dmg=5 | Attack with Advantage 24 vs AC 16: hit for 5 damage."
+  },
+  {
+    "Name": "dice.attack[ac=20]",
+    "Value": "d20=10 mod=5 total=15 hit=False crit=False dmg=0 | Attack with Advantage 15 vs AC 20: miss."
+  },
+  {
+    "Name": "dice.validate['1d20']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['d20']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['3d6+2']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['3d6-2']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['1D8']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['  2d10+1  ']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['0d6']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['101d6']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['1d1']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['1d1001']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['7']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['1000000']",
+    "Value": "True"
+  },
+  {
+    "Name": "dice.validate['1000001']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['  ']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['2d']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['d']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['2x6']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['1d6+']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['1d6++1']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['-1d6']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.validate['1d6 +1']",
+    "Value": "False"
+  },
+  {
+    "Name": "dice.roll-throws['banana']",
+    "Value": "ArgumentException: Invalid dice expression: banana (Parameter 'expression')"
+  },
+  {
+    "Name": "dice.roll-throws['2d']",
+    "Value": "ArgumentException: Invalid dice expression: 2d (Parameter 'expression')"
+  },
+  {
+    "Name": "dice.roll-throws['1d6+']",
+    "Value": "ArgumentException: Invalid dice expression: 1d6+ (Parameter 'expression')"
+  },
+  {
+    "Name": "dice.roll-throws['1000001']",
+    "Value": "ArgumentOutOfRangeException: Fixed roll values must not exceed 1,000,000. (Parameter 'expression')"
+  },
+  {
+    "Name": "dice.roll-throws['0d6']",
+    "Value": "ArgumentOutOfRangeException: Dice count must be between 1 and 100. (Parameter 'expression')"
+  },
+  {
+    "Name": "dice.roll-throws['1d1001']",
+    "Value": "ArgumentOutOfRangeException: Die sides must be between 2 and 1000. (Parameter 'expression')"
+  },
+  {
+    "Name": "guard.EligiblePartyMembers",
+    "Value": "ArgumentNullException(ParamName='campaign')"
+  },
+  {
+    "Name": "guard.ExperienceValueOf",
+    "Value": "ArgumentNullException(ParamName='character')"
+  },
+  {
+    "Name": "guard.DeriveChallengeRating",
+    "Value": "ArgumentNullException(ParamName='character')"
+  },
+  {
+    "Name": "guard.ExpectedDamagePerRound",
+    "Value": "ArgumentNullException(ParamName='character')"
+  },
+  {
+    "Name": "guard.TacticalMapGeometry.Validate",
+    "Value": "ArgumentNullException(ParamName='map')"
+  },
+  {
+    "Name": "guard.CampaignCloneService.Clone",
+    "Value": "ArgumentNullException(ParamName='source')"
+  },
+  {
+    "Name": "progression.threshold[1]",
+    "Value": "xp=0 band=300"
+  },
+  {
+    "Name": "progression.threshold[2]",
+    "Value": "xp=300 band=600"
+  },
+  {
+    "Name": "progression.threshold[3]",
+    "Value": "xp=900 band=1800"
+  },
+  {
+    "Name": "progression.threshold[4]",
+    "Value": "xp=2700 band=3800"
+  },
+  {
+    "Name": "progression.threshold[5]",
+    "Value": "xp=6500 band=7500"
+  },
+  {
+    "Name": "progression.threshold[6]",
+    "Value": "xp=14000 band=9000"
+  },
+  {
+    "Name": "progression.threshold[7]",
+    "Value": "xp=23000 band=11000"
+  },
+  {
+    "Name": "progression.threshold[8]",
+    "Value": "xp=34000 band=14000"
+  },
+  {
+    "Name": "progression.threshold[9]",
+    "Value": "xp=48000 band=16000"
+  },
+  {
+    "Name": "progression.threshold[10]",
+    "Value": "xp=64000 band=21000"
+  },
+  {
+    "Name": "progression.threshold[11]",
+    "Value": "xp=85000 band=15000"
+  },
+  {
+    "Name": "progression.threshold[12]",
+    "Value": "xp=100000 band=20000"
+  },
+  {
+    "Name": "progression.threshold[13]",
+    "Value": "xp=120000 band=20000"
+  },
+  {
+    "Name": "progression.threshold[14]",
+    "Value": "xp=140000 band=25000"
+  },
+  {
+    "Name": "progression.threshold[15]",
+    "Value": "xp=165000 band=30000"
+  },
+  {
+    "Name": "progression.threshold[16]",
+    "Value": "xp=195000 band=30000"
+  },
+  {
+    "Name": "progression.threshold[17]",
+    "Value": "xp=225000 band=40000"
+  },
+  {
+    "Name": "progression.threshold[18]",
+    "Value": "xp=265000 band=40000"
+  },
+  {
+    "Name": "progression.threshold[19]",
+    "Value": "xp=305000 band=50000"
+  },
+  {
+    "Name": "progression.threshold[20]",
+    "Value": "xp=355000 band=50000"
+  },
+  {
+    "Name": "progression.level[0]",
+    "Value": "level=1 toNext=300 fraction=0.000000"
+  },
+  {
+    "Name": "progression.level[1]",
+    "Value": "level=1 toNext=299 fraction=0.003333"
+  },
+  {
+    "Name": "progression.level[299]",
+    "Value": "level=1 toNext=1 fraction=0.996667"
+  },
+  {
+    "Name": "progression.level[300]",
+    "Value": "level=2 toNext=600 fraction=0.000000"
+  },
+  {
+    "Name": "progression.level[899]",
+    "Value": "level=2 toNext=1 fraction=0.998333"
+  },
+  {
+    "Name": "progression.level[900]",
+    "Value": "level=3 toNext=1800 fraction=0.000000"
+  },
+  {
+    "Name": "progression.level[6499]",
+    "Value": "level=4 toNext=1 fraction=0.999737"
+  },
+  {
+    "Name": "progression.level[48000]",
+    "Value": "level=9 toNext=16000 fraction=0.000000"
+  },
+  {
+    "Name": "progression.level[355000]",
+    "Value": "level=20 toNext=0 fraction=1.000000"
+  },
+  {
+    "Name": "progression.level[1000000]",
+    "Value": "level=20 toNext=0 fraction=1.000000"
+  },
+  {
+    "Name": "progression.cr['0']",
+    "Value": "ok=True xp=10"
+  },
+  {
+    "Name": "progression.cr['1/8']",
+    "Value": "ok=True xp=25"
+  },
+  {
+    "Name": "progression.cr['1/4']",
+    "Value": "ok=True xp=50"
+  },
+  {
+    "Name": "progression.cr['1/2']",
+    "Value": "ok=True xp=100"
+  },
+  {
+    "Name": "progression.cr['1']",
+    "Value": "ok=True xp=200"
+  },
+  {
+    "Name": "progression.cr['5']",
+    "Value": "ok=True xp=1800"
+  },
+  {
+    "Name": "progression.cr['17']",
+    "Value": "ok=True xp=18000"
+  },
+  {
+    "Name": "progression.cr['30']",
+    "Value": "ok=True xp=155000"
+  },
+  {
+    "Name": "progression.cr['banana']",
+    "Value": "ok=False xp=0"
+  },
+  {
+    "Name": "progression.cr['']",
+    "Value": "ok=False xp=0"
+  },
+  {
+    "Name": "xp.award[Vera]",
+    "Value": "amount=300 total=300 level=1 toNext=600 crossed=True kind=test source=Cleared the crypt | Vera gained 300 XP from Cleared the crypt (300 total)."
+  },
+  {
+    "Name": "xp.award[Bram]",
+    "Value": "amount=300 total=300 level=1 toNext=600 crossed=True kind=test source=Cleared the crypt | Bram gained 300 XP from Cleared the crypt (300 total)."
+  },
+  {
+    "Name": "xp.award[Nell]",
+    "Value": "amount=300 total=300 level=1 toNext=600 crossed=True kind=test source=Cleared the crypt | Nell gained 300 XP from Cleared the crypt (300 total)."
+  },
+  {
+    "Name": "xp.award[Osric]",
+    "Value": "amount=300 total=300 level=1 toNext=600 crossed=True kind=test source=Cleared the crypt | Osric gained 300 XP from Cleared the crypt (300 total)."
+  },
+  {
+    "Name": "xp.each[Vera]",
+    "Value": "amount=250 total=550 level=1 toNext=350 crossed=False kind=test source=Milestone | Vera gained 250 XP from Milestone (550 total)."
+  },
+  {
+    "Name": "xp.each[Bram]",
+    "Value": "amount=250 total=550 level=1 toNext=350 crossed=False kind=test source=Milestone | Bram gained 250 XP from Milestone (550 total)."
+  },
+  {
+    "Name": "xp.each[Nell]",
+    "Value": "amount=250 total=550 level=1 toNext=350 crossed=False kind=test source=Milestone | Nell gained 250 XP from Milestone (550 total)."
+  },
+  {
+    "Name": "xp.each[Osric]",
+    "Value": "amount=250 total=550 level=1 toNext=350 crossed=False kind=test source=Milestone | Osric gained 250 XP from Milestone (550 total)."
+  },
+  {
+    "Name": "xp.bulk[Vera]",
+    "Value": "amount=2000 total=2550 level=1 toNext=150 crossed=True kind=test source=Slew the wyrm | Vera gained 2000 XP from Slew the wyrm (2550 total)."
+  },
+  {
+    "Name": "xp.bulk[Bram]",
+    "Value": "amount=2000 total=2550 level=1 toNext=150 crossed=True kind=test source=Slew the wyrm | Bram gained 2000 XP from Slew the wyrm (2550 total)."
+  },
+  {
+    "Name": "xp.bulk[Nell]",
+    "Value": "amount=2000 total=2550 level=1 toNext=150 crossed=True kind=test source=Slew the wyrm | Nell gained 2000 XP from Slew the wyrm (2550 total)."
+  },
+  {
+    "Name": "xp.bulk[Osric]",
+    "Value": "amount=2000 total=2550 level=1 toNext=150 crossed=True kind=test source=Slew the wyrm | Osric gained 2000 XP from Slew the wyrm (2550 total)."
+  },
+  {
+    "Name": "levelup[Vera->2]",
+    "Value": "gained=8 maxHp=28 prof=2 remaining=1 | Vera reached level 2: +8 maximum HP (28 total), Proficiency Bonus +2, 2 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "levelup[Vera->3]",
+    "Value": "gained=8 maxHp=36 prof=2 remaining=0 | Vera reached level 3: +8 maximum HP (36 total), Proficiency Bonus +2, 3 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "party.final[Vera]",
+    "Value": "level=3 xp=2550 maxHp=36 hp=36"
+  },
+  {
+    "Name": "levelup[Bram->2]",
+    "Value": "gained=9 maxHp=29 prof=2 remaining=1 | Bram reached level 2: +9 maximum HP (29 total), Proficiency Bonus +2, 2 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "levelup[Bram->3]",
+    "Value": "gained=9 maxHp=38 prof=2 remaining=0 | Bram reached level 3: +9 maximum HP (38 total), Proficiency Bonus +2, 3 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "party.final[Bram]",
+    "Value": "level=3 xp=2550 maxHp=38 hp=38"
+  },
+  {
+    "Name": "levelup[Nell->2]",
+    "Value": "gained=7 maxHp=27 prof=2 remaining=1 | Nell reached level 2: +7 maximum HP (27 total), Proficiency Bonus +2, 2 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "levelup[Nell->3]",
+    "Value": "gained=7 maxHp=34 prof=2 remaining=0 | Nell reached level 3: +7 maximum HP (34 total), Proficiency Bonus +2, 3 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "party.final[Nell]",
+    "Value": "level=3 xp=2550 maxHp=34 hp=34"
+  },
+  {
+    "Name": "levelup[Osric->2]",
+    "Value": "gained=6 maxHp=26 prof=2 remaining=1 | Osric reached level 2: +6 maximum HP (26 total), Proficiency Bonus +2, 2 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "levelup[Osric->3]",
+    "Value": "gained=6 maxHp=32 prof=2 remaining=0 | Osric reached level 3: +6 maximum HP (32 total), Proficiency Bonus +2, 3 Hit Point Dice. Spell slots and class features are not granted automatically."
+  },
+  {
+    "Name": "party.final[Osric]",
+    "Value": "level=3 xp=2550 maxHp=32 hp=32"
+  },
+  {
+    "Name": "combat.cr-derivation",
+    "Value": "brute=1 quarry=0"
+  },
+  {
+    "Name": "combat.expected-dpr",
+    "Value": "brute=20.0000"
+  },
+  {
+    "Name": "combat.xp-value",
+    "Value": "brute=450 quarry=200"
+  },
+  {
+    "Name": "combat.initiative-order",
+    "Value": "Ashen Brute:18 > Crypt Stalker:9"
+  },
+  {
+    "Name": "combat.attack[1]",
+    "Value": "d20=18 total=23 hit=True crit=False dmg=12 targetHp=18 | Ashen Brute used Maul against Crypt Stalker: Attack 23 vs AC 13: hit for 12 damage."
+  },
+  {
+    "Name": "combat.attack[2]",
+    "Value": "d20=6 total=11 hit=False crit=False dmg=0 targetHp=18 | Ashen Brute used Maul against Crypt Stalker: miss."
+  },
+  {
+    "Name": "combat.save[strength,dc12,Normal]",
+    "Value": "one=12 two=null chosen=12 ability=3 prof=2 exhaustion=0 total=17 dc=12 success=True | strength D20 Test 17 vs DC 12: success."
+  },
+  {
+    "Name": "combat.save[dexterity,dc15,Advantage]",
+    "Value": "one=16 two=16 chosen=16 ability=0 prof=0 exhaustion=0 total=16 dc=15 success=True | dexterity D20 Test 16 vs DC 15: success."
+  },
+  {
+    "Name": "combat.save[constitution,dc18,Disadvantage]",
+    "Value": "one=7 two=11 chosen=7 ability=2 prof=0 exhaustion=0 total=9 dc=18 success=False | constitution D20 Test 9 vs DC 18: failure."
+  },
+  {
+    "Name": "combat.check[athletics]",
+    "Value": "one=9 two=null chosen=9 ability=3 prof=2 exhaustion=0 total=14 dc=14 success=True | strength D20 Test 14 vs DC 14: success."
+  },
+  {
+    "Name": "combat.check[athletics,exhaustion3]",
+    "Value": "one=1 two=null chosen=1 ability=3 prof=2 exhaustion=6 total=0 dc=14 success=False | strength D20 Test 0 vs DC 14: failure. Exhaustion applied -6."
+  },
+  {
+    "Name": "combat.concentration",
+    "Value": "damage=14 hp=31 maintained=True dc=10 save=one=10 two=null chosen=10 ability=2 prof=0 exhaustion=0 total=12 dc=10 success=True | constitution D20 Test 12 vs DC 10: success."
+  },
+  {
+    "Name": "combat.lethal",
+    "Value": "requested=18 effective=18 hp=0 dropped=True dead=True failures=0"
+  },
+  {
+    "Name": "xp.defeat-automatic",
+    "Value": "before=10200 after=10400 awarded=True"
+  },
+  {
+    "Name": "xp.defeat-repeat",
+    "Value": "awards=0 total=10400"
+  },
+  {
+    "Name": "combat.downed",
+    "Value": "hp=0 dropped=True dead=False failures=0"
+  },
+  {
+    "Name": "combat.death-save[1]",
+    "Value": "roll=6 successes=0 failures=1 stable=False dead=False hp=0 | Crypt Acolyte failed a Death Saving Throw with a modified total of 6 (1/3)."
+  },
+  {
+    "Name": "combat.death-save[2]",
+    "Value": "roll=10 successes=1 failures=1 stable=False dead=False hp=0 | Crypt Acolyte succeeded on a Death Saving Throw with a modified total of 10 (1/3)."
+  },
+  {
+    "Name": "combat.death-save[3]",
+    "Value": "roll=19 successes=2 failures=1 stable=False dead=False hp=0 | Crypt Acolyte succeeded on a Death Saving Throw with a modified total of 19 (2/3)."
+  },
+  {
+    "Name": "combat.death-save[4]",
+    "Value": "roll=14 successes=0 failures=0 stable=True dead=False hp=0 | Crypt Acolyte reached three Death Saving Throw successes and is Stable."
+  },
+  {
+    "Name": "combat.death-save-outcome",
+    "Value": "dead=False stable=True hp=0"
+  },
+  {
+    "Name": "combat.encounter-status",
+    "Value": "completed"
+  },
+  {
+    "Name": "serialize.clone",
+    "Value": "name=Cross-Target Golden Replay system=D&D 5E compatible / SRD 5.2.1 day=1 minute=480 characters=7 encounters=1 events=73; [Ashen Brute type=monster lvl=1 xp=0 pending=0 hp=31/45 ac=14 exhaustion=0 dead=False stable=False conditions= attacks=Maul:5:2d6+3 awarded=True][Bram type=pc lvl=3 xp=2713 pending=1 hp=38/38 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Crypt Acolyte type=npc lvl=1 xp=0 pending=0 hp=0/16 ac=12 exhaustion=0 dead=False stable=True conditions=Prone|Unconscious attacks= awarded=False][Crypt Stalker type=monster lvl=1 xp=0 pending=0 hp=0/30 ac=13 exhaustion=0 dead=True stable=False conditions=Dead attacks= awarded=True][Nell type=pc lvl=3 xp=2712 pending=1 hp=34/34 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Osric type=pc lvl=3 xp=2712 pending=1 hp=32/32 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Vera type=pc lvl=3 xp=2713 pending=1 hp=36/36 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False]; events=character_added|character_added|character_added|character_added|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|experience_awarded|experience_awarded|experience_awarded|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up|level_up|level_up|level_up|level_up|level_up|level_up|level_up|character_added|character_added|encounter_started|combatant_added|combatant_added|combat_position|combat_position|initiative|damage|combat_attack|combat_attack|saving_throw|saving_throw|saving_throw|ability_check|exhaustion|ability_check|exhaustion|concentration_started|damage|concentration_check|experience_awarded|experience_awarded|experience_awarded|experience_awarded|damage|character_added|damage|death_save|death_save|death_save|death_save|encounter_ended|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded"
+  },
+  {
+    "Name": "serialize.clone-is-isolated",
+    "Value": "False"
+  },
+  {
+    "Name": "serialize.appstate-schema",
+    "Value": "5"
+  },
+  {
+    "Name": "serialize.appstate-campaigns",
+    "Value": "1"
+  },
+  {
+    "Name": "serialize.appstate-roundtrip",
+    "Value": "name=Cross-Target Golden Replay system=D&D 5E compatible / SRD 5.2.1 day=1 minute=480 characters=7 encounters=1 events=73; [Ashen Brute type=monster lvl=1 xp=0 pending=0 hp=31/45 ac=14 exhaustion=0 dead=False stable=False conditions= attacks=Maul:5:2d6+3 awarded=True][Bram type=pc lvl=3 xp=2713 pending=1 hp=38/38 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Crypt Acolyte type=npc lvl=1 xp=0 pending=0 hp=0/16 ac=12 exhaustion=0 dead=False stable=True conditions=Prone|Unconscious attacks= awarded=False][Crypt Stalker type=monster lvl=1 xp=0 pending=0 hp=0/30 ac=13 exhaustion=0 dead=True stable=False conditions=Dead attacks= awarded=True][Nell type=pc lvl=3 xp=2712 pending=1 hp=34/34 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Osric type=pc lvl=3 xp=2712 pending=1 hp=32/32 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False][Vera type=pc lvl=3 xp=2713 pending=1 hp=36/36 ac=15 exhaustion=0 dead=False stable=False conditions= attacks=Longsword:5:1d8+3 awarded=False]; events=character_added|character_added|character_added|character_added|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|experience_awarded|experience_awarded|experience_awarded|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up|level_up|level_up|level_up|level_up|level_up|level_up|level_up|character_added|character_added|encounter_started|combatant_added|combatant_added|combat_position|combat_position|initiative|damage|combat_attack|combat_attack|saving_throw|saving_throw|saving_throw|ability_check|exhaustion|ability_check|exhaustion|concentration_started|damage|concentration_check|experience_awarded|experience_awarded|experience_awarded|experience_awarded|damage|character_added|damage|death_save|death_save|death_save|death_save|encounter_ended|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded|level_up_available|experience_awarded"
+  },
+  {
+    "Name": "serialize.appstate-matches-clone",
+    "Value": "True"
+  },
+  {
+    "Name": "tools.count",
+    "Value": "77"
+  },
+  {
+    "Name": "tools.names",
+    "Value": "search_rules,list_characters,get_character,get_inventory,list_locations,get_location,reveal_location,move_party,roll_dice,ability_check,saving_throw,damage_character,heal_character,grant_temporary_hp,death_save,add_condition,remove_condition,set_exhaustion,begin_concentration,end_concentration,list_prepared_spells,cast_spell,cast_projectile_spell,cast_multi_target_spell,cast_area_spell,cast_persistent_area_spell,spend_spell_slot,spend_resource,short_rest,spend_hit_die,long_rest,advance_time,get_active_encounter,list_available_encounters,activate_encounter,start_encounter,add_combatant,roll_initiative,set_combatant_position,add_terrain_feature,add_battlefield_effect,remove_battlefield_effect,list_battlefield_effects,move_combatant,take_disengage,take_dash,take_dodge,take_hide,search_hidden,ready_attack,ready_move,ready_spell,trigger_readied_attack,trigger_readied_move,trigger_readied_spell,help_attack,help_ability_check,first_aid,take_search,take_study,take_influence,unarmed_grapple,unarmed_shove,escape_grapple,release_grapple,stand_from_prone,get_pending_opportunity_attacks,resolve_opportunity_attack,decline_opportunity_attack,combat_attack,next_combat_turn,end_encounter,list_quests,set_quest_status,list_merchants,purchase_item,recent_events"
+  },
+  {
+    "Name": "tools.execute[roll_dice:{\"expression\":\"3d8+4\"}]",
+    "Value": "ok=True code=- error=- result={\"Expression\":\"3d8+4\",\"Rolls\":[2,6,8],\"Modifier\":4,\"Total\":20}"
+  },
+  {
+    "Name": "tools.execute[roll_dice:{\"expression\":\"not-a-roll\"}]",
+    "Value": "ok=False code=INVALID_ARGUMENT error=Invalid dice expression: not-a-roll (Parameter 'expression') result=-"
+  },
+  {
+    "Name": "tools.execute[roll_dice:{}]",
+    "Value": "ok=False code=INVALID_ARGUMENT error=Missing required argument 'expression'. result=-"
+  },
+  {
+    "Name": "tools.execute[get_character:{\"character_id\":\"does-not-exist\"}]",
+    "Value": "ok=False code=NOT_FOUND error=Character not found. result=-"
+  },
+  {
+    "Name": "tools.execute[list_quests:{}]",
+    "Value": "ok=True code=- error=- result=[]"
+  },
+  {
+    "Name": "tools.execute[list_locations:{}]",
+    "Value": "ok=True code=- error=- result=[]"
+  },
+  {
+    "Name": "tools.execute[no_such_tool:{}]",
+    "Value": "ok=False code=RULE_REJECTED error=Unknown tool: no_such_tool result=-"
+  }
+]
