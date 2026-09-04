@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fast source-level validation for environments without the .NET SDK.
 
-This is deliberately not a substitute for `dotnet build`. It catches malformed XML,
-obvious C# delimiter/lexical damage, duplicate DM tool names, and WPF Command bindings
-that do not have matching ICommand properties on MainViewModel.
+This is deliberately not a substitute for `dotnet build`. It catches malformed project
+XML, obvious C# delimiter/lexical damage, duplicate DM tool names, and drift in the
+deterministic SRD spell catalog.
 """
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ def sources(pattern: str) -> list[Path]:
 
 def main() -> int:
     errors: list[str] = []
-    xml_files = sources("*.xaml") + sources("*.csproj") + [ROOT / "Directory.Build.props"]
+    xml_files = sources("*.csproj") + [ROOT / "Directory.Build.props"]
     for path in xml_files:
         try:
             ET.parse(path)
@@ -189,27 +189,14 @@ def main() -> int:
     if duplicates:
         errors.append("Duplicate DM tools: " + ", ".join(duplicates))
 
-    # MainViewModel is a partial class split across MainViewModel.cs and MainViewModel.*.cs.
-    # Reading only the root file reported every command declared in a partial as missing.
-    vm = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in sorted((ROOT / "src/DungeonMasterAI.App").glob("MainViewModel*.cs"))
-    )
-    # Accept both block-bodied ("public ICommand X { get; }") and expression-bodied
-    # ("public ICommand X => ...") declarations. Requiring a brace missed every "=>" command.
-    commands = set(re.findall(r"public\s+ICommand\s+(\w+)\s*(?:\{|=>)", vm))
-    xaml = "\n".join(path.read_text(encoding="utf-8") for path in sources("*.xaml"))
-    bindings = set(re.findall(r'Command="\{Binding\s+(?:Path=)?(\w+)', xaml))
-    missing_commands = sorted(bindings - commands)
-    if missing_commands:
-        errors.append("Missing ICommand properties: " + ", ".join(missing_commands))
+    # r63 removed the WPF front end. The ICommand/XAML reachability checks that used to live here
+    # scanned MainViewModel*.cs and every *.xaml file; with no front end there is nothing for them
+    # to read, and leaving them in place would print "0 commands, 0 bindings, 0 unreachable" and
+    # look like a passing gate. They are deleted rather than left to report vacuous zeroes. The
+    # behaviour they guarded is recorded as acceptance criteria for the Unity rebuild in
+    # docs/unity-migration-plan.md 7.2 and 8.3.
 
-    # The inverse direction is the r57 shell regression: commands the view model exposes that no
-    # XAML binds, i.e. features the user cannot reach. Reported as a metric here and enforced as a
-    # hard gate by GuiSmokeTests, which can also see code-behind wiring that a text scan cannot.
-    unreachable_commands = sorted(commands - bindings)
-
-    spell_catalog_path = ROOT / "src/DungeonMasterAI.App/Assets/Rules/srd_spells.json"
+    spell_catalog_path = ROOT / "content/Rules/srd_spells.json"
     implemented_spells = 0
     try:
         catalog = json.loads(spell_catalog_path.read_text(encoding="utf-8"))
@@ -257,11 +244,6 @@ def main() -> int:
         errors.append(f"SRD spell catalog validation failed: {exc}")
 
     print(f"C# files: {len(csharp_files)}")
-    print(f"View model commands: {len(commands)}")
-    print(f"XAML command bindings: {len(bindings)}")
-    print(f"Commands not bound in XAML: {len(unreachable_commands)}")
-    if unreachable_commands:
-        print("  " + ", ".join(unreachable_commands))
     print(f"DM tools: {len(tool_names)} unique: {len(set(tool_names))}")
     print(f"Deterministic SRD spells: {implemented_spells}")
     print(f"Errors: {len(errors)}")

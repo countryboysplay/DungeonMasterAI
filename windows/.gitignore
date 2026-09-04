@@ -4,7 +4,8 @@ artifacts/
 *.user
 *.suo
 *.log
-src/DungeonMasterAI.App/Models/*.gguf
-!src/DungeonMasterAI.App/Models/.gitkeep
-src/DungeonMasterAI.App/Runtime/*
-!src/DungeonMasterAI.App/Runtime/.gitkeep
+# tools/fetch-llama-runtime.ps1 vendors the pinned llama.cpp build here. Downloaded, never committed.
+runtime/
+# Local GGUF weights, if anyone stages them beside the tree.
+models/
+*.gguf

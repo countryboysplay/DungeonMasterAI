@@ -21,7 +21,7 @@ public sealed record ModelProvisionResult(bool Success, string Message, string? 
 /// and the narration GGUF.
 ///
 /// The runtime is normally already present, because the installer ships the pinned CPU build that
-/// tools/fetch-llama-runtime.ps1 vendors in CI. The download path here exists for developer builds
+/// tools/fetch-llama-runtime.ps1 vendors at build time. The download path here exists for developer builds
 /// and for repairing a damaged install; it is not the expected first-run experience.
 ///
 /// The model is the opposite: it is never bundled. At 2.55 GiB the GGUF would push the setup
