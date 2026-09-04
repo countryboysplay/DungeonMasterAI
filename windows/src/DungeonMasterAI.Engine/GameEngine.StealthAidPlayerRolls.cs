@@ -9,7 +9,7 @@ public sealed partial class GameEngine
         string encounterId,
         string combatantId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
 
         var encounter = RequireEncounter(campaign, encounterId);
@@ -57,7 +57,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "hide_check");
         var encounter = RequirePendingEncounter(campaign, pending);
@@ -104,7 +104,7 @@ public sealed partial class GameEngine
         string searcherCombatantId,
         string targetCombatantId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
 
         var encounter = RequireEncounter(campaign, encounterId);
@@ -159,7 +159,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "search_hidden_check");
         var encounter = RequirePendingEncounter(campaign, pending);
@@ -211,7 +211,7 @@ public sealed partial class GameEngine
         string helperCombatantId,
         string targetCombatantId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
 
         var encounter = RequireEncounter(campaign, encounterId);
@@ -266,7 +266,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "first_aid_check");
         var encounter = RequirePendingEncounter(campaign, pending);

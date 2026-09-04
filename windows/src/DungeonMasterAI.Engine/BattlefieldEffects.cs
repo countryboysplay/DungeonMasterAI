@@ -6,8 +6,8 @@ public sealed partial class GameEngine
 {
     public BattlefieldEffectState AddBattlefieldEffect(CampaignState campaign, string encounterId, BattlefieldEffectState effect)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(effect);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(effect, nameof(effect));
         var encounter = RequireEncounter(campaign, encounterId);
         if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Battlefield effects can be added only to an active encounter.");
@@ -62,7 +62,7 @@ public sealed partial class GameEngine
 
     public bool RemoveBattlefieldEffect(CampaignState campaign, string encounterId, string effectId, string reason = "removed")
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var encounter = RequireEncounter(campaign, encounterId);
         var effect = encounter.BattlefieldEffects.FirstOrDefault(e =>
             e.Id.Equals(effectId, StringComparison.OrdinalIgnoreCase)

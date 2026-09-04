@@ -106,7 +106,7 @@ public sealed class SrdSpellCatalogService
 
     public int MergeInto(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var changed = 0;
         foreach (var source in _spells)
         {

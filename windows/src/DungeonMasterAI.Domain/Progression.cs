@@ -178,7 +178,7 @@ public static class Progression
     /// </summary>
     public static string DeriveChallengeRating(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
 
         var hitPoints = Math.Max(1, character.MaxHp);
         var defensive = DefensiveTable.First(entry => hitPoints <= entry.MaxHitPoints);
@@ -209,7 +209,7 @@ public static class Progression
     /// </summary>
     public static double ExpectedDamagePerRound(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         if (character.Attacks.Count == 0) return 0;
         var best = character.Attacks.Max(a => AverageOfDamageExpression(a.DamageExpression));
         return Math.Max(0, best) * Math.Max(1, character.AttacksPerAction);

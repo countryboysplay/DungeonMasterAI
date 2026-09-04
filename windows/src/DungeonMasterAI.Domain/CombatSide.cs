@@ -111,7 +111,7 @@ public static class CombatSide
     /// </summary>
     public static string DefaultFor(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         return character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase) ? Party : Opposition;
     }
 }

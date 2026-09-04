@@ -15,7 +15,7 @@ public sealed class CampaignReadinessValidator
 {
     public IReadOnlyList<CampaignReadinessIssue> Validate(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var issues = new List<CampaignReadinessIssue>();
         var locationIds = campaign.Locations.Select(l => l.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var characterIds = campaign.Characters.Select(c => c.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);

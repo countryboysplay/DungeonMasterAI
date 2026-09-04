@@ -26,8 +26,8 @@ public sealed partial class GameEngine
 
     public CharacterSheet AddCharacter(CampaignState campaign, CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(character, nameof(character));
         character.Level = Math.Max(1, character.Level);
         character.ProficiencyBonus = character.ProficiencyBonus > 0
             ? character.ProficiencyBonus
@@ -236,7 +236,7 @@ public sealed partial class GameEngine
         string? skill = null,
         int circumstanceModifier = 0)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var character = RequireCharacter(campaign, characterId);
         var helper = FindHelpAbilityCheckHelper(campaign, characterId, skill);
         var requestedMode = helper is null ? mode : CombineAdvantage(mode, D20RollMode.Advantage);
@@ -306,7 +306,7 @@ public sealed partial class GameEngine
         D20RollMode mode = D20RollMode.Normal,
         int circumstanceModifier = 0)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var character = RequireCharacter(campaign, characterId);
         var normalized = CharacterMechanics.NormalizeAbility(ability);
         var conditionMode = CharacterMechanics.SavingThrowModeFromConditions(character, normalized);
@@ -413,7 +413,7 @@ public sealed partial class GameEngine
     int effectiveDamage,
     DiceService dice)
 {
-    ArgumentNullException.ThrowIfNull(dice);
+    Guard.NotNull(dice, nameof(dice));
     if (effectiveDamage <= 0) return null;
     var character = RequireCharacter(campaign, characterId);
     if (string.IsNullOrWhiteSpace(character.ConcentrationEffect)) return null;
@@ -505,7 +505,7 @@ public DamageResolutionResult ApplyDamageWithConcentration(
     string? damageType = null,
     bool criticalHit = false)
 {
-    ArgumentNullException.ThrowIfNull(dice);
+    Guard.NotNull(dice, nameof(dice));
     var character = RequireCharacter(campaign, characterId);
     if (amount > 0
         && character.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
@@ -616,7 +616,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
     public EncounterState StartEncounter(CampaignState campaign, string name, string? locationId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var encounterLocation = locationId ?? campaign.PartyLocationId;
         if (encounterLocation is not null) RequireLocation(campaign, encounterLocation);
         if (campaign.Encounters.Any(e => e.Status.Equals("active", StringComparison.OrdinalIgnoreCase)))
@@ -813,7 +813,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         string? attackName,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The encounter is not active.");
@@ -926,7 +926,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
     public TerrainFeature AddTerrainFeature(CampaignState campaign, string encounterId, TerrainFeature terrain)
     {
-        ArgumentNullException.ThrowIfNull(terrain);
+        Guard.NotNull(terrain, nameof(terrain));
         var encounter = RequireEncounter(campaign, encounterId);
         terrain.WidthSquares = Math.Max(1, terrain.WidthSquares);
         terrain.HeightSquares = Math.Max(1, terrain.HeightSquares);
@@ -1144,7 +1144,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
 
     public FirstAidResult TakeFirstAid(CampaignState campaign, string encounterId, string helperCombatantId, string targetCombatantId, DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var helperCombatant = RequireCombatant(encounter, helperCombatantId);
@@ -1204,7 +1204,7 @@ public int SpendSpellSlot(CampaignState campaign, string characterId, int level)
         DiceService dice,
         string? targetSaveAbility = null)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var attackerCombatant = RequireCombatant(encounter, attackerCombatantId);
@@ -1263,7 +1263,7 @@ if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
         DiceService dice,
         string? targetSaveAbility = null)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var attackerCombatant = RequireCombatant(encounter, attackerCombatantId);
@@ -1320,7 +1320,7 @@ if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
         string skill,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var targetCombatant = RequireCombatant(encounter, targetCombatantId);
@@ -1398,7 +1398,7 @@ if (target.CharacterType.Equals("pc", StringComparison.OrdinalIgnoreCase)
         string? attackName,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         var pending = encounter.PendingMove ?? throw new InvalidOperationException("There is no pending movement that can provoke an Opportunity Attack.");
         var window = pending.OpportunityAttacks.FirstOrDefault(x => x.ReactorCombatantId.Equals(reactorCombatantId, StringComparison.OrdinalIgnoreCase) && !x.Resolved)
@@ -1765,7 +1765,7 @@ return new EncounterAttackResult(encounter.Id, reactor.Name, mover.Name, profile
         DiceService dice,
         IReadOnlyCollection<string> allowedSkills)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var combatant = RequireCombatant(encounter, combatantId);

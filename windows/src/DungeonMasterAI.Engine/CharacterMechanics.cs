@@ -41,13 +41,13 @@ public static class CharacterMechanics
 
     public static bool HasCondition(CharacterSheet character, string condition)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         return character.Conditions.Any(c => c.Equals(condition, StringComparison.OrdinalIgnoreCase));
     }
 
     public static bool IsIncapacitated(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         return character.Dead
             || HasCondition(character, "Incapacitated")
             || HasCondition(character, "Unconscious")
@@ -57,7 +57,7 @@ public static class CharacterMechanics
 
     public static bool AutomaticallyFailsSavingThrow(CharacterSheet character, string ability)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         var normalized = NormalizeAbility(ability);
         if (normalized is not ("strength" or "dexterity")) return false;
         return HasCondition(character, "Paralyzed")
@@ -67,7 +67,7 @@ public static class CharacterMechanics
 
     public static D20RollMode SavingThrowModeFromConditions(CharacterSheet character, string ability)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         var normalized = NormalizeAbility(ability);
         return normalized == "dexterity" && HasCondition(character, "Restrained")
             ? D20RollMode.Disadvantage
@@ -76,7 +76,7 @@ public static class CharacterMechanics
 
     public static int EffectiveSpeed(CharacterSheet character, IEnumerable<ActiveEffectState>? activeEffects = null)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         if (character.Dead
             || HasCondition(character, "Grappled")
             || HasCondition(character, "Unconscious")
@@ -91,7 +91,7 @@ public static class CharacterMechanics
 
     public static AttackProfile UnarmedStrikeProfile(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         var strengthModifier = AbilityModifier(AbilityScore(character, "strength"));
         return new AttackProfile
         {

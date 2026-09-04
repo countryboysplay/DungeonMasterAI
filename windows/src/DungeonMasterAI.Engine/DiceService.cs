@@ -7,7 +7,32 @@ public sealed partial class DiceService
 {
     private readonly Func<int, int, int> _nextInt;
 
-    public DiceService() : this((minimumInclusive, maximumExclusive) => Random.Shared.Next(minimumInclusive, maximumExclusive))
+    // The default, unseeded dice source. netstandard2.1 has no Random.Shared (.NET 6+), so this
+    // used to be the obvious place to #if-fork the implementation -- and it is exactly the wrong
+    // place to do that. Dice are the heart of adjudication; a permanently forked default source
+    // is a standing invitation for the two targets to diverge silently.
+    //
+    // So there is no fork. Random.Shared is itself a per-thread Random behind a static property,
+    // and this reproduces that design with a [ThreadStatic] instance on every target and every
+    // host, including Unity's Mono runtime. Both are unseeded and neither is reproducible, so no
+    // test can depend on the sequence either one produces -- reproducible rolls come from the
+    // Func<int,int,int> constructor below, which is target-independent.
+    //
+    // The seed is derived explicitly rather than left to Random's parameterless constructor,
+    // because that constructor is only guaranteed to give near-simultaneous instances distinct
+    // streams on .NET 6+. Older runtimes -- Unity's Mono among them -- seed it from the system
+    // tick count, so two threads that first rolled dice within the same tick would roll the same
+    // numbers. Guid.NewGuid() is the one high-entropy source available on both targets; the
+    // counter makes distinctness total rather than merely overwhelmingly likely.
+    private static int _diceSeedCounter;
+
+    [ThreadStatic]
+    private static Random? _threadRandom;
+
+    private static Random ThreadRandom =>
+        _threadRandom ??= new Random(unchecked(Guid.NewGuid().GetHashCode() ^ Interlocked.Increment(ref _diceSeedCounter)));
+
+    public DiceService() : this((minimumInclusive, maximumExclusive) => ThreadRandom.Next(minimumInclusive, maximumExclusive))
     {
     }
 
@@ -16,11 +41,34 @@ public sealed partial class DiceService
         _nextInt = nextInt ?? throw new ArgumentNullException(nameof(nextInt));
     }
 
-    [GeneratedRegex(@"^\s*(?<count>\d*)d(?<sides>\d+)(?<modifier>[+-]\d+)?\s*$", RegexOptions.IgnoreCase)]
+    // Pattern and options are declared once as constants and shared by both implementations below.
+    // A netstandard2.1 leg needs its own Regex construction because [GeneratedRegex] is .NET 7+
+    // and -- verified in docs/unity-migration-plan.md 1.4.E -- a hand-rolled attribute of the same
+    // name does not make the source generator fire. Constants are what stops the two branches from
+    // drifting: there is exactly one copy of each pattern, so a future edit cannot update one
+    // target's regex and not the other's.
+    private const string DiceExpressionPattern = @"^\s*(?<count>\d*)d(?<sides>\d+)(?<modifier>[+-]\d+)?\s*$";
+    private const RegexOptions DiceExpressionOptions = RegexOptions.IgnoreCase;
+    private const string FixedExpressionPattern = @"^\s*(?<fixed>\d+)\s*$";
+    private const RegexOptions FixedExpressionOptions = RegexOptions.None;
+
+#if NETSTANDARD2_1
+    // RegexOptions.Compiled is deliberately not used here. It changes no matching semantics, only
+    // the execution strategy, and it needs runtime code generation -- which Unity's IL2CPP backend
+    // does not have. These two patterns run against short strings, so interpreting them costs
+    // nothing worth an AOT hazard in the build whose only purpose is to load inside Unity.
+    private static readonly Regex DiceExpressionRegexInstance = new(DiceExpressionPattern, DiceExpressionOptions);
+    private static readonly Regex FixedExpressionRegexInstance = new(FixedExpressionPattern, FixedExpressionOptions);
+
+    private static Regex DiceExpressionRegex() => DiceExpressionRegexInstance;
+    private static Regex FixedExpressionRegex() => FixedExpressionRegexInstance;
+#else
+    [GeneratedRegex(DiceExpressionPattern, DiceExpressionOptions)]
     private static partial Regex DiceExpressionRegex();
 
-    [GeneratedRegex(@"^\s*(?<fixed>\d+)\s*$")]
+    [GeneratedRegex(FixedExpressionPattern, FixedExpressionOptions)]
     private static partial Regex FixedExpressionRegex();
+#endif
 
     private const int MaxDiceCount = 100;
 

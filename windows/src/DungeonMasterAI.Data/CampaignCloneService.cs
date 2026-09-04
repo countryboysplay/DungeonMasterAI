@@ -14,7 +14,7 @@ public sealed class CampaignCloneService
 
     public CampaignState Clone(CampaignState source)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        Guard.NotNull(source, nameof(source));
         var bytes = JsonSerializer.SerializeToUtf8Bytes(source, _json);
         return JsonSerializer.Deserialize<CampaignState>(bytes, _json)
             ?? throw new InvalidDataException("Campaign state could not be cloned.");

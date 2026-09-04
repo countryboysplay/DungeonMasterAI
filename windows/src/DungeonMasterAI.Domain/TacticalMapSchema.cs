@@ -34,7 +34,7 @@ public static class TacticalMapSchema
     /// <returns>The number of maps whose persisted shape had to be repaired.</returns>
     public static int NormalizeCampaign(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
 
         campaign.TacticalMaps ??= [];
 
@@ -55,7 +55,7 @@ public static class TacticalMapSchema
     /// <returns><c>true</c> when any stored value had to be changed.</returns>
     public static bool NormalizeMap(TacticalMap map)
     {
-        ArgumentNullException.ThrowIfNull(map);
+        Guard.NotNull(map, nameof(map));
 
         var changed = false;
 

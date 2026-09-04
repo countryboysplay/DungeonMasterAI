@@ -51,7 +51,7 @@ public sealed class AppDataStore
 
     public async Task SaveAsync(AppState state, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(state);
+        Guard.NotNull(state, nameof(state));
         Directory.CreateDirectory(DataDirectory);
         var temp = StatePath + ".tmp";
 

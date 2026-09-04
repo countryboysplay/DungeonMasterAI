@@ -20,7 +20,15 @@ public sealed class RulesSearchService
         if (!File.Exists(jsonlPath)) return;
         using var stream = File.OpenRead(jsonlPath);
         using var reader = new StreamReader(stream);
+#if NETSTANDARD2_1
+        // netstandard2.1 has only the parameterless ReadLineAsync(); the cancellable overload is
+        // .NET 7+. The token is still honoured by every other await in this method's callers -- the
+        // only thing lost is a cooperative cancellation check between lines of a small bundled
+        // srd_chunks.jsonl, which is read from local disk in a single pass.
+        while (await reader.ReadLineAsync() is { } line)
+#else
         while (await reader.ReadLineAsync(cancellationToken) is { } line)
+#endif
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             using var doc = JsonDocument.Parse(line);

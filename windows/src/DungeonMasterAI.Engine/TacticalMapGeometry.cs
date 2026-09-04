@@ -20,7 +20,7 @@ public static class TacticalMapGeometry
 {
     public static TacticalMapValidationReport Validate(TacticalMap map)
     {
-        ArgumentNullException.ThrowIfNull(map);
+        Guard.NotNull(map, nameof(map));
         var report = new TacticalMapValidationReport();
 
         if (map.SchemaVersion < 1 || map.SchemaVersion > TacticalMapSchema.CurrentMapSchemaVersion)
@@ -140,7 +140,7 @@ public static class TacticalMapGeometry
     /// </summary>
     public static bool CanTraverseStep(TacticalMap map, TacticalMapCell from, TacticalMapCell to)
     {
-        ArgumentNullException.ThrowIfNull(map);
+        Guard.NotNull(map, nameof(map));
         if (from == to) return IsCellWalkable(map, to.X, to.Y);
         if (!IsInside(map, from.X, from.Y) || !IsCellWalkable(map, to.X, to.Y)) return false;
 

@@ -6,8 +6,8 @@ public sealed partial class GameEngine
 {
     internal void SyncOpportunityAttackPlayerDecision(CampaignState campaign, EncounterState encounter)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(encounter);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(encounter, nameof(encounter));
 
         // A mechanical roll already owned by the player always has priority over a new choice.
         if (campaign.PendingPlayerRoll?.Required == true)
@@ -131,7 +131,7 @@ public sealed partial class GameEngine
         string optionId,
         DiceService? dice = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var decision = campaign.PendingPlayerDecision
             ?? throw new InvalidOperationException("There is no required player decision to resolve.");
         if (!decision.Required)

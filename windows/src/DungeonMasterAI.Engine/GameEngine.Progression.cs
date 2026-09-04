@@ -27,7 +27,7 @@ public sealed partial class GameEngine
     /// </summary>
     public static IReadOnlyList<CharacterSheet> EligiblePartyMembers(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         return campaign.Characters
             .Where(c => c.CharacterType.Equals(PlayerCharacterType, StringComparison.OrdinalIgnoreCase) && !c.Dead)
             .ToArray();
@@ -50,7 +50,7 @@ public sealed partial class GameEngine
     /// </summary>
     public static int ExperienceValueOf(CharacterSheet character)
     {
-        ArgumentNullException.ThrowIfNull(character);
+        Guard.NotNull(character, nameof(character));
         if (character.ExperienceValue is { } authored && authored > 0) return authored;
         if (Progression.TryExperienceForChallengeRating(character.ChallengeRating, out var byRating))
             return Math.Max(Progression.MinimumCreatureExperience, byRating);
@@ -76,7 +76,7 @@ public sealed partial class GameEngine
         string sourceKind,
         string sourceName)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (partyTotal < 0) throw new ArgumentOutOfRangeException(nameof(partyTotal));
 
         var eligible = EligiblePartyMembers(campaign);
@@ -114,7 +114,7 @@ public sealed partial class GameEngine
         string sourceKind,
         string sourceName)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (amountEach < 0) throw new ArgumentOutOfRangeException(nameof(amountEach));
         if (amountEach == 0) return [];
 
@@ -135,8 +135,8 @@ public sealed partial class GameEngine
         CharacterSheet defeated,
         string sourceKind = "defeat")
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(defeated);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(defeated, nameof(defeated));
         if (defeated.CharacterType.Equals(PlayerCharacterType, StringComparison.OrdinalIgnoreCase)) return [];
         if (defeated.ExperienceAwarded) return [];
 
@@ -255,7 +255,7 @@ public sealed partial class GameEngine
     /// </summary>
     public LevelUpResult ApplyLevelUp(CampaignState campaign, string characterId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var character = RequireCharacter(campaign, characterId);
 
         // Validate everything before mutating anything (r60): a refused level-up must not leave
@@ -342,7 +342,7 @@ public sealed partial class GameEngine
     /// </summary>
     public Quest SetQuestStatus(CampaignState campaign, string questId, string status)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var quest = campaign.Quests.FirstOrDefault(q => q.Id == questId && !q.DmOnly)
             ?? throw new KeyNotFoundException("Player-visible quest not found.");
 
