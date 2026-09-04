@@ -1,23 +1,23 @@
 using System.Text.Json;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using DungeonMasterAI.App.Controls;
 using DungeonMasterAI.Domain;
 using DungeonMasterAI.Engine;
 
-namespace DungeonMasterAI.MapRendererTests;
+namespace DungeonMasterAI.MapGeometryTests;
 
+/// <summary>
+/// r53's map-schema and geometry assertions, carried over verbatim from
+/// <c>DungeonMasterAI.MapRendererTests</c> when the WPF front end was removed in r63. The renderer
+/// half of that suite -- constructing <c>TacticalMapControl</c> and writing a 1280x720 PNG -- went
+/// with WPF. Everything below is Domain/Engine and never had a UI dependency; the fixture map,
+/// the checks and their messages are unchanged.
+/// </summary>
 internal static class Program
 {
-    [STAThread]
     private static int Main()
     {
         var failures = new List<string>();
-        Application? application = null;
         try
         {
-            application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             var map = BuildRuinedCrypt();
             var report = TacticalMapGeometry.Validate(map);
             Check(report.IsValid, $"Prototype map validates with no errors. Found {report.Errors} error(s).", failures);
@@ -57,46 +57,19 @@ internal static class Program
             Check(restored?.EncounterMapBindings.TryGetValue(encounter.Id, out var restoredMapId) == true && restoredMapId == map.Id,
                 "Encounter-to-map binding survives campaign JSON serialization.", failures);
 
-            var control = new TacticalMapControl
-            {
-                Map = map,
-                Campaign = campaign,
-                Encounter = encounter,
-                ShowDmView = true,
-                Width = 1280,
-                Height = 720
-            };
-            control.Measure(new Size(1280, 720));
-            control.Arrange(new Rect(0, 0, 1280, 720));
-            control.UpdateLayout();
-
-            var bitmap = new RenderTargetBitmap(1280, 720, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(control);
-            var outputDirectory = Path.GetFullPath(Path.Combine("artifacts", "map-prototype"));
-            Directory.CreateDirectory(outputDirectory);
-            var outputPath = Path.Combine(outputDirectory, "ruined-crypt-prototype-1280x720.png");
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(bitmap));
-            using (var stream = File.Create(outputPath)) encoder.Save(stream);
-            Check(File.Exists(outputPath) && new FileInfo(outputPath).Length > 10_000, "Renderer writes a non-empty 1280x720 tactical-map PNG artifact.", failures);
-
             if (failures.Count == 0)
             {
-                Console.WriteLine("MAP RENDERER PROTOTYPE PASS");
-                Console.WriteLine($"Schema validated; movement, LOS, serialization, and renderer artifact verified at {outputPath}.");
+                Console.WriteLine("MAP GEOMETRY PASS");
+                Console.WriteLine("Schema validation, movement, line of sight, and campaign serialization verified.");
                 return 0;
             }
         }
         catch (Exception ex)
         {
-            failures.Add($"Unhandled map prototype exception: {ex}");
-        }
-        finally
-        {
-            try { application?.Shutdown(); } catch { }
+            failures.Add($"Unhandled map geometry exception: {ex}");
         }
 
-        Console.Error.WriteLine($"MAP RENDERER PROTOTYPE FAILED: {failures.Count} issue(s)");
+        Console.Error.WriteLine($"MAP GEOMETRY FAILED: {failures.Count} issue(s)");
         foreach (var failure in failures) Console.Error.WriteLine($" - {failure}");
         return 1;
     }

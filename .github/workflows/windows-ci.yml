@@ -184,8 +184,8 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Run map schema and renderer prototype tests (r53)
-        run: dotnet run --project tests/DungeonMasterAI.MapRendererTests/DungeonMasterAI.MapRendererTests.csproj --configuration Release
+      - name: Run map schema and geometry tests (r53)
+        run: dotnet run --project tests/DungeonMasterAI.MapGeometryTests/DungeonMasterAI.MapGeometryTests.csproj --configuration Release
 
       - name: Run high-quality map asset pack tests (r54)
         run: dotnet run --project tests/DungeonMasterAI.MapAssetTests/DungeonMasterAI.MapAssetTests.csproj --configuration Release
