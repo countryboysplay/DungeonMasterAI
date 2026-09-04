@@ -21,7 +21,7 @@ public sealed partial class GameEngine
     /// </summary>
     public static TacticalMap? ResolveEncounterMap(CampaignState campaign, string? encounterId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (string.IsNullOrWhiteSpace(encounterId)) return null;
         if (campaign.TacticalMaps is not { Count: > 0 }) return null;
 

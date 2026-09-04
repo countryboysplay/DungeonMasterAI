@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    Differential testing across both target frameworks, per docs/unity-migration-plan.md 6.1.
+
+    Domain, Engine and Data are multi-targeted net10.0;netstandard2.1 so they can load in Unity.
+    A green build of both legs proves only that both compile. The defect class that actually
+    threatens this port is the other one: it compiles and quietly behaves differently. So the
+    existing test suite is run twice against the same assertions and two different compiled
+    engines, rather than a second suite being written.
+
+    Building any test project with -p:UseNetStandardEngine=true resolves its Domain/Engine/Data
+    references against the netstandard2.1 output instead of net10.0. The test projects themselves
+    stay net10.0 console apps and are not edited: a .NET 10 host can load and run a netstandard2.1
+    assembly perfectly well, so no Unity is needed to exercise the Unity build.
+
+    NetStandardEngineAssertion.cs, compiled in only under that flag, is what stops this from
+    quietly becoming a no-op. If SetTargetFramework ever stops taking effect (a renamed project, a
+    moved directory, an MSBuild change), every "netstandard2.1" run would otherwise pass while
+    silently re-testing net10.0, which is worse than not running it at all.
+  -->
+  <ItemGroup Condition="'$(UseNetStandardEngine)' == 'true'">
+    <ProjectReference Update="..\..\src\DungeonMasterAI.Domain\DungeonMasterAI.Domain.csproj;../../src/DungeonMasterAI.Domain/DungeonMasterAI.Domain.csproj"
+                      SetTargetFramework="TargetFramework=netstandard2.1" />
+    <ProjectReference Update="..\..\src\DungeonMasterAI.Engine\DungeonMasterAI.Engine.csproj;../../src/DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj"
+                      SetTargetFramework="TargetFramework=netstandard2.1" />
+    <ProjectReference Update="..\..\src\DungeonMasterAI.Data\DungeonMasterAI.Data.csproj;../../src/DungeonMasterAI.Data/DungeonMasterAI.Data.csproj"
+                      SetTargetFramework="TargetFramework=netstandard2.1" />
+
+    <Compile Include="$(MSBuildThisFileDirectory)NetStandardEngineAssertion.cs"
+             Link="NetStandardEngineAssertion.cs" />
+  </ItemGroup>
+</Project>

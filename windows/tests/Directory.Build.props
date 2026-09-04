@@ -1,0 +1,28 @@
+<Project>
+  <!--
+    MSBuild stops at the first Directory.Build.props it finds walking up from a project, so this
+    file must re-import windows/Directory.Build.props explicitly or every test project silently
+    loses LangVersion, Nullable and ImplicitUsings.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    The differential test run (see Directory.Build.targets) builds the same test projects twice,
+    against two different engine builds, and the two must not share an output directory. If they
+    did, a "dotnet run" that skips the build would execute whichever engine was compiled last
+    rather than the one the caller meant, and a differential pass could report agreement while
+    having run the same assemblies twice. Separate directories make that impossible rather than
+    merely unlikely.
+  -->
+  <PropertyGroup Condition="'$(UseNetStandardEngine)' == 'true'">
+    <BaseOutputPath>bin\netstandard21-engine\</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj\netstandard21-engine\</BaseIntermediateOutputPath>
+    <!--
+      The SDK excludes $(BaseOutputPath) and $(BaseIntermediateOutputPath) from the default
+      Compile glob. Redirecting them means the ordinary bin\ and obj\ are no longer excluded, and
+      the generated AssemblyInfo.cs left there by a net10.0-engine build would be compiled in
+      alongside this build's own. Exclude both explicitly.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

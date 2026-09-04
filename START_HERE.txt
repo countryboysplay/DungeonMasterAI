@@ -14,15 +14,23 @@ What still exists and still works:
   windows/src/DungeonMasterAI.Engine   the deterministic D&D 5e adjudicator
   windows/src/DungeonMasterAI.Data     persistence, import, readiness validation
   windows/src/DungeonMasterAI.AI       llama.cpp lifecycle and the local DM client
-  windows/tests/*                      30 test projects, all green
+  windows/tests/*                      31 test projects, all green
 
 That engine is the game. It has no reference to System.Windows and never did, which is why
 it survived the deletion untouched.
 
+Domain, Engine and Data build for two target frameworks: net10.0;netstandard2.1. Unity's
+scripting runtime is .NET Standard 2.1 and will not load a net10.0 assembly at all, so the
+second leg is what makes the engine droppable into a Unity project. net10.0 is still the
+target everything here is developed and tested against. DungeonMasterAI.AI stays net10.0-only
+on purpose; Unity handles the llama-server process separately.
+
 Primary development loop:
 1. Push changes to a feature branch.
-2. .github/workflows/windows-ci.yml validates the source on Linux, then builds every project
-   and runs every test project under windows/tests on windows-latest.
+2. .github/workflows/windows-ci.yml validates the source on Linux, builds every project and
+   runs every test project under windows/tests on windows-latest, builds the netstandard2.1
+   leg with warnings as errors, and then runs the portable test projects a second time
+   against that leg and diffs the output against the first run.
 3. Do not merge into main until that run is green.
 
 Local verification (.NET 10 SDK required; winget install Microsoft.DotNet.SDK.10):
@@ -31,6 +39,15 @@ Local verification (.NET 10 SDK required; winget install Microsoft.DotNet.SDK.10
   python tools/validate_source.py
   dotnet build src/DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj
   dotnet run --project tests/DungeonMasterAI.R62MapCombatTests/DungeonMasterAI.R62MapCombatTests.csproj -c Release
+
+To check the Unity leg specifically, build it and run any portable test project against it:
+
+  dotnet build src/DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj -f netstandard2.1 -c Release -warnaserror
+  dotnet run --project tests/DungeonMasterAI.CrossTargetGoldenTests/DungeonMasterAI.CrossTargetGoldenTests.csproj -c Release -p:UseNetStandardEngine=true
+
+The second command runs a net10.0 host against the netstandard2.1 engine -- no Unity needed --
+and compares 155 recorded engine values against a committed golden file. It refuses to run at
+all if the engine it loaded is not really netstandard2.1, so it cannot pass by accident.
 
 Every test project is a plain console executable that exits 0 on pass and prints each failure
 on stderr. There is no test runner to install. To run them all the way CI does, iterate the

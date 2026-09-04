@@ -1,11 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- See DungeonMasterAI.Domain.csproj for why this is multi-targeted. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../DungeonMasterAI.Domain/DungeonMasterAI.Domain.csproj" />
   </ItemGroup>
-  <ItemGroup>
+  <!-- See DungeonMasterAI.Engine.csproj for why this is conditioned to netstandard2.1 only. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+  <!--
+    PdfPig is excluded from the Unity leg on purpose. It would load there, since it ships a
+    netstandard2.0 assembly and netstandard2.1 is a superset of netstandard2.0. But PDF campaign
+    import is a once-per-campaign authoring action the running game never performs, and including
+    it would put PdfPig and its own dependencies into Unity's plugin folder for no runtime benefit.
+    CampaignImportService.ExtractPdf is the single fenced call site; see
+    docs/unity-migration-plan.md 2.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.1'">
     <PackageReference Include="PdfPig" Version="0.1.15" />
   </ItemGroup>
 </Project>

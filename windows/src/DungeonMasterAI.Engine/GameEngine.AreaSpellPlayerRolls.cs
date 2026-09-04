@@ -47,12 +47,12 @@ public sealed partial class GameEngine
         DiceService dice,
         bool readiedReaction = false)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(caster);
-        ArgumentNullException.ThrowIfNull(spell);
-        ArgumentNullException.ThrowIfNull(encounter);
-        ArgumentNullException.ThrowIfNull(targetCombatantIds);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(caster, nameof(caster));
+        Guard.NotNull(spell, nameof(spell));
+        Guard.NotNull(encounter, nameof(encounter));
+        Guard.NotNull(targetCombatantIds, nameof(targetCombatantIds));
+        Guard.NotNull(dice, nameof(dice));
 
         var state = new PlayerAreaSpellSequenceState
         {
@@ -88,8 +88,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 
@@ -143,8 +143,8 @@ public sealed partial class GameEngine
         int rolledDamage,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rolledDamage is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(rolledDamage));
 
         var pending = RequireAreaSpellPending(campaign, pendingRollId, "area_spell_damage");

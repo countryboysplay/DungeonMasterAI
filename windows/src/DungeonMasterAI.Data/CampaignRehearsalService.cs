@@ -27,7 +27,7 @@ public sealed class CampaignRehearsalService
 {
     public CampaignRehearsalReport Run(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var findings = new List<CampaignRehearsalFinding>();
         CheckDuplicateKeys(campaign, findings);
         CheckTravelGraph(campaign, findings);
@@ -371,6 +371,10 @@ public sealed class CampaignRehearsalService
         return visited;
     }
 
-    private static string Normalize(string? value) => string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    // StringSplitOptions.TrimEntries is .NET 5+ and absent from netstandard2.1. Dropping it here is
+    // not an approximation: a null separator array splits on white-space, so with
+    // RemoveEmptyEntries every surviving token is already white-space-free and TrimEntries has
+    // nothing left to trim. Identical output on both targets, one implementation.
+    private static string Normalize(string? value) => string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     private static void Add(ISet<string> keys, string? key) { if (!string.IsNullOrWhiteSpace(key)) keys.Add(key); }
 }

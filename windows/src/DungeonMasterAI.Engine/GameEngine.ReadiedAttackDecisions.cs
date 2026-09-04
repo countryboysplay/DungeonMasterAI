@@ -9,7 +9,7 @@ public sealed partial class GameEngine
         string encounterId,
         string reactorCombatantId)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
         if (campaign.PendingPlayerDecision?.Required == true)

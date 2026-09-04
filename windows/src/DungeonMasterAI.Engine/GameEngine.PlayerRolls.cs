@@ -11,7 +11,7 @@ public sealed partial class GameEngine
         string targetCombatantId,
         string? attackName = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
@@ -83,8 +83,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 
@@ -209,8 +209,8 @@ public sealed partial class GameEngine
         int damageAmount,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (damageAmount is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(damageAmount));
 
         var pending = campaign.PendingPlayerRoll
@@ -287,7 +287,7 @@ public sealed partial class GameEngine
         string? skill = null,
         int circumstanceModifier = 0)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (difficultyClass < 0) throw new ArgumentOutOfRangeException(nameof(difficultyClass));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
@@ -345,7 +345,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 
@@ -413,7 +413,7 @@ public sealed partial class GameEngine
         D20RollMode mode = D20RollMode.Normal,
         int circumstanceModifier = 0)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (difficultyClass < 0) throw new ArgumentOutOfRangeException(nameof(difficultyClass));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
@@ -468,8 +468,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 

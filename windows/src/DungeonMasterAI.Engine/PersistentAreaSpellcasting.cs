@@ -15,8 +15,8 @@ public sealed partial class GameEngine
         int? slotLevel = null,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
 
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0 || CharacterMechanics.IsIncapacitated(caster))

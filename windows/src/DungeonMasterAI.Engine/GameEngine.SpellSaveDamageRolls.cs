@@ -109,8 +109,8 @@ public sealed partial class GameEngine
         int rolledDamage,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rolledDamage is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(rolledDamage));
 
         var pending = campaign.PendingPlayerRoll

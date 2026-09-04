@@ -16,8 +16,8 @@ public sealed partial class GameEngine
         string encounterId,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         if (!encounter.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The encounter is not active.");
@@ -62,8 +62,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 

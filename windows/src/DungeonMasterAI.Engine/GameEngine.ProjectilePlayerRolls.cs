@@ -84,8 +84,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 
@@ -186,8 +186,8 @@ public sealed partial class GameEngine
         int damageAmount,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (damageAmount is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(damageAmount));
 
         var pending = RequireProjectilePending(campaign, pendingRollId, "projectile_spell_damage");

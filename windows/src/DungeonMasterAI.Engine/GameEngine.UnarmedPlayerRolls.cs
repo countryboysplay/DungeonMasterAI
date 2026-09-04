@@ -11,7 +11,7 @@ public sealed partial class GameEngine
         string targetCombatantId,
         string? targetSaveAbility = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
@@ -79,8 +79,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "unarmed_grapple_save");
         var encounter = RequirePendingEncounter(campaign, pending);
@@ -134,7 +134,7 @@ public sealed partial class GameEngine
         string effect,
         string? targetSaveAbility = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
@@ -201,8 +201,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "unarmed_shove_save");
         var encounter = RequirePendingEncounter(campaign, pending);
@@ -252,7 +252,7 @@ public sealed partial class GameEngine
         string grapplerCombatantId,
         string skill)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
@@ -313,7 +313,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "escape_grapple_check");
         var encounter = RequirePendingEncounter(campaign, pending);

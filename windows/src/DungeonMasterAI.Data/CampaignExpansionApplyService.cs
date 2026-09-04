@@ -9,7 +9,7 @@ public sealed class CampaignExpansionApplyService
 {
     public CampaignExpansionApplyResult Apply(CampaignState campaign, string patchJson)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         using var document = JsonDocument.Parse(patchJson);
         if (document.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Campaign expansion patch must be a JSON object.");
 

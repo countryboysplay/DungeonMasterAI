@@ -10,7 +10,7 @@ public sealed partial class GameEngine
         string reactorCombatantId,
         string? attackName = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         EnsureNoRequiredPlayerRoll(campaign);
 
         var encounter = RequireEncounter(campaign, encounterId);
@@ -85,8 +85,8 @@ public sealed partial class GameEngine
         int? rollTwo,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         ValidateD20Inputs(rollOne, rollTwo);
         var pending = RequirePendingRoll(campaign, pendingRollId, "opportunity_attack");
         var encounter = RequireOpportunityEncounter(campaign, pending);
@@ -194,8 +194,8 @@ public sealed partial class GameEngine
         int damageAmount,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (damageAmount is < 0 or > 1_000_000) throw new ArgumentOutOfRangeException(nameof(damageAmount));
         var pending = RequirePendingRoll(campaign, pendingRollId, "opportunity_attack_damage");
         var encounter = RequireOpportunityEncounter(campaign, pending);

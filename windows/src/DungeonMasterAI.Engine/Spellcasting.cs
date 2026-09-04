@@ -14,8 +14,8 @@ public sealed partial class GameEngine
         bool asRitual = false,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
@@ -250,9 +250,9 @@ public sealed partial class GameEngine
         int? slotLevel = null,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
-        ArgumentNullException.ThrowIfNull(targetIds);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
+        Guard.NotNull(targetIds, nameof(targetIds));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 
@@ -428,9 +428,9 @@ public sealed partial class GameEngine
         int? slotLevel = null,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
-        ArgumentNullException.ThrowIfNull(targetIds);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
+        Guard.NotNull(targetIds, nameof(targetIds));
 
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0 || CharacterMechanics.IsIncapacitated(caster))
@@ -522,9 +522,9 @@ public sealed partial class GameEngine
         int? slotLevel = null,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
-        ArgumentNullException.ThrowIfNull(targetIds);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
+        Guard.NotNull(targetIds, nameof(targetIds));
 
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0 || CharacterMechanics.IsIncapacitated(caster))
@@ -631,8 +631,8 @@ public sealed partial class GameEngine
         int? slotLevel = null,
         string? encounterId = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         var caster = RequireCharacter(campaign, casterId);
         if (caster.Dead || caster.CurrentHp <= 0 || CharacterMechanics.IsIncapacitated(caster))
             throw new InvalidOperationException($"{caster.Name} cannot cast this spell right now.");
@@ -766,7 +766,7 @@ public sealed partial class GameEngine
         string trigger,
         int? slotLevel = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var combatant = RequireCombatant(encounter, combatantId);
@@ -847,8 +847,8 @@ public sealed partial class GameEngine
         string? areaDirection = null,
         IReadOnlyList<string>? targetCombatantIds = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(campaign, nameof(campaign));
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var combatant = RequireCombatant(encounter, reactorCombatantId);
@@ -1065,14 +1065,14 @@ public sealed partial class GameEngine
 
     public int SpellSaveDc(CharacterSheet caster)
     {
-        ArgumentNullException.ThrowIfNull(caster);
+        Guard.NotNull(caster, nameof(caster));
         var ability = string.IsNullOrWhiteSpace(caster.SpellcastingAbility) ? "intelligence" : caster.SpellcastingAbility;
         return 8 + CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(caster, ability)) + Math.Max(0, caster.ProficiencyBonus);
     }
 
     public int SpellAttackModifier(CharacterSheet caster)
     {
-        ArgumentNullException.ThrowIfNull(caster);
+        Guard.NotNull(caster, nameof(caster));
         var ability = string.IsNullOrWhiteSpace(caster.SpellcastingAbility) ? "intelligence" : caster.SpellcastingAbility;
         return CharacterMechanics.AbilityModifier(CharacterMechanics.AbilityScore(caster, ability)) + Math.Max(0, caster.ProficiencyBonus);
     }
@@ -1247,7 +1247,10 @@ public sealed partial class GameEngine
     {
         if (string.IsNullOrWhiteSpace(spell.ConditionsEndedOnTarget)) return Array.Empty<string>();
         var cleared = new List<string>();
-        foreach (var condition in spell.ConditionsEndedOnTarget.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // StringSplitOptions.TrimEntries is .NET 5+ and absent from netstandard2.1. .NET trims each
+        // entry and then drops the ones left empty, so Split -> Trim -> drop-empty is the same
+        // result on both targets, with one implementation instead of a #if fork.
+        foreach (var condition in spell.ConditionsEndedOnTarget.Split(',').Select(c => c.Trim()).Where(c => c.Length > 0))
             if (RemoveConditionInternal(target, condition))
                 cleared.Add(condition);
         return cleared;
@@ -1484,7 +1487,9 @@ public sealed partial class GameEngine
     {
         if (string.IsNullOrWhiteSpace(castingTime)) return 0;
         var text = castingTime.Trim().ToLowerInvariant();
-        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // See EndSpellConditionsOnTarget: TrimEntries does not exist on netstandard2.1, and
+        // Split -> Trim -> drop-empty reproduces it exactly on both targets.
+        var parts = text.Split(' ').Select(p => p.Trim()).Where(p => p.Length > 0).ToArray();
         if (parts.Length < 2 || !int.TryParse(parts[0], out var amount) || amount < 1) return 0;
         if (parts[1].StartsWith("minute", StringComparison.Ordinal)) return amount;
         if (parts[1].StartsWith("hour", StringComparison.Ordinal)) return checked(amount * 60);

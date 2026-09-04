@@ -61,7 +61,7 @@ public sealed partial class GameEngine
 
     public DeathSaveResult ResolveDeathSavingThrowWithDice(CampaignState campaign, string characterId, DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var roll = dice.Roll("1d20").Total;
         var effectBonus = RollActiveSavingThrowBonus(campaign, characterId, dice);
         return ResolveDeathSavingThrow(campaign, characterId, roll, effectBonus);
@@ -69,14 +69,14 @@ public sealed partial class GameEngine
 
     public DeathSaveResult ResolveCombatDeathSavingThrow(CampaignState campaign, string encounterId, string combatantId, DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var roll = dice.Roll("1d20").Total;
         return ResolveCombatDeathSavingThrow(campaign, encounterId, combatantId, roll, dice);
     }
 
     public DeathSaveResult ResolveCombatDeathSavingThrow(CampaignState campaign, string encounterId, string combatantId, int d20Roll, DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         if (d20Roll is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(d20Roll));
 
         var encounter = RequireEncounter(campaign, encounterId);
@@ -120,7 +120,7 @@ public sealed partial class GameEngine
 
     public PendingRollRequest? EnsurePendingPlayerRollForActiveCombat(CampaignState campaign)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         var encounter = campaign.Encounters.FirstOrDefault(e => e.Status.Equals("active", StringComparison.OrdinalIgnoreCase));
         if (encounter is null || encounter.Combatants.Count == 0 || encounter.TurnIndex < 0 || encounter.TurnIndex >= encounter.Combatants.Count)
         {

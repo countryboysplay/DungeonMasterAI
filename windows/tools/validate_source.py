@@ -158,7 +158,11 @@ def sources(pattern: str) -> list[Path]:
 
 def main() -> int:
     errors: list[str] = []
-    xml_files = sources("*.csproj") + [ROOT / "Directory.Build.props"]
+    # Every authored MSBuild file, not just the csproj files. tests/Directory.Build.props and
+    # tests/Directory.Build.targets carry the netstandard2.1 differential-build wiring; a typo in
+    # either breaks every test project at once, and an XML comment containing "--" is a real and
+    # easy mistake that only surfaces as an MSB4024 at build time.
+    xml_files = sources("*.csproj") + sources("Directory.Build.props") + sources("Directory.Build.targets")
     for path in xml_files:
         try:
             ET.parse(path)

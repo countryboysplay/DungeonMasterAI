@@ -3,8 +3,16 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using DungeonMasterAI.Domain;
+#if !NETSTANDARD2_1
+// PdfPig ships a netstandard2.0 assembly and would load on netstandard2.1, so this exclusion is a
+// choice, not a necessity: PDF import is a once-per-campaign authoring action the running game
+// never performs, and bringing it along would put PdfPig plus its own dependency chain
+// (Microsoft.Bcl.HashCode, System.Memory) into Unity's plugin folder for no runtime benefit.
+// docs/unity-migration-plan.md 2 is the full argument. Everything else in this file --
+// manifest import, text compilation, DOCX extraction -- is portable and stays on both targets.
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
+#endif
 
 namespace DungeonMasterAI.Data;
 
@@ -591,11 +599,21 @@ public sealed class CampaignImportService
         return new CampaignImportResult(campaign, warnings, sourceName);
     }
 
+    // The whole of this file's PdfPig surface is fenced here, in one place, so that the two callers
+    // above (ExtractSourceAsync and ImportAsync) stay byte-identical across both targets -- there is
+    // no per-target switch expression to keep in sync. On netstandard2.1 a .pdf source is rejected
+    // with a clear, actionable message rather than silently doing something different.
+#if NETSTANDARD2_1
+    private static string ExtractPdf(string path) => throw new NotSupportedException(
+        "PDF campaign import is not available in this build. Convert the source to Markdown, TXT or DOCX, " +
+        "or import it once with a net10.0 build of DungeonMasterAI.Data, which retains the PDF reader.");
+#else
     private static string ExtractPdf(string path)
     {
         using var document = PdfDocument.Open(path);
         return string.Join("\n\n", document.GetPages().Select(page => ContentOrderTextExtractor.GetText(page)));
     }
+#endif
 
     private static string ExtractDocx(string path)
     {

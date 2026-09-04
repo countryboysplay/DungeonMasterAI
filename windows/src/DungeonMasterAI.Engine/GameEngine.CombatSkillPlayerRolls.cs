@@ -62,7 +62,7 @@ public sealed partial class GameEngine
         int rollOne,
         int? rollTwo = null)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (rollOne is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollOne));
         if (rollTwo.HasValue && rollTwo.Value is < 1 or > 20) throw new ArgumentOutOfRangeException(nameof(rollTwo));
 
@@ -138,7 +138,7 @@ public sealed partial class GameEngine
         int dc,
         IReadOnlyCollection<string> allowedSkills)
     {
-        ArgumentNullException.ThrowIfNull(campaign);
+        Guard.NotNull(campaign, nameof(campaign));
         if (campaign.PendingPlayerRoll?.Required == true)
             throw new InvalidOperationException($"Resolve the required player roll first: {campaign.PendingPlayerRoll.Purpose}");
 

@@ -6,7 +6,7 @@ public sealed partial class GameEngine
 {
     public HideResult TakeHide(CampaignState campaign, string encounterId, string combatantId, DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var combatant = RequireCombatant(encounter, combatantId);
@@ -51,7 +51,7 @@ public sealed partial class GameEngine
         string targetCombatantId,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var searcherCombatant = RequireCombatant(encounter, searcherCombatantId);
@@ -146,7 +146,7 @@ public sealed partial class GameEngine
         string reactorCombatantId,
         DiceService dice)
     {
-        ArgumentNullException.ThrowIfNull(dice);
+        Guard.NotNull(dice, nameof(dice));
         var encounter = RequireEncounter(campaign, encounterId);
         EnsureEncounterActionReady(encounter);
         var reactorCombatant = RequireCombatant(encounter, reactorCombatantId);

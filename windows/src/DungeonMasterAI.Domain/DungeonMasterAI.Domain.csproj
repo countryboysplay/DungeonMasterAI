@@ -1,3 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <!--
+    Multi-targeted so this assembly can load in Unity. Unity's scripting runtime is
+    .NET Standard 2.1; a net10.0-only assembly will not load there at all. See
+    docs/unity-migration-plan.md 5 for the mechanics and 1.4 for the compiler-verified list of
+    what netstandard2.1 lacks. Netstandard21Compat.cs holds this assembly's remediation.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
+  </PropertyGroup>
 </Project>
