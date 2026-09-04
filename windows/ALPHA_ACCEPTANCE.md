@@ -1,5 +1,12 @@
 # First User-Test Alpha Acceptance Criteria
 
+> **r63 status: on hold, not met, not abandoned.** These criteria were written against the WPF
+> application, which was deleted in r63. Every item that requires something to launch, render or
+> install is currently unmet by construction — there is no front end. The engine-side items
+> (deterministic state, SRD spell handling, allow-listed tools, transactional AI turns, crash-safe
+> persistence) are still true and still under test. Re-read this list against the Unity front end
+> when there is one; it is the acceptance bar, not a record of what shipped.
+
 The build is not considered ready for Jonathan to test until all items below are complete.
 
 - Launches on Windows without Python, Docker, Ollama, or a developer environment.

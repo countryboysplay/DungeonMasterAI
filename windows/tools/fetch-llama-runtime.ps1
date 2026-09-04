@@ -1,13 +1,19 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    Vendors the pinned llama.cpp Windows CPU runtime into src/DungeonMasterAI.App/Runtime.
+    Vendors the pinned llama.cpp Windows CPU runtime into windows/runtime/llama-cpp.
 
 .DESCRIPTION
-    Build-time / CI tool. This never runs on a user's machine: the app ships the result of this
-    script inside the installer. It downloads the exact asset named in runtime.lock.json, verifies
-    its byte size and SHA-256 against the lock, extracts it, and copies out ONLY the files the
-    llama-server host actually needs.
+    Build-time tool. This never runs on a user's machine. It downloads the exact asset named in
+    runtime.lock.json, verifies its byte size and SHA-256 against the lock, extracts it, and copies
+    out ONLY the files the llama-server host actually needs.
+
+    r63 note: the destination used to be src/DungeonMasterAI.App/Runtime, which the WPF project
+    copied to its output so the installer could package it. There is no front end and no installer
+    any more, so the vendored runtime now lands in a neutral staging directory for whichever front
+    end packages it next. Nothing consumes that directory today. The pinning, verification and
+    file-subset logic below is unchanged, and remains the authority the RuntimeBootstrapService
+    contract in tests/DungeonMasterAI.RuntimeProvisioningTests is written against.
 
     The subset matters. The release zip is 51 flat files, ~46.7 MB extracted, and most of it is
     other CLI tools (llama-cli, llama-bench, llama-tts, llama-imatrix, llama-quantize, the
@@ -43,7 +49,7 @@ Set-StrictMode -Version Latest
 
 $windowsRoot = Split-Path -Parent $PSScriptRoot
 $lockPath = Join-Path $windowsRoot 'runtime.lock.json'
-$destination = Join-Path $windowsRoot 'src/DungeonMasterAI.App/Runtime'
+$destination = Join-Path $windowsRoot 'runtime/llama-cpp'
 
 if (-not (Test-Path $lockPath)) { throw "runtime.lock.json was not found at $lockPath." }
 $lock = Get-Content -Raw -LiteralPath $lockPath | ConvertFrom-Json

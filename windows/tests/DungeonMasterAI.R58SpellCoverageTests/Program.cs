@@ -423,7 +423,7 @@ static string FindCatalogPath()
     var dir = AppContext.BaseDirectory;
     for (var i = 0; i < 12 && dir is not null; i++)
     {
-        var candidate = Path.Combine(dir, "src", "DungeonMasterAI.App", "Assets", "Rules", "srd_spells.json");
+        var candidate = Path.Combine(dir, "content", "Rules", "srd_spells.json");
         if (File.Exists(candidate)) return candidate;
         dir = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar));
     }

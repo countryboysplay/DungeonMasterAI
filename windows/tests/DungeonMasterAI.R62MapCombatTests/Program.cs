@@ -2,11 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using DungeonMasterAI.AI;
-using DungeonMasterAI.App.Controls;
 using DungeonMasterAI.Data;
 using DungeonMasterAI.Domain;
 using DungeonMasterAI.Engine;
@@ -28,10 +24,13 @@ namespace DungeonMasterAI.R62MapCombatTests;
 /// </list>
 /// A build succeeding proves nothing about either, which is why none of these checks are
 /// construction checks.
+///
+/// r63 note: this suite originally also rendered <c>CombatGridControl</c> offscreen and asserted
+/// that attaching a map changed the pixels it drew. That check went with the WPF front end; the
+/// engine assertions below are unchanged and still fail on r62's parent commit.
 /// </summary>
 internal static class Program
 {
-    [STAThread]
     private static int Main()
     {
         var failures = new List<string>();
@@ -42,7 +41,6 @@ internal static class Program
             UnrecognizedSpawnSidesAreStillRejected(failures);
             EngineReadsGeometryFromTheBoundMap(failures);
             UnboundEncountersKeepTheirOriginalBehaviour(failures);
-            CombatGridRendersTheBoundMap(failures);
         }
         catch (Exception ex)
         {
@@ -52,7 +50,7 @@ internal static class Program
         if (failures.Count == 0)
         {
             Console.WriteLine("R62 MAP COMBAT PASS");
-            Console.WriteLine("Spawn-side unification, legacy map migration, engine geometry consumption, and battlefield rendering verified.");
+            Console.WriteLine("Spawn-side unification, legacy map migration, and engine geometry consumption verified.");
             return 0;
         }
 
@@ -313,90 +311,6 @@ internal static class Program
         campaign.EncounterMapBindings[encounter.Id] = "map-that-was-deleted";
         Check(GameEngine.ResolveEncounterMap(campaign, encounter.Id) is null,
             "A dangling map binding resolves to no map rather than throwing.", failures);
-    }
-
-    // -----------------------------------------------------------------------
-    // Rendering
-    // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// Renders the real WPF control offscreen with a map attached. This is a rendering check, not
-    /// a construction check: <see cref="CombatGridControl.OnRender"/> is where the map underlay is
-    /// drawn, and it is never executed by merely instantiating the control.
-    /// </summary>
-    private static void CombatGridRendersTheBoundMap(ICollection<string> failures)
-    {
-        var engine = new GameEngine();
-        var hero = Character("hero", "Aeliana", "pc");
-        var campaign = BuildPlayableCampaign();
-        campaign.Characters.Add(hero);
-        var map = BuildCryptMap();
-        campaign.TacticalMaps.Add(map);
-        var encounter = engine.StartEncounter(campaign, "Render Fight");
-        campaign.EncounterMapBindings[encounter.Id] = map.Id;
-        engine.ActivateEncounter(campaign, encounter.Id, includeParty: true);
-
-        var control = new CombatGridControl
-        {
-            Campaign = campaign,
-            Encounter = encounter,
-            Map = map,
-            ShowDmMapLayer = true,
-            Width = 900,
-            Height = 600
-        };
-
-        var withMap = RenderToPixels(control, failures, "with a bound map");
-        control.Map = null;
-        var withoutMap = RenderToPixels(control, failures, "with no map");
-
-        Check(withMap is not null && withoutMap is not null, "The combat grid renders in both states.", failures);
-        if (withMap is null || withoutMap is null) return;
-
-        Check(!withMap.SequenceEqual(withoutMap),
-            "Attaching a map visibly changes what the combat grid draws.", failures);
-
-        // Same convention as the r53-r57 map suites: relative to the working directory, which CI
-        // sets to windows/, so the rendered reference lands beside the other map-pipeline artifacts.
-        var outputDirectory = Path.GetFullPath(Path.Combine("artifacts", "r62-map-combat"));
-        Directory.CreateDirectory(outputDirectory);
-        SaveSnapshot(control, map, Path.Combine(outputDirectory, "combat-grid-with-map.png"));
-    }
-
-    private static byte[]? RenderToPixels(CombatGridControl control, ICollection<string> failures, string label)
-    {
-        try
-        {
-            control.Measure(new Size(control.Width, control.Height));
-            control.Arrange(new Rect(0, 0, control.Width, control.Height));
-            control.UpdateLayout();
-            control.InvalidateVisual();
-
-            var bitmap = new RenderTargetBitmap((int)control.Width, (int)control.Height, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(control);
-            var stride = bitmap.PixelWidth * 4;
-            var pixels = new byte[stride * bitmap.PixelHeight];
-            bitmap.CopyPixels(pixels, stride, 0);
-            return pixels;
-        }
-        catch (Exception ex)
-        {
-            failures.Add($"Combat grid failed to render {label}: {ex}");
-            return null;
-        }
-    }
-
-    private static void SaveSnapshot(CombatGridControl control, TacticalMap map, string path)
-    {
-        control.Map = map;
-        control.InvalidateVisual();
-        control.UpdateLayout();
-        var bitmap = new RenderTargetBitmap((int)control.Width, (int)control.Height, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(control);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = File.Create(path);
-        encoder.Save(stream);
     }
 
     // -----------------------------------------------------------------------

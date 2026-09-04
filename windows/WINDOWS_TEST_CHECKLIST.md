@@ -1,6 +1,12 @@
 # Dungeon Master AI - Windows Test Checklist
 
-This checkpoint is intended to answer the question the Linux build container cannot answer: does the current native .NET/WPF source really compile, run, and pass its smoke tests on Windows?
+> **r63 status: obsolete.** This checklist drives `WINDOWS_TEST.ps1`, which published the WPF app
+> and launched its GUI. Both the script and the app were deleted in r63. The compile-and-test half
+> of the question it asks is now answered by `.github/workflows/windows-ci.yml`; the launch-the-GUI
+> half has no answer until Unity exists. Kept only as a record of what a manual acceptance pass
+> used to cover.
+
+This checkpoint was intended to answer the question the Linux build container cannot answer: does the current native .NET/WPF source really compile, run, and pass its smoke tests on Windows?
 
 ## 1. Install the .NET 10 SDK
 

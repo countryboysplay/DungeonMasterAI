@@ -1,5 +1,24 @@
 name: Windows CI
 
+# r63 removed the WPF front end. This workflow no longer builds, publishes or packages an
+# application, because there is no longer an application to build -- see windows/README.md.
+# What remains is the gate on engine correctness, which is the only thing that survives the
+# port to Unity and the only thing this repository can currently prove.
+#
+# What CI stopped checking when the front end was deleted, stated plainly so that nobody reads
+# a green run as meaning more than it does:
+#   - the GUI binding-failure gate (GuiSmokeTests, via PresentationTraceSources.DataBindingSource),
+#     which caught XAML bindings that failed silently at runtime with no exception and no build
+#     error. Nothing replaces it. docs/unity-migration-plan.md 8.3 is the honest account of why,
+#     and of what would have to be built deliberately in Unity to play the same role.
+#   - every rendered PNG reference (r51 shell snapshots, r53 map prototype, r54 asset pack,
+#     r56 Map Builder, r57 map editor, r62 combat grid). Nothing in CI renders anything now, so
+#     there is no visual artifact to upload and no visual regression can be caught.
+#   - the Map Builder's editing guarantees (R56/R57) -- working-copy isolation, visual-only
+#     reroll preserving GenerationSeed and geometry, invalid drafts not persisting, candidate
+#     isolation. Recorded as Unity acceptance criteria in docs/unity-migration-plan.md 7.2.
+#   - the self-contained win-x64 publish and the Inno Setup installer. There is no player to ship.
+
 on:
   push:
   pull_request:
@@ -7,9 +26,8 @@ on:
 
 jobs:
   # Source-level gate. Runs on Linux in well under a minute and fails fast on structural
-  # problems (malformed XAML/csproj, unbalanced C# delimiters, duplicate DM tool names,
-  # XAML command bindings with no backing view model property) before any Windows runner
-  # is provisioned. Previously this script existed but was never executed by CI.
+  # problems (malformed csproj XML, unbalanced C# delimiters, duplicate DM tool names, drift
+  # in the deterministic SRD spell catalog) before a Windows runner is provisioned.
   source-validation:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -24,7 +42,13 @@ jobs:
       - name: Validate source structure
         run: python3 tools/validate_source.py
 
-  build-test-package:
+  # The engine gate. Every test project under windows/tests is discovered and run -- the list is
+  # not maintained by hand. The previous workflow named 29 of the then-33 projects one step at a
+  # time, and DungeonMasterAI.RuntimeProvisioningTests was in none of them: it ran only from
+  # build-windows.ps1, which r63 deleted along with the app it published. Discovery is what stops
+  # that from happening again, and it is why this job runs every suite instead of stopping at the
+  # first failure -- one run reports every broken suite, not just the alphabetically first.
+  engine-tests:
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -44,174 +68,48 @@ jobs:
       - name: Show SDK
         run: dotnet --info
 
-      - name: Restore app
-        run: dotnet restore src/DungeonMasterAI.App/DungeonMasterAI.App.csproj
+      - name: Build every project
+        run: |
+          $projects = Get-ChildItem -Path src, tests -Recurse -Filter *.csproj | Sort-Object FullName
+          if ($projects.Count -lt 30) { throw "Only $($projects.Count) projects discovered; expected at least 30." }
+          Write-Host "Building $($projects.Count) projects."
+          $failed = @()
+          foreach ($project in $projects) {
+              dotnet build $project.FullName --configuration Release
+              if ($LASTEXITCODE -ne 0) { $failed += $project.Name }
+          }
+          if ($failed.Count -gt 0) { throw "Build failed: $($failed -join ', ')" }
 
-      - name: Build app
-        run: dotnet build src/DungeonMasterAI.App/DungeonMasterAI.App.csproj --configuration Release --no-restore
+      - name: Run every test project
+        run: |
+          $sample = '../reference-python/demo/sample_campaign_manifest.json'
+          $projects = Get-ChildItem -Path tests -Directory | Sort-Object Name
+          if ($projects.Count -lt 30) { throw "Only $($projects.Count) test projects discovered; expected at least 30." }
 
-      - name: Run AAA GUI construction smoke tests
-        run: dotnet run --project tests/DungeonMasterAI.GuiSmokeTests/DungeonMasterAI.GuiSmokeTests.csproj --configuration Release
+          $passed = @()
+          $failed = @()
+          foreach ($directory in $projects) {
+              $csproj = Get-ChildItem -Path $directory.FullName -Filter *.csproj | Select-Object -First 1
+              if (-not $csproj) { throw "$($directory.Name) contains no .csproj." }
 
-      - name: Upload real WPF GUI snapshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: DungeonMasterAI-gui-snapshots
-          path: windows/artifacts/gui-snapshots/*.png
+              Write-Host "::group::$($directory.Name)"
+              # DungeonMasterAI.Smoke takes a campaign manifest as its one argument.
+              if ($directory.Name -eq 'DungeonMasterAI.Smoke') {
+                  dotnet run --project $csproj.FullName --configuration Release --no-build -- $sample
+              } else {
+                  dotnet run --project $csproj.FullName --configuration Release --no-build
+              }
+              $code = $LASTEXITCODE
+              Write-Host "::endgroup::"
 
-      - name: Run map schema migration and provenance tests
-        run: dotnet run --project tests/DungeonMasterAI.MapSchemaProvenanceTests/DungeonMasterAI.MapSchemaProvenanceTests.csproj --configuration Release
+              if ($code -eq 0) {
+                  $passed += $directory.Name
+              } else {
+                  $failed += $directory.Name
+                  Write-Host "::error::$($directory.Name) failed with exit code $code"
+              }
+          }
 
-      - name: Run focused roll-state tests
-        run: dotnet run --project tests/DungeonMasterAI.RollTests/DungeonMasterAI.RollTests.csproj --configuration Release
-
-      - name: Run Initiative roll tests
-        run: dotnet run --project tests/DungeonMasterAI.InitiativeTests/DungeonMasterAI.InitiativeTests.csproj --configuration Release
-
-      - name: Run Concentration roll tests
-        run: dotnet run --project tests/DungeonMasterAI.ConcentrationTests/DungeonMasterAI.ConcentrationTests.csproj --configuration Release
-
-      - name: Run spell attack roll tests
-        run: dotnet run --project tests/DungeonMasterAI.SpellRollTests/DungeonMasterAI.SpellRollTests.csproj --configuration Release
-
-      - name: Run projectile spell roll tests
-        run: dotnet run --project tests/DungeonMasterAI.ProjectileRollTests/DungeonMasterAI.ProjectileRollTests.csproj --configuration Release
-
-      - name: Run auto-projectile damage roll tests
-        run: dotnet run --project tests/DungeonMasterAI.AutoProjectileRollTests/DungeonMasterAI.AutoProjectileRollTests.csproj --configuration Release
-
-      - name: Run spell saving throw roll tests
-        run: dotnet run --project tests/DungeonMasterAI.SpellSaveRollTests/DungeonMasterAI.SpellSaveRollTests.csproj --configuration Release
-
-      - name: Run save-spell damage roll tests
-        run: dotnet run --project tests/DungeonMasterAI.SaveSpellDamageRollTests/DungeonMasterAI.SaveSpellDamageRollTests.csproj --configuration Release
-
-      - name: Run area spell roll tests
-        run: dotnet run --project tests/DungeonMasterAI.AreaSpellRollTests/DungeonMasterAI.AreaSpellRollTests.csproj --configuration Release
-
-      - name: Run r58 spell coverage tests
-        run: dotnet run --project tests/DungeonMasterAI.R58SpellCoverageTests/DungeonMasterAI.R58SpellCoverageTests.csproj --configuration Release
-
-      - name: Run combat skill roll tests
-        run: dotnet run --project tests/DungeonMasterAI.CombatSkillRollTests/DungeonMasterAI.CombatSkillRollTests.csproj --configuration Release
-
-      - name: Run stealth and first aid roll tests
-        run: dotnet run --project tests/DungeonMasterAI.StealthAidRollTests/DungeonMasterAI.StealthAidRollTests.csproj --configuration Release
-
-      - name: Run grapple shove and escape player roll tests
-        run: dotnet run --project tests/DungeonMasterAI.UnarmedPlayerRollTests/DungeonMasterAI.UnarmedPlayerRollTests.csproj --configuration Release
-
-      - name: Run player Opportunity Attack roll tests
-        run: dotnet run --project tests/DungeonMasterAI.OpportunityAttackRollTests/DungeonMasterAI.OpportunityAttackRollTests.csproj --configuration Release
-
-      - name: Run player readied attack roll tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedAttackRollTests/DungeonMasterAI.ReadiedAttackRollTests.csproj --configuration Release
-
-      - name: Run readied reaction decision tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedDecisionTests/DungeonMasterAI.ReadiedDecisionTests.csproj --configuration Release
-
-      - name: Run readied spell player-control tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedSpellRollTests/DungeonMasterAI.ReadiedSpellRollTests.csproj --configuration Release
-
-      - name: Run readied projectile spell tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedProjectileSpellTests/DungeonMasterAI.ReadiedProjectileSpellTests.csproj --configuration Release
-
-      - name: Run readied area spell tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedAreaSpellTests/DungeonMasterAI.ReadiedAreaSpellTests.csproj --configuration Release
-
-      - name: Run readied multi-buff spell tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedMultiBuffTests/DungeonMasterAI.ReadiedMultiBuffTests.csproj --configuration Release
-
-      - name: Run readied movement decision tests
-        run: dotnet run --project tests/DungeonMasterAI.ReadiedMoveDecisionTests/DungeonMasterAI.ReadiedMoveDecisionTests.csproj --configuration Release
-
-      - name: Run first-class player decision tests
-        run: dotnet run --project tests/DungeonMasterAI.PlayerDecisionTests/DungeonMasterAI.PlayerDecisionTests.csproj --configuration Release
-
-      - name: Run r62 progression and XP economy tests
-        run: dotnet run --project tests/DungeonMasterAI.ProgressionTests/DungeonMasterAI.ProgressionTests.csproj --configuration Release
-
-      - name: Run full smoke suite
-        run: dotnet run --project tests/DungeonMasterAI.Smoke/DungeonMasterAI.Smoke.csproj --configuration Release -- ../reference-python/demo/sample_campaign_manifest.json
-
-      - name: Publish self-contained Windows build
-        run: >-
-          dotnet publish src/DungeonMasterAI.App/DungeonMasterAI.App.csproj
-          --configuration Release
-          --runtime win-x64
-          --self-contained true
-          -p:PublishSingleFile=false
-          -p:PublishReadyToRun=true
-          -o artifacts/DungeonMasterAI-win-x64
-
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
-
-      - name: Build installer
-        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer/DungeonMasterAI.iss'
-
-      - name: Upload runnable build
-        uses: actions/upload-artifact@v4
-        with:
-          name: DungeonMasterAI-win-x64
-          path: windows/artifacts/DungeonMasterAI-win-x64
-
-      - name: Upload installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: DungeonMasterAI-installer
-          path: windows/artifacts/installer/*.exe
-
-  # The tactical map pipeline, r53 through r57. These were five separate workflow files, each
-  # provisioning its own windows-latest runner and each performing a full restore and build of
-  # the shared project graph to run a single test project. They are one job here because they
-  # share that graph: one runner, one build, five suites, one combined artifact. Kept separate
-  # from build-test-package so map failures stay legible and the two jobs run concurrently.
-  map-pipeline:
-    runs-on: windows-latest
-    timeout-minutes: 40
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: windows
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Run map schema and renderer prototype tests (r53)
-        run: dotnet run --project tests/DungeonMasterAI.MapRendererTests/DungeonMasterAI.MapRendererTests.csproj --configuration Release
-
-      - name: Run high-quality map asset pack tests (r54)
-        run: dotnet run --project tests/DungeonMasterAI.MapAssetTests/DungeonMasterAI.MapAssetTests.csproj --configuration Release
-
-      - name: Run local AI tactical map generation contract tests (r55)
-        run: dotnet run --project tests/DungeonMasterAI.AiMapGenerationTests/DungeonMasterAI.AiMapGenerationTests.csproj --configuration Release
-
-      - name: Run production asset and Map Builder tests (r56)
-        run: dotnet run --project tests/DungeonMasterAI.R56MapBuilderTests/DungeonMasterAI.R56MapBuilderTests.csproj --configuration Release
-
-      - name: Run non-destructive map editing tests (r57)
-        run: dotnet run --project tests/DungeonMasterAI.R57MapEditingTests/DungeonMasterAI.R57MapEditingTests.csproj --configuration Release
-
-      - name: Run map-combat wiring and spawn-vocabulary tests (r62)
-        run: dotnet run --project tests/DungeonMasterAI.R62MapCombatTests/DungeonMasterAI.R62MapCombatTests.csproj --configuration Release
-
-      # One artifact instead of four. Rendered references from every revision are retained,
-      # each under its own subdirectory, so visual regressions stay reviewable.
-      - name: Upload rendered map references
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: DungeonMasterAI-map-pipeline
-          path: |
-            windows/artifacts/map-prototype/*.png
-            windows/artifacts/map-assets/*.png
-            windows/artifacts/r56-map-builder/*.png
-            windows/artifacts/r57-map-editing/*.png
-            windows/artifacts/r62-map-combat/*.png
+          Write-Host ""
+          Write-Host "Test projects: $($projects.Count)  passed: $($passed.Count)  failed: $($failed.Count)"
+          if ($failed.Count -gt 0) { throw "Failing suites: $($failed -join ', ')" }
