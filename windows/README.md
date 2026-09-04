@@ -2,6 +2,14 @@
 
 This folder contains the deterministic .NET 10 core of Dungeon Master AI.
 
+`Domain`, `Engine` and `Data` are multi-targeted `net10.0;netstandard2.1`. That is not a
+preference: Unity's scripting runtime is .NET Standard 2.1, and a `net10.0` assembly does not load
+there at all. `net10.0` remains the target everything in this repository builds and tests against;
+the netstandard2.1 leg exists so the engine can be dropped into a Unity project unchanged. `AI` is
+deliberately not multi-targeted — it spawns a `llama-server` child process and speaks HTTP, and the
+Unity side handles that separately. See the "Build status" section for how both legs are kept
+honest, and `docs/unity-migration-plan.md` §1 and §5 for the mechanics.
+
 ## There is no front end
 
 r63 deleted `DungeonMasterAI.App`, the WPF desktop application, in favour of a Unity front end that
@@ -25,7 +33,9 @@ knowledge of what it was for.
 - `DungeonMasterAI.Data`: crash-safe local persistence, campaign import, source extraction, and campaign-readiness validation.
 - `DungeonMasterAI.AI`: llama.cpp lifecycle, local DM client, chunked local-AI campaign canon extraction, and a separate AI playability-expansion stage.
 - `content`: game content that used to live inside the WPF project — the SRD spell catalog, the built-in map asset pack manifest, the approved reference art. See `content/README.md`.
-- `tests/`: 30 console-executable test projects. Each exits 0 on pass and prints every failure on stderr; there is no test runner to install.
+- `tests/`: 31 console-executable test projects. Each exits 0 on pass and prints every failure on stderr; there is no test runner to install.
+- `tests/DungeonMasterAI.CrossTargetGoldenTests`: replays a fixed, seeded scenario through the engine and pins 155 recorded values to a committed golden file, so a behavioural difference between the `net10.0` and `netstandard2.1` engine builds shows up as a diff of actual numbers rather than as a suite that happens to stay green.
+- `tests/Directory.Build.props` and `tests/Directory.Build.targets`: the differential-run wiring. Building any test project with `-p:UseNetStandardEngine=true` resolves its `Domain`/`Engine`/`Data` references against the netstandard2.1 output instead of `net10.0`, into a separate `bin`/`obj` so the two can never be confused for each other.
 - `tests/DungeonMasterAI.Smoke`: broad framework-free native smoke-test executable, and the only suite that takes an argument (a campaign manifest path).
 - `tests/DungeonMasterAI.RollTests`: focused independent roll-state regression tests that report all failures in one run.
 - `tools/fetch-llama-runtime.ps1`: vendors the pinned, hash-verified llama.cpp CPU runtime into `runtime/llama-cpp`. Nothing consumes that directory yet; the front end that packaged it is gone.
@@ -56,13 +66,26 @@ Campaign time automatically resolves imported time-triggered world events. Their
 
 ## Build status
 
-`.github/workflows/windows-ci.yml` has two jobs. `source-validation` runs `tools/validate_source.py`
-on Linux (project XML, C# delimiter/lexical structure, duplicate DM tool names, drift in the
-deterministic SRD spell catalog). `engine-tests` then builds every project and runs every test
-project under `tests/` on `windows-latest`, reporting all failing suites in one run rather than
-stopping at the first. Both the build list and the test list are discovered, not hand-maintained,
-so a new project cannot be silently skipped — which is exactly how `RuntimeProvisioningTests` came
-to be absent from CI before r63.
+`.github/workflows/windows-ci.yml` has four jobs. `source-validation` runs
+`tools/validate_source.py` on Linux (MSBuild XML, C# delimiter/lexical structure, duplicate DM tool
+names, drift in the deterministic SRD spell catalog). `engine-tests` then builds every project and
+runs every test project under `tests/` on `windows-latest`, reporting all failing suites in one run
+rather than stopping at the first. Both the build list and the test list are discovered, not
+hand-maintained, so a new project cannot be silently skipped — which is exactly how
+`RuntimeProvisioningTests` came to be absent from CI before r63.
+
+The two remaining jobs exist because the engine now has to stay loadable in Unity:
+
+- `netstandard21-build` (Linux) builds `Domain`, `Engine` and `Data` for `netstandard2.1` with
+  `-warnaserror`, then reads each emitted DLL's own `TargetFrameworkAttribute` back to confirm the
+  output is what Unity needs rather than trusting that the build was green. A change that compiles
+  on `net10.0` but not on `netstandard2.1` fails on the pull request, not on the day somebody opens
+  Unity.
+- `netstandard21-differential` (Windows) builds and runs every test project that does not reference
+  the `net10.0`-only `DungeonMasterAI.AI` **twice** — once against each engine build — and compares
+  the two runs' stdout byte for byte. Same assertions, same printed values, two different compiled
+  engines underneath. This is the job that catches the failure mode a green build cannot: an engine
+  that compiles on both targets and quietly adjudicates differently on one.
 
 **What CI stopped proving in r63, and nothing replaces:** the GUI binding-failure gate, every
 rendered PNG reference, the Map Builder's editing guarantees, and the win-x64 publish and installer.

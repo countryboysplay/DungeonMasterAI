@@ -71,7 +71,7 @@ jobs:
       - name: Build every project
         run: |
           $projects = Get-ChildItem -Path src, tests -Recurse -Filter *.csproj | Sort-Object FullName
-          if ($projects.Count -lt 30) { throw "Only $($projects.Count) projects discovered; expected at least 30." }
+          if ($projects.Count -lt 35) { throw "Only $($projects.Count) projects discovered; expected at least 35." }
           Write-Host "Building $($projects.Count) projects."
           $failed = @()
           foreach ($project in $projects) {
@@ -84,7 +84,7 @@ jobs:
         run: |
           $sample = '../reference-python/demo/sample_campaign_manifest.json'
           $projects = Get-ChildItem -Path tests -Directory | Sort-Object Name
-          if ($projects.Count -lt 30) { throw "Only $($projects.Count) test projects discovered; expected at least 30." }
+          if ($projects.Count -lt 31) { throw "Only $($projects.Count) test projects discovered; expected at least 31." }
 
           $passed = @()
           $failed = @()
@@ -113,3 +113,172 @@ jobs:
           Write-Host ""
           Write-Host "Test projects: $($projects.Count)  passed: $($passed.Count)  failed: $($failed.Count)"
           if ($failed.Count -gt 0) { throw "Failing suites: $($failed -join ', ')" }
+
+  # The Unity gate. Unity's scripting runtime is .NET Standard 2.1, so a net10.0-only assembly does
+  # not load there at all; r63 multi-targeted Domain, Engine and Data as net10.0;netstandard2.1 to
+  # fix that. This job is what stops a future Domain/Engine change from silently un-fixing it: a
+  # change that compiles on net10.0 but not on netstandard2.1 fails here, on the pull request,
+  # rather than on the day someone opens Unity.
+  #
+  # It runs on Linux because nothing in these three projects touches a Windows-only API, so it is
+  # cheap, fast, and does not queue behind the Windows runners.
+  #
+  # -warnaserror is deliberate. The netstandard2.1 leg is held to zero warnings, not just zero
+  # errors: on a target nobody builds by hand, a warning is how a real problem stays invisible.
+  netstandard21-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build Domain, Engine and Data for netstandard2.1
+        run: |
+          $projects = @(
+              'src/DungeonMasterAI.Domain/DungeonMasterAI.Domain.csproj',
+              'src/DungeonMasterAI.Engine/DungeonMasterAI.Engine.csproj',
+              'src/DungeonMasterAI.Data/DungeonMasterAI.Data.csproj'
+          )
+          $failed = @()
+          foreach ($project in $projects) {
+              Write-Host "::group::$project"
+              dotnet build $project -f netstandard2.1 --configuration Release --no-incremental -warnaserror
+              if ($LASTEXITCODE -ne 0) { $failed += $project }
+              Write-Host "::endgroup::"
+          }
+          if ($failed.Count -gt 0) { throw "netstandard2.1 build failed: $($failed -join ', ')" }
+
+      - name: Confirm each assembly really is netstandard2.1
+        run: |
+          # A green build above proves the compiler accepted the code. It does not prove the output
+          # is what Unity needs, and this repository has been burned before by builds that were
+          # green and wrong. Read the emitted DLL's own TargetFrameworkAttribute back.
+          $expected = '.NETStandard,Version=v2.1'
+          foreach ($name in @('Domain', 'Engine', 'Data')) {
+              $dll = "src/DungeonMasterAI.$name/bin/Release/netstandard2.1/DungeonMasterAI.$name.dll"
+              if (-not (Test-Path $dll)) { throw "$dll was not produced." }
+              $assembly = [System.Reflection.Assembly]::LoadFrom((Resolve-Path $dll))
+              $attribute = $assembly.GetCustomAttributes([System.Runtime.Versioning.TargetFrameworkAttribute], $false)
+              $actual = if ($attribute.Count -gt 0) { $attribute[0].FrameworkName } else { '(none)' }
+              Write-Host "DungeonMasterAI.$name -> $actual"
+              if ($actual -ne $expected) { throw "DungeonMasterAI.$name reports '$actual', expected '$expected'." }
+          }
+
+  # Behavioural equivalence, which is a different and harder question than "both legs compile".
+  #
+  # The risk this migration actually carries is not a build failure -- a build failure is loud and
+  # cheap. It is an engine that compiles on both targets and quietly adjudicates differently on
+  # one of them. Two things guard against that here, and both reuse the existing suite rather than
+  # asserting the same rules twice:
+  #
+  #   1. Every test project that does not reference the net10.0-only DungeonMasterAI.AI is built
+  #      and run twice -- once against the net10.0 engine, once against the netstandard2.1 one --
+  #      and its stdout is compared byte for byte between the two runs. Same assertions, same
+  #      printed values, two different compiled engines underneath. Any divergence is a diff.
+  #   2. DungeonMasterAI.CrossTargetGoldenTests replays a long seeded scenario -- dice, the dice
+  #      expression grammar, XP and levelling, combat, death saves, and full campaign round-trips
+  #      through each assembly's own System.Text.Json -- and pins every recorded value to a
+  #      committed golden file. It runs in both passes above, so both must match the same file.
+  #
+  # windows/tests/NetStandardEngineAssertion.cs is what keeps pass 2 honest: it fails the process
+  # before any test runs if the engine it loaded is not actually netstandard2.1.
+  netstandard21-differential:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run every portable test project against both engine builds and diff the output
+        run: |
+          $sample = '../reference-python/demo/sample_campaign_manifest.json'
+
+          # DungeonMasterAI.AI is net10.0-only and is not multi-targeted, so a test project that
+          # references it cannot resolve a netstandard2.1 engine. Those are discovered and skipped
+          # here rather than listed by hand; engine-tests still runs them against net10.0.
+          $all = Get-ChildItem -Path tests -Directory | Sort-Object Name
+          $eligible = @()
+          $skipped = @()
+          foreach ($directory in $all) {
+              $csproj = Get-ChildItem -Path $directory.FullName -Filter *.csproj | Select-Object -First 1
+              if (-not $csproj) { throw "$($directory.Name) contains no .csproj." }
+              if ((Get-Content $csproj.FullName -Raw) -match 'DungeonMasterAI\.AI\.csproj') {
+                  $skipped += $directory.Name
+              } else {
+                  $eligible += $directory
+              }
+          }
+          if ($eligible.Count -lt 28) { throw "Only $($eligible.Count) portable test projects discovered; expected at least 28." }
+          Write-Host "Differential set: $($eligible.Count) projects. Skipped (reference DungeonMasterAI.AI): $($skipped -join ', ')"
+
+          $captured = @{}
+          foreach ($mode in @('net10.0', 'netstandard2.1')) {
+              $flag = @()
+              if ($mode -eq 'netstandard2.1') { $flag = @('-p:UseNetStandardEngine=true') }
+
+              $buildFailed = @()
+              foreach ($directory in $eligible) {
+                  $csproj = Get-ChildItem -Path $directory.FullName -Filter *.csproj | Select-Object -First 1
+                  dotnet build $csproj.FullName --configuration Release @flag
+                  if ($LASTEXITCODE -ne 0) { $buildFailed += $directory.Name }
+              }
+              if ($buildFailed.Count -gt 0) { throw "$mode build failed: $($buildFailed -join ', ')" }
+
+              $failed = @()
+              foreach ($directory in $eligible) {
+                  $csproj = Get-ChildItem -Path $directory.FullName -Filter *.csproj | Select-Object -First 1
+                  Write-Host "::group::$mode $($directory.Name)"
+                  if ($directory.Name -eq 'DungeonMasterAI.Smoke') {
+                      $output = & dotnet run --project $csproj.FullName --configuration Release --no-build @flag -- $sample 2>&1
+                  } else {
+                      $output = & dotnet run --project $csproj.FullName --configuration Release --no-build @flag 2>&1
+                  }
+                  $code = $LASTEXITCODE
+                  $output | ForEach-Object { Write-Host $_ }
+                  Write-Host "::endgroup::"
+
+                  $captured["$mode|$($directory.Name)"] = ($output | Out-String)
+                  if ($code -ne 0) {
+                      $failed += $directory.Name
+                      Write-Host "::error::$($directory.Name) failed under $mode with exit code $code"
+                  }
+              }
+              if ($failed.Count -gt 0) { throw "$mode failing suites: $($failed -join ', ')" }
+              Write-Host "$mode pass: $($eligible.Count) projects, all green."
+          }
+
+          $diverged = @()
+          foreach ($directory in $eligible) {
+              $a = $captured["net10.0|$($directory.Name)"]
+              $b = $captured["netstandard2.1|$($directory.Name)"]
+              if (-not $a.Equals($b, [System.StringComparison]::Ordinal)) {
+                  $diverged += $directory.Name
+                  Write-Host "::error::$($directory.Name) printed different output on net10.0 and netstandard2.1"
+              }
+          }
+
+          Write-Host ""
+          Write-Host "Differential comparison: $($eligible.Count) projects, $($eligible.Count - $diverged.Count) byte-identical, $($diverged.Count) diverged."
+          if ($diverged.Count -gt 0) {
+              throw "The netstandard2.1 engine behaves differently from the net10.0 engine in: $($diverged -join ', ')"
+          }

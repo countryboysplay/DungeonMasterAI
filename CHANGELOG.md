@@ -1,5 +1,43 @@
 # Changelog
 
+## r63 — engine multi-targeted to .NET Standard 2.1 so Unity can load it
+
+- `DungeonMasterAI.Domain`, `.Engine` and `.Data` now build for `net10.0;netstandard2.1`. Unity's
+  scripting runtime is .NET Standard 2.1 and will not load a `net10.0` assembly at all, so this was
+  the last thing standing between this repository and a machine with Unity on it.
+  `DungeonMasterAI.AI` stays `net10.0`-only by design.
+- Remediated the six things netstandard2.1 lacks, verified by compiling rather than grepping:
+  **145** `ArgumentNullException.ThrowIfNull` call sites rewritten to a `Guard.NotNull` helper
+  (Domain 5, Engine 134, Data 6 — all of them the bare-identifier form, so `ParamName` is
+  unchanged); an `IsExternalInit` shim per assembly for the **42** `record` declarations (40
+  records plus 2 `readonly record struct`s: Domain 28, Engine 8, Data 6); **3**
+  `StringSplitOptions.TrimEntries` sites; `Random.Shared` in `DiceService`; **2**
+  `[GeneratedRegex]` sites; and one `StreamReader.ReadLineAsync(CancellationToken)`.
+- **`DiceService` was deliberately not forked.** The default dice source is now one `[ThreadStatic]`
+  `Random` on both targets rather than `Random.Shared` on one and a shim on the other — dice are the
+  heart of adjudication and a permanently forked implementation there is exactly where a silent
+  behavioural difference would do the most damage. The two regexes keep their pattern and options in
+  shared `const` fields, so the `[GeneratedRegex]` and hand-built branches cannot drift apart.
+- `PdfPig` is excluded from the netstandard2.1 leg. It would load there, but PDF import is a
+  once-per-campaign authoring action the running game never performs. `ExtractPdf` is the single
+  fenced call site; on that leg it throws a clear `NotSupportedException`.
+- Added `tests/DungeonMasterAI.CrossTargetGoldenTests`: a seeded replay that pins 155 recorded
+  engine values — the dice stream, the dice-expression grammar, guard `ParamName`s, XP and
+  levelling, combat, death saves, and full campaign round-trips through each assembly's own
+  `System.Text.Json` — to a committed golden file. It passes against both engine builds, byte for
+  byte, against the same file.
+- Added the differential run: any test project built with `-p:UseNetStandardEngine=true` resolves
+  its engine references against the netstandard2.1 output. A module initializer fails the process
+  before any test runs if the loaded engine is not really netstandard2.1, so a silently no-op
+  retarget cannot pass.
+- CI gained `netstandard21-build` (Linux, `-warnaserror`, and it reads each DLL's
+  `TargetFrameworkAttribute` back) and `netstandard21-differential` (Windows; runs all 28 portable
+  test projects against both engine builds and compares stdout byte for byte).
+- **What this does not prove:** nothing here has been inside Unity. The netstandard2.1 assemblies
+  are verified loaded and executed by a .NET 10 host, not by Unity's Mono runtime, and the
+  `System.Text.Json` packaging question (`docs/unity-migration-plan.md` §3) is untouched and still
+  open.
+
 ## r63 — WPF front end removed
 
 - Rescued 51 engine assertions out of the three WPF-coupled test projects that had extractable

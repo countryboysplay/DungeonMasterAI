@@ -181,8 +181,9 @@ result object is in hand. Concretely, cues fire from the existing result-handlin
 `App/MainViewModel.PlayerRolls.cs` (`ResolveCombatDeathSavingThrow` at :270,
 `ResolvePendingEncounterAttackRoll` at :311, `ResolvePendingEncounterAttackDamageRoll` at :341).
 
-This also keeps the Engine platform-neutral. `DungeonMasterAI.Engine` targets `net10.0`, not
-`net10.0-windows`, and is exercised by roughly thirty headless console test projects in CI. Audio
+This also keeps the Engine platform-neutral. `DungeonMasterAI.Engine` targets `net10.0` and
+`netstandard2.1` (r63, for Unity), not `net10.0-windows`, and is exercised by roughly thirty
+headless console test projects in CI. Audio
 must not be reachable from it.
 
 ### 2.3 The rollback trap
